@@ -1,0 +1,103 @@
+image: python:3.9
+
+variables:
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+  GIT_SUBMODULE_STRATEGY: recursive
+  GIT_SUBMODULE_UPDATE_FLAGS: --remote
+  IMAGE_BASE_TAG: ${CI_REGISTRY_IMAGE}/base:${CI_COMMIT_REF_SLUG}
+  IMAGE_OMPL_TAG: ${CI_REGISTRY_IMAGE}/ompl:${CI_COMMIT_REF_SLUG}
+  IMAGE_RENDER_TAG: ${CI_REGISTRY_IMAGE}/render:main  # should change seldomly
+  GIT_CLONE_PATH: $CI_BUILDS_DIR/$CI_JOB_STAGE/$CONCURRENT_ID/$CI_PROJECT_NAME
+  CONDA_ENV: timor
+  
+cache:
+  paths:
+    - .cache/pip
+    - public  # Keep changes on gitlab pages; overwrite parts with artifacts from different jobs. ! protected branches
+              # have own, separate cache by default
+
+workflow:
+  # Run the pipeline as branch pipeline when no merge request is open or as merge pipeline when a merge request is open, but not both
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS'
+      when: never
+    - if: '$CI_COMMIT_BRANCH'
+
+before_script:
+    - echo "Some debug information:"
+    - echo "Running in $GIT_CLONE_PATH"
+    # - echo "Complete env:"
+    # - env
+
+stages:
+  - static_check
+  - copy
+  - build
+  - unittest
+  - report
+
+docstring check:
+  stage: static_check
+  script:
+    - pip install pydocstyle
+    - cd src/timor && pydocstyle --config=../../.pydocstyle
+    
+flake8 linting:
+  stage: static_check
+  script:
+    - python --version
+    - pip --version
+    - pip install flake8==5.0.4
+    - flake8 --max-line-length=120 --per-file-ignores="tests/*:F841 src/timor/Bodies.py:F821 src/timor/Joints.py:F821 src/timor/__init__.py:F401,F403" --count src/timor/
+    # Ignore F401 (unused import) and F403(imports with *) in __init__ file
+    # Ignore F821 (undefined name) - in these files the undefined names are only used for type hinting and cannot be properly imported (circular imports)
+    # Ignore F841 (assigned but never used) for unittests as in some cases this helps clarity of the code when an exception raise is checked
+
+unittests:
+  stage: unittest
+  script:
+    - pip install .[dev]
+    - cd src
+    - coverage run -p --rcfile=.coveragerc -m pytest -m "not imports" ../tests
+  artifacts:
+    expose_as: 'coverage_base'
+    when: always
+    paths:
+      - ci/coverage/
+
+unittests imports:
+  stage: unittest
+  script:
+    - pip install .[dev]
+    - cd src
+    - coverage run -p --rcfile=.coveragerc -m pytest -m "imports" ../tests
+  artifacts:
+    expose_as: 'coverage_imports'
+    when: always
+    paths:
+      - ci/coverage/
+
+coverage:
+  stage: report
+  needs: [unittests, unittests imports]
+  script:
+    - pip install .[dev]
+    - cd src
+    - coverage combine --rcfile=.coveragerc
+    - coverage report --rcfile=.coveragerc
+  after_script:
+    - pip install coverage
+    - cd src
+    - coverage html -i --rcfile=.coveragerc
+    - coverage xml -i --rcfile=.coveragerc
+  coverage: '/^TOTAL.+?(\d+.\d*\%)$/'
+  artifacts:
+    expose_as: 'coverage_report'
+    when: always
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: ci/coverage/coverage.xml
+    paths:
+      - ci/coverage/

@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=61.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "timor-python"
+description = "Toolbox for Industrial Modular Robot Design"
+authors = [{ name = "Jonathan Kuelz", email = "jonathan.kuelz@tum.de" }]
+license = {text = "MIT"}
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only"
+]
+keywords = ["Modular Reconfigurable Robots", "Robot Design", "Model Generation", "Simulation"]
+dependencies = [
+    "pin >= 2.6.4",
+    "matplotlib >= 3.5.1",
+    "meshcat",
+    "networkx >= 2.6.3",
+    "numpy >= 1.22.1",
+    "roboticstoolbox-python >= 0.11.0",
+    "scipy >= 1.8",
+]
+requires-python = ">=3.6,<3.10"
+dynamic = ["version", "readme"]
+
+[project.optional-dependencies]
+dev = ["flake8>=5.0", "coverage>=6.3", "pip-tools", "pytest>=6.0"]
+full = ["flake8>=5.0", "coverage>=6.3", "pip-tools", "pytest>=6.0", "jupyterlab"]
+
+[tool.setuptools.dynamic]
+readme = {file = "README.rst"}
+version = {attr = "timor.__version__"}
+
+[project.urls]
+"Source Code" = "https://gitlab.lrz.de/tum-cps/timor-python"
+"Documentation" = "https://timor-python.readthedocs.io/en/latest/"
+"Bug Tracker" = "https://gitlab.lrz.de/tum-cps/timor-python/-/issues"
+

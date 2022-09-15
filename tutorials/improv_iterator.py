@@ -1,0 +1,410 @@
+from collections.abc import Iterator
+from dataclasses import dataclass
+import itertools
+from typing import Dict, Tuple
+
+import networkx as nx
+import numpy as np
+
+from timor.Bodies import Gender
+from timor.Module import AtomicModule, ModuleAssembly, ModulesDB
+from timor.utilities import module_classification
+
+
+def alphanumeric_sort_db(db: ModulesDB) -> Tuple[AtomicModule, ...]:
+    """Helper method to sort a module db alphabetically"""
+    return tuple(sorted(db, key=lambda mod: mod.id))
+
+
+@dataclass
+class Indices:
+    """Wrapper to collect the current state/module indexed when iterating over a library"""
+
+    base: int
+    links: np.ndarray  # Type hint from np 1.22 on would be: npt.NDArray[np.ushort]
+    joints: int
+    valid_joint_combination_id: int
+    eef: int
+
+
+class Science2019Iterator(Iterator):
+    """
+    This iterator returns assemblies according to the criteria defined in the paper:
+
+      "Effortless creation of safe robots from modules through self-programming and self-verification"
+      by M. Althoff, A. Giusti, S.B. Liu, A.Pereira,
+      https://mediatum.ub.tum.de/doc/1506779/gy8gyea2c5vyn65ely4bnzom6.Althoff-2019-ScienceRobotics.pdf
+
+    Iteration happens in a depth-first manner, iterating over links the fastest, then joint combinations, then
+    end-effectors and slowest over bases.
+
+    This class is named after the author who initially came up with the idea of the here implemented search space
+    reduction, Stefan Liu.
+
+    The following constraints reduce the search space of possible assemblies:
+      - The robot is a serial chain of modules. Every module has a proximal (=female) and a distal (=male) connector.
+      - A maximum number of degrees of freedom (default: 6)
+      - There are never two joints mounted directly after one another
+      - There is a maximum of three static links in between two joints
+      - The first module must be a joint module (this is not explicitly mentioned in the paper but can be derived from
+        the modules they used)
+      - The last module before the end-effector must be a joint. This can theoretically be relaxed in the future.
+    """
+
+    min_dof: int  # The minimum number of degrees of freedom for any assembly
+    max_dof: int  # The maximum allowed number of degrees of freedom for any assembly
+    max_in_between_links: int  # The maximum number of links between two joints in an assembly
+    bases: Tuple[AtomicModule]  # All "base modules" available  in the underlying modules DB
+    links: Tuple[AtomicModule]  # All "link modules" available  in the underlying modules DB
+    joints: Tuple[AtomicModule]  # All "joint modules" available  in the underlying modules DB
+    end_effectors: Tuple[AtomicModule]  # All "end effector modules" available  in the underlying modules DB
+
+    module_connects: Dict[str, Tuple[str, ...]]  # A mapping from module IDs modules it can be attached to
+    link_combinations: Tuple[Tuple[str, ...], ...]  # All allowed combinations of links between two joints
+    # All possible combinations of joints from base to eef in one assembly
+    joint_combinations: Tuple[Tuple[str, ...], ...]
+
+    # Maps (parent_id, child_id) to a tuple of tuples of link IDs that can be used between them
+    links_between_joints: Dict[Tuple[str, str], Tuple[Tuple[int, ...], ...]]
+
+    # Maps a tuple of (base_id, eef_id) to indices of valid joint combinations that can go between them
+    joint_combinations_for_base_eef: Dict[Tuple[str, str], Tuple[int]]
+
+    _state: Indices  # Holds all information necessary to determine where the iterator is currently
+    _current_joint_combination: Tuple[str, ...]  # Unpacked from _state to decrease access time
+    _current_num_joint_combinations: int  # The length of the current entry in "joint_combinations_for_base_eef"
+    _current_num_joint_modules: int  # Depends on _current_joint_combination. Stored for low access time
+
+    def __init__(self, db: ModulesDB, min_dof: int = 0, max_dof: int = 6, max_in_between_link_modules: int = 3):
+        """
+        This implementation of the LiuIterator allows for a bit more flexibility than the one mentioned in the paper:
+
+        :param db: The database to build the assembly from. To work properly, every module in the db should clearly
+          belong to one of the four categories {base, joint module, link module, end-effector}. Sane behavior for
+          databases with multi-joint or other complex modules is not guaranteed
+        :param min_dof: The minimum number of joints in the robot.
+        :param max_dof: The maximum number of joints in the robot. The end-effector is not counted as a degree of
+          freedom. Changing the default from 6 to another value would mean to differ from the paper. Other than the
+          method from the referenced paper, min_dof is not implicitly equal to max_dof.
+        :param max_in_between_link_modules: The maximum number of links between two joints. Default 3 is from Liu paper.
+        """
+        if min_dof > max_dof:
+            raise ValueError("Minimum number of dof cannot be larger than maximum number of dof.")
+        self.min_dof = min_dof
+        self.max_dof = max_dof
+        self.max_in_between_links = max_in_between_link_modules
+        self._db: ModulesDB = db
+        self.reset()
+        bases, links, joints, end_effectors = module_classification.divide_db_in_types(self.db)
+        self.bases = alphanumeric_sort_db(bases)
+        self.links = alphanumeric_sort_db(links)
+        self.joints = alphanumeric_sort_db(joints)
+        self.end_effectors = alphanumeric_sort_db(end_effectors)
+        self._check_db_valid()
+        self._state = Indices(base=0, links=np.zeros((max_dof - 1,), np.ushort), joints=0, valid_joint_combination_id=0,
+                              eef=0)
+        self.module_connects = self._extract_connections()
+        self.link_combinations = self._identify_link_combinations()
+        self.links_between_joints = self._identify_links_between_joints()
+        self.joint_combinations = self._identify_joint_combinations()
+        self.joint_combinations_for_base_eef = self._identify_joint_combinations_for_base_eef()
+
+        self._current_joint_combination = self.joint_combinations[self.state.joints]
+        self._current_num_joint_combinations = len(self.valid_joint_combinations)
+        self._current_num_joint_modules = len(self.joint_combinations[self.state.joints])
+
+    def __iter__(self):
+        """Iterators are self-iterable: https://peps.python.org/pep-0234/"""
+        return self 
+        
+    def __next__(self) -> ModuleAssembly:
+        """
+        Iterate over:
+
+          - Bases
+          - Joints+Links
+          - End-Effectors
+
+        in a depth first manner.
+        Really rough estimation: 0.2ms per call on 1 processor
+
+        :raises: StopIteration
+        """
+        modules = list()
+        if self.state.base >= len(self.bases):
+            raise StopIteration
+        modules.append(self.bases[self.state.base].id)
+
+        for i, (parent_id, child_id) in enumerate(zip(
+                self._current_joint_combination[:-1], self._current_joint_combination[1:])):
+            modules.append(parent_id)
+            modules.extend(self.links_between_joints[(parent_id, child_id)][self.state.links[i]])
+
+        modules.append(self._current_joint_combination[-1])  # Last joint is not added in the previous loop
+
+        modules.append(self.end_effectors[self.state.eef].id)
+
+        self._increment_state()
+        return ModuleAssembly.from_serial_modules(self.db, modules)
+
+    def reset(self) -> None:
+        """Resets the indices used to iterate over modules."""
+        self._state = Indices(base=0, links=np.zeros((self.max_dof - 1,), np.ushort), joints=0,
+                              valid_joint_combination_id=0, eef=0)
+
+    @property
+    def current_base(self) -> str:
+        """Utility property to return the ID of the currently used base"""
+        return self.bases[self.state.base].id
+
+    @property
+    def current_eef(self) -> str:
+        """Utility property to return the ID of the currently used end-effector"""
+        return self.end_effectors[self.state.eef].id
+
+    @property
+    def db(self) -> ModulesDB:
+        """Wrapper property to avoid resetting the db"""
+        return self._db
+
+    @property
+    def state(self) -> Indices:
+        """Implementation as property necessary to define abstractmethod"""
+        if self._state.joints == self._state.base == self._state.links.sum() \
+                == self._state.valid_joint_combination_id == 0:
+            # This re-attribution is necessary to start with a valid combination after reset
+            self._state.joints = self.joint_combinations_for_base_eef[self.bases[0].id, self.end_effectors[0].id][0]
+        return self._state
+
+    @property
+    def valid_joint_combinations(self) -> Tuple[int]:
+        """Returns a tuple of integers indexing the self.joint_combinations attribute.
+
+        This tuple contains only these indices that are valid for the current combination of base and end-effector.
+        """
+        return self.joint_combinations_for_base_eef[self.current_base, self.current_eef]
+
+    def _check_db_valid(self):
+        """Performs some sanity checks on the given db to validate made assumptions on its structure.
+
+        Those are:
+        - There's at least one base, joint link and end-effector [crucial]
+        - All modules are connectable [not necessary, but instantiating two iterators would be preferred if not]
+        - Every link and joint module has a distal/male and a proximal/female part [crucial]
+        - All bases connect to adjacent modules using the same connector/interface [rp]
+        - All end effectors connect to adjacent modules using the same connector/interface [rp]
+          rp = "relaxation possible but adaption of class methods necessary"
+        """
+        if not all(len(sub_db) > 0 for sub_db in (self.bases, self.links, self.joints, self.end_effectors)):
+            raise ValueError("The module database must contain at least one base, joint, link and end-effector each.")
+
+        if not nx.is_weakly_connected(self.db.connectivity_graph):
+            raise ValueError(f"{self.__class__.__name__} expects all modules in the db can be connected.")
+
+        for module in itertools.chain(self.links, self.joints):
+            serial_error = False
+            connectors = module.available_connectors.values()
+            if len(connectors) != 2:
+                serial_error = True
+            if Gender.m not in (con.gender for con in connectors):
+                serial_error = True
+            if Gender.f not in (con.gender for con in connectors):
+                serial_error = True
+            if serial_error:
+                raise ValueError(f"There is no unique way to connect {module} to an existing serial chain.")
+
+    def _extract_connections(self) -> Dict[str, Tuple[str, ...]]:
+        """Maps modules to possible connecting modules
+
+        Note: this unidirectional extraction of possible connections is possible because this class works with the
+        crucial simplification that we have unidirectional modules with a distal and proximal part!
+        :return: For each module in the DB, extracts which modules can follow
+        """
+        connections = self.db.possible_connections
+        connects = {mod.id: [] for mod in self.db}
+        for (mod_a, con_a, mod_b, con_b) in connections:
+            if con_a.gender is Gender.m and con_b.gender is Gender.f:
+                connects[con_a.id[0]].append(con_b.id[0])
+            elif con_a.gender is Gender.f and con_b.gender is Gender.m:
+                connects[con_b.id[0]].append(con_a.id[0])
+            else:
+                raise ValueError("Unexpected Connection - hermaphroditic connectors not supported.")
+
+        # Cast to tuple to boost performance and indicate this is actually an immutable property
+        return {key: tuple(val) for key, val in connects.items()}
+
+    def _extract_eef_distance(self):
+        """
+        For each module, calculates the "shortest path" to the end effector,
+
+        :return:
+        """
+        raise NotImplementedError()
+
+    def _identify_link_combinations(self) -> Tuple[Tuple[str, ...], ...]:
+        """Extracts possible tuples of links as they could be built in an assembly.
+
+        Note: Without any filters, this will generate
+          sum_over_1_max_in_between_links [num_different_links^max_in_between_links]
+        combinations (which may become infeasible large in max_in_between_links is not chosen carefully).
+        Even with filters, this can grow rapidly!
+        :return: A tuple with all possible (allowed) combinations of links that can be in between two joints
+        """
+        # NOTE: The liu paper requires at least 1 link module between joint modules. A future implementation could
+        #  allow 0 link modules in between joint modules as well.
+        if len(self.links) ** self.max_in_between_links > 1e8:
+            est_id_size = 100  # 2 char string ~100 bytes
+            tuple_size = 24
+            combination_size = (self.max_in_between_links * est_id_size + tuple_size) / 1024**2
+            memory = len(self.links) ** self.max_in_between_links * combination_size
+            raise ValueError("You are trying to set up a very large iterator. Even the preparations could consume"
+                             f"too much memory. Rough estimate: {memory} MB")
+        link_combinations = tuple(itertools.chain.from_iterable(
+            itertools.product((link.id for link in self.links), repeat=i)
+            for i in range(1, self.max_in_between_links + 1)
+        ))
+        # In a chain, we have to check that the distal (male) connector of a link can connect the proximal (female)
+        # connector of its successor
+        valid_children = {parent.id: [child.id for child in self.links if any(
+            parent_connector.connects(child_connector)
+            for parent_connector in parent.available_connectors.values() if parent_connector.gender is Gender.m
+            for child_connector in child.available_connectors.values() if child_connector.gender is Gender.f
+        )] for parent in self.links}
+
+        return tuple(combination for combination in link_combinations
+                     if all(child in valid_children[parent] for parent, child in zip(combination[:-1], combination[1:]))
+                     )
+
+    def _identify_joint_combinations(self) -> Tuple[Tuple[str, ...], ...]:
+        """
+        :return: A tuple with all possible (allowed) combinations of joints, ordered from base to eef
+        """
+        joint_dof = {joint_module.id: joint_module.num_joints for joint_module in self.joints}
+        joint_ids = tuple(joint_dof.keys())
+        combinations = list(itertools.chain.from_iterable(
+            itertools.product(joint_ids, repeat=i) for i in range(1, self.max_dof + 1)
+        ))
+
+        # More filters, e.g. 'some joint never in last position' can be builtin here
+        # But remember: Smart generation is more efficient than brute force generation and then filtering
+        def dof_filter(combination) -> bool:
+            return self.min_dof <= sum(joint_dof[jid] for jid in combination) <= self.max_dof
+
+        can_attach_eef = tuple(joint.id for joint in self.joints if
+                               any(joint.can_connect(eef) for eef in self.end_effectors))
+
+        def eef_filter(combination) -> bool: return combination[-1] in can_attach_eef
+
+        can_attach_base = tuple(joint.id for joint in self.joints if
+                                any(joint.can_connect(base) for base in self.bases))
+
+        def base_filter(combination) -> bool: return combination[0] in can_attach_base
+
+        def can_connect_filter(combination) -> bool:
+            """Checks whether two joints can in any way be used after each other.
+
+            Returns true if for every two adjacent joints in the module chain, there is at least one combination
+            of links that makes connecting them possible
+            """
+            return all(len(self.links_between_joints.get((combination[i], combination[i + 1]), [])) > 0
+                       for i in range(len(combination) - 1)
+                       )
+
+        return tuple(c for c in combinations if
+                     dof_filter(c) and
+                     can_connect_filter(c) and
+                     eef_filter(c) and
+                     base_filter(c))
+
+    def _identify_links_between_joints(self) -> Dict[Tuple[str, str], Tuple[Tuple[int, ...], ...]]:
+        """Enumerates all possible combinations of links in between two joints
+
+         Returns a mapping from every possible combination of parent and child joint to link combinations that can be
+         in between.
+        :return: A mapping from (parent_joint_id, child_joint_id) to a tuple of tuples, each of which contains between
+          one and max_in_between_links integers that index the classes link modules
+        """
+        mapping = dict()
+        joint_ids = (mod.id for mod in self.joints)
+        for key in itertools.product(joint_ids, repeat=2):
+            parent, child = key
+            mapping[key] = list()
+            for combination in self.link_combinations:
+                first_link, last_link = combination[0], combination[-1]
+                if first_link in self.module_connects[parent] and child in self.module_connects[last_link]:
+                    mapping[key].append(combination)
+
+        return {key: tuple(val) for key, val in mapping.items() if len(val) > 0}
+
+    def _identify_joint_combinations_for_base_eef(self):
+        """
+        For each base-eef pair, maps it to a tuple of joint combinations that can go in between them.
+        """
+        ret = dict()
+        for base, eef in itertools.product(self.bases, self.end_effectors):
+            key = (base.id, eef.id)
+            ret[key] = tuple(
+                i for i, joints in enumerate(self.joint_combinations) if
+                base.can_connect(self.db.by_id[joints[0]]) and eef.can_connect(self.db.by_id[joints[-1]])
+            )
+        return ret
+
+    def _increment_state(self):
+        """Call after every iteration to return the next element when calling __next__ the next time"""
+        # -2 because the last index is 1 smaller than the length of the tuple, but also there are no links behind
+        # the last joint, so we start with the second last joint
+        self._increment_link_combination(self._current_num_joint_modules - 2)
+
+    def _increment_link_combination(self, idx: int):
+        """Iterates over link combinations available"""
+        if self._current_num_joint_modules <= 1:
+            self._increment_joint_combination()  # There are no links in between joints here
+            return
+        parent_joint, child_joint = self._current_joint_combination[idx: idx + 2]
+        if self.state.links[idx] < len(self.links_between_joints[(parent_joint, child_joint)]) - 1:
+            self.state.links[idx] += 1
+        else:
+            self.state.links[idx] = 0
+            if idx > 0:
+                # Iterate over the combinations one joint up the chain
+                self._increment_link_combination(idx - 1)
+            else:
+                # For this joint combination, we iterated over all link combinations
+                self._increment_joint_combination()
+
+    def _increment_joint_combination(self):
+        """Iterates over joint combinations available"""
+        self.state.valid_joint_combination_id += 1
+        if self.state.valid_joint_combination_id < self._current_num_joint_combinations:
+            self.state.joints = self.valid_joint_combinations[self.state.valid_joint_combination_id]
+        else:
+            self.state.valid_joint_combination_id = 0
+            self.state.joints = self.valid_joint_combinations[self.state.valid_joint_combination_id]
+            self._increment_end_effector()
+
+        self._current_joint_combination = self.joint_combinations[self.state.joints]
+        self._current_num_joint_modules = len(self._current_joint_combination)
+
+    def _increment_end_effector(self):
+        """Iterates over end effectors available"""
+        if self.state.eef < len(self.end_effectors) - 1:
+            self.state.eef += 1
+        else:
+            self.state.eef = 0
+            self._increment_base()
+
+    def _increment_base(self):
+        """Iterates over bases. Does not raise StopIteration, this needs to be done in the __next__ method!"""
+        self.state.base += 1
+
+    def __len__(self):
+        """Calculates and returns the total number of possible assemblies created by this iterator."""
+        num_assemblies = 0
+        for key, joint_combination_ids in self.joint_combinations_for_base_eef.items():
+            for idx in joint_combination_ids:
+                joint_arrangement = self.joint_combinations[idx]
+                assemblies_for_this_arrangement = 1
+                for parent, child in zip(joint_arrangement[:-1], joint_arrangement[1:]):
+                    assemblies_for_this_arrangement *= len(self.links_between_joints[(parent, child)])
+                num_assemblies += assemblies_for_this_arrangement
+        return num_assemblies
