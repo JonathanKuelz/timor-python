@@ -1,0 +1,265 @@
+{
+    "$id": "https://www.crok.cps.in.tum.de/schemas/ModuleSchema.json",
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "cRoK Module Set",
+    "description": "How a module set is stored in a JSON file",
+    "version": "2020b",
+    "type": "array",
+    "items": {
+        "type": "object",
+        "required": ["header", "bodies"],
+        "propertyOrder": ["header", "bodies", "joints"],
+        "additionalProperties": false,
+        "properties": {
+            "header": {
+                "$ref": "#/$defs/Header"
+            },
+            "bodies": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                    "$ref": "#/$defs/Body"
+                }
+            },
+            "joints": {
+                "type": "array",
+                "items": {
+                    "$ref": "#/$defs/Joint"
+                }
+            }
+        },
+        "title": "module"
+    },
+    "$defs": {
+        "Body": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "ID": {
+                    "$ref": "#/$defs/ID"
+                },
+                "mass": {
+                    "type": "number",
+                    "default": 0
+                },
+                "inertia": {
+                    "type": "array",
+                    "items": {
+                        "type": "array",
+                        "minItems": 3,
+                        "maxItems": 3,
+                        "items": {
+                            "type": "number",
+                            "minItems": 3,
+                            "maxItems": 3
+                        }
+                    },
+                    "default":[
+                        [0, 0, 0],
+                        [0, 0, 0],
+                        [0, 0, 0]
+                    ]
+                },
+                "r_com": {
+                    "type": "array",
+                    "items": {
+                        "type": "number",
+                        "minItems": 3,
+                        "maxItems": 3
+                    },
+                    "default": [0, 0, 0]
+                },
+                "visual": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "https://www.crok.cps.in.tum.de/schemas/TaskSchema.json#/$defs/geometry"
+                    },
+                    "default": []
+                },
+                "collision": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "https://www.crok.cps.in.tum.de/schemas/TaskSchema.json#/$defs/geometry"
+                    },
+                    "default": []
+                },
+                "connectors": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/Connector"
+                    }
+                }
+            },
+            "required": ["ID"],
+            "propertyOrder": ["ID", "mass", "inertia", "r_com", "visual", "collision", "connectors"],
+            "title": "Body"
+        },
+        "Connector": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "ID": {
+                    "$ref": "#/$defs/ID"
+                },
+                "gender": {
+                    "type": "string",
+                    "default": "h",
+                    "enum": ["h", "m", "f"]
+                },
+                "type": {
+                    "type": "string",
+                    "default": ""
+                },
+                "size": {
+                    "type": "array",
+                    "items": {
+                        "type": ["string", "integer"],
+                        "minItems": 1
+                    },
+                    "default": []
+                },
+                "pose": {
+                    "$ref": "https://www.crok.cps.in.tum.de/schemas/PoseSchema.json#/$defs/pose"
+                }
+            },
+            "required": [
+                "ID"
+            ],
+            "title": "Connector"
+        },
+        "Header": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "ID": {
+                    "$ref": "#/$defs/ID"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "date": {
+                    "type": "string",
+                    "format": "date"
+                },
+                "author": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "affiliation": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "email": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            },
+            "required": [
+                "ID",
+                "name",
+                "date",
+                "author",
+                "affiliation",
+                "email"
+            ],
+            "title": "Header"
+        },
+        "Joint": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "ID": {
+                    "$ref": "#/$defs/ID"
+                },
+                "parent": {
+                    "$ref": "#/$defs/ID"
+                },
+                "child": {
+                    "$ref": "#/$defs/ID"
+                },
+                "type": {
+                    "type": "string",
+                    "enum": ["revolute", "prismatic", "fixed"],
+                    "default": "revolute"
+                },
+                "passive": {
+                    "type": "boolean",
+                    "default": false
+                },
+                "poseParent": {
+                    "$ref": "https://www.crok.cps.in.tum.de/schemas/PoseSchema.json#/$defs/pose"
+                },
+                "poseChild": {
+                    "$ref": "https://www.crok.cps.in.tum.de/schemas/PoseSchema.json#/$defs/pose"
+                },
+                "limits": {
+                    "$ref": "#/$defs/Limits"
+                },
+                "gearRatio": {
+                    "type": "number",
+                    "default": 1
+                },
+                "motorInertia": {
+                    "type": "number",
+                    "default": 0
+                },
+                "frictionCoulomb": {
+                    "type": "number",
+                    "default": 0
+                },
+                "frictionViscous": {
+                    "type": "number",
+                    "default": 0
+                }
+            },
+            "required": [
+                "ID",
+                "parent",
+                "child",
+                "limits"
+            ],
+            "propertyOrder": ["ID", "parent", "child", "type", "passive", "poseParent", "poseChild", "limits", "gearRatio", "motorInertia", "frictionCoulomb", "frictionViscous"],
+            "title": "Joint"
+        },
+        "Limits": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "positionLower": {
+                    "type": "number"
+                },
+                "positionUpper": {
+                    "type": "number"
+                },
+                "peakTorque": {
+                    "type": "number",
+                    "default": 1e500
+                },
+                "velocity": {
+                    "type": "number",
+                    "default": 1e500
+                },
+                "acceleration": {
+                    "type": "number",
+                    "default": 1e500
+                }
+            },
+            "required": [
+                "positionLower",
+                "positionUpper"
+            ],
+            "title": "Limits"
+        },
+        "ID": {
+            "type": ["integer", "string"],
+            "additionalProperties": false,
+            "title": "ID"
+        }
+    }
+}

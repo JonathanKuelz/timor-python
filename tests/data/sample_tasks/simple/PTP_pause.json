@@ -1,0 +1,152 @@
+{
+  "header": {
+    "taskID": 6,
+    "version": "R2020b",
+    "taskName": "PTP_pause",
+    "author": [
+      "Matthias Mayer"
+    ],
+    "affiliation": [
+      "TU Muenchen"
+    ],
+    "email": [
+      "matthias.mayer@tum.de"
+    ],
+    "tags": [
+      "unitTest",
+      "testScenario",
+      "PTP",
+      "CNC",
+      "mill"
+    ],
+    "date": "2022-02-09",
+    "timeStepSize": 0.01,
+    "gravity": [ 0, 0, -9.81 ]
+  },
+  "obstacles": [
+    {
+      "acknowledgement": "Anders Andersson on GrabCAD - https://www.exinterconsulting.com/",
+      "name": "CNC machine Quaser MV 205",
+      "ID": "1001",
+      "pose": [
+        [ 1, 0, 0, -4.5 ],
+        [ 0, 1, 0, 0.25 ],
+        [ 0, 0, 1, -1 ],
+        [ 0, 0, 0, 1 ]
+      ],
+      "visual": [
+        {
+          "pose": [
+            [ 1, 0, 0, -4.5 ],
+            [ 0, 1, 0, 0.25 ],
+            [ 0, 0, 1, -1 ],
+            [ 0, 0, 0, 1 ]
+          ],
+          "parameters": {
+            "file": "QUASER_MV205_v3.stl",
+            "scale": 0.001
+          },
+          "type": "mesh"
+        }
+      ],
+      "collision": [
+        {
+          "pose": [
+            [ 1, 0, 0, -4.5 ],
+            [ 0, 1, 0, 0.25 ],
+            [ 0, 0, 1, -1 ],
+            [ 0, 0, 0, 1 ]
+          ],
+          "parameters": {
+            "file": "QUASER_MV205_v3_compressed.stl",
+            "scale": 0.001
+          },
+          "type": "mesh"
+        }
+      ]
+    }
+  ],
+  "constraints": [
+    {
+      "type": "joint",
+      "parts": [
+        "q",
+        "tau"
+      ]
+    },
+    {
+      "type": "selfCollisionFree"
+    },
+    {
+      "type": "collisionFree"
+    },
+    {
+      "type": "allGoalsFulfilled"
+    },
+    {
+      "type": "allGoalsFulfilledInOrder",
+      "order": [
+        "1",
+        "2"
+      ]
+    },
+    {
+      "type": "basePlacement",
+      "pose": {
+        "nominal": [
+          [ 1, 0, 0, 0 ],
+          [ 0, 1, 0, 0 ],
+          [ 0, 0, 1, 0 ],
+          [ 0, 0, 0, 1 ]
+        ]
+      }
+    }
+  ],
+  "goals": [
+    {
+      "ID": "1",
+      "type": "reach",
+      "goalPose": {
+        "nominal": [
+          [ -1, 0, 0, -0.4 ],
+          [ 0, 1, 0, 0 ],
+          [ 0, 0, -1, 0.25 ],
+          [ 0, 0, 0, 1 ]
+        ],
+        "toleranceProjection": [
+          "r_sph",
+          "Theta_R"
+        ],
+        "tolerance": [
+          [ 0.0, 0.01 ],
+          [ -0.01, 0.01 ]
+        ]
+      }
+    },
+    {
+      "ID": "2",
+      "type": "reach",
+      "goalPose": {
+        "nominal": [
+          [ -1, 0, 0, 0 ],
+          [ 0, 1, 0, 0.5 ],
+          [ 0, 0, -1, 0.25 ],
+          [ 0, 0, 0, 1 ]
+        ],
+        "toleranceProjection": [
+          "r_sph",
+          "Theta_R"
+        ],
+        "tolerance": [
+          [ 0.0, 0.01 ],
+          [ -0.01, 0.01 ]
+        ]
+      }
+    },
+    {
+      "ID": "3",
+      "type": "pause",
+      "duration": 0.4
+    }
+  ]
+}

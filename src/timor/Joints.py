@@ -11,11 +11,11 @@ import pinocchio as pin
 from timor.Bodies import Body, Connector, ConnectorSet
 from timor.utilities.dtypes import SingleSet, fuzzy_dict_key_matching
 import timor.utilities.errors as err
-from timor.utilities.transformation import TransformationLike, Transformation
+from timor.utilities.transformation import Transformation, TransformationLike
 
 
-class CrokJointType(Enum):
-    """Enumerates joint types available in crok"""
+class TimorJointType(Enum):
+    """Enumerates joint types available in Timor"""
 
     revolute = 0
     continuous = 0
@@ -36,7 +36,7 @@ class CrokJointType(Enum):
 
 class Joint:
     """
-    A CROK Joint: Opposed to other libraries and definitions, this joint is a bodyless axis.
+    A joint is a bodyless axis.
 
     Masses, inertias etc. are contained in the parent and child bodies (except for the simplified motor inertia).
     What is called a "joint" in everyday language (the hardware part you attach to a robot) would, in this definition,
@@ -45,7 +45,7 @@ class Joint:
 
     def __init__(self,
                  joint_id: str,
-                 joint_type: Union[str, CrokJointType],
+                 joint_type: Union[str, TimorJointType],
                  parent_body: Body,
                  child_body: Body,
                  in_module: 'AtomicModule' = None,
@@ -80,7 +80,7 @@ class Joint:
         :param friction_viscous: Viscous friction parameter
         """
         self._id: str = str(joint_id)
-        self._type: CrokJointType = CrokJointType[joint_type] if isinstance(joint_type, str) else joint_type
+        self._type: TimorJointType = TimorJointType[joint_type] if isinstance(joint_type, str) else joint_type
         if parent_body.id == child_body.id:
             raise err.UniqueValueError("Child and Parent Body IDs cannot be the same.")
         self.parent_body: Body = parent_body
@@ -109,9 +109,9 @@ class Joint:
         return f"Joint: {self.id}"
 
     @classmethod
-    def from_crok_specification(cls, d: Dict, body_id_to_instance: Dict = None) -> 'Joint':
+    def from_json_data(cls, d: Dict, body_id_to_instance: Dict = None) -> 'Joint':
         """
-        Maps the crok-joint description to an instance of this class.
+        Maps the serialized json description to an instance of this class.
 
         :param d: A dictionary with relevant meta-information
         :param body_id_to_instance: A mapping from body IDs to the python instance of this body
@@ -127,8 +127,8 @@ class Joint:
             raise NotImplementedError("Passive joints not yet implemented")
 
         # Unpack items from the input dictionary - even if they have a slightly modified structure from the expected
-        aliases = {'velocity': 'velocity_limit', 'peak_torque': 'torque_limit', 'pose_parent': 'parent2joint',
-                   'pose_child': 'joint2child'}  # Valid aliases we accept
+        aliases = {'velocity': 'velocity_limit', 'peakTorque': 'torque_limit', 'poseParent': 'parent2joint',
+                   'poseChild': 'joint2child'}  # Valid aliases we accept
         # Get a list of all optional (=they have a default value) parameters that we could find
         optional_arguments = tuple(name for name, param in inspect.signature(cls.__init__).parameters.items() if
                                    param.default is not inspect._empty)
@@ -144,17 +144,17 @@ class Joint:
             parent_body=parent,
             child_body=child,
             q_limits=[
-                fuzzy_dict_key_matching(d['limits'], {'lower': 'position_lower'})['position_lower'],
-                fuzzy_dict_key_matching(d['limits'], {'upper': 'position_upper'})['position_upper']
+                fuzzy_dict_key_matching(d['limits'], {'lower': 'positionLower'})['positionLower'],
+                fuzzy_dict_key_matching(d['limits'], {'upper': 'positionUpper'})['positionUpper']
                          ],
             **optional_kwargs
         )
 
-    def to_crok_specification(self) -> Dict[str, any]:
+    def to_json_data(self) -> Dict[str, any]:
         """
         :return: Returns the join specification in a json-ready dictionary
         """
-        if self.type in (CrokJointType.revolute_passive, CrokJointType.prismatic_passive):
+        if self.type in (TimorJointType.revolute_passive, TimorJointType.prismatic_passive):
             raise ValueError("Passive Joint serialization not yet implemented")
         return {
             'ID': self._id,
@@ -162,19 +162,19 @@ class Joint:
             'child': self.child_body._id,
             'type': str(self.type),
             'passive': False,
-            'pose_parent': self.parent2joint.crok_description,
-            'pose_child': self.joint2child.crok_description,
+            'poseParent': self.parent2joint.serialized,
+            'poseChild': self.joint2child.serialized,
             'limits': {
-                'position_lower': self.limits[0, :].tolist(),
-                'position_upper': self.limits[1, :].tolist(),
-                'peak_torque': self.torque_limit,
+                'positionLower': self.limits[0, :].tolist(),
+                'positionUpper': self.limits[1, :].tolist(),
+                'peakTorque': self.torque_limit,
                 'velocity': self.velocity_limit,
                 'acceleration': self.acceleration_limit
             },
-            'gear_ratio': self.gear_ratio,
-            'motor_inertia': self.motor_inertia,
-            'friction_coulomb': self.friction_coulomb,
-            'friction_viscous': self.friction_viscous
+            'gearRatio': self.gear_ratio,
+            'motorInertia': self.motor_inertia,
+            'frictionCoulomb': self.friction_coulomb,
+            'frictionViscous': self.friction_viscous
         }
 
     @property
@@ -191,8 +191,8 @@ class Joint:
             return None, self._id
 
     @property
-    def type(self) -> CrokJointType:
-        """Returns the type (as defined in crok) of this joint"""
+    def type(self) -> TimorJointType:
+        """Returns the type of this joint"""
         return self._type
 
     @property
@@ -215,8 +215,8 @@ class Joint:
             'max_velocity': self.velocity_limit,
             'min_config': self.limits[0],
             'max_config': self.limits[1],
-            'gear_ratio': self.gear_ratio,
-            'rotor_inertia': self.motor_inertia,
+            'gearRatio': self.gear_ratio,
+            'motorInertia': self.motor_inertia,
             'friction': self.friction_coulomb,
             'damping': self.friction_viscous
         }
@@ -224,13 +224,13 @@ class Joint:
     @property
     def pin_joint_type(self) -> Type[pin.JointModel]:
         """Returns a reference to the pinocchio joint class that matches this joints type"""
-        if self.type is CrokJointType.revolute:
+        if self.type is TimorJointType.revolute:
             return pin.JointModelRZ
-        elif self.type is CrokJointType.prismatic:
+        elif self.type is TimorJointType.prismatic:
             return pin.JointModelPZ
-        elif self.type is CrokJointType.fixed:
+        elif self.type is TimorJointType.fixed:
             raise TypeError("Pinocchio does not have fixed joints. They are represented as frames")
-        elif (self.type is CrokJointType.revolute_passive) or (self.type is CrokJointType.prismatic_passive):
+        elif (self.type is TimorJointType.revolute_passive) or (self.type is TimorJointType.prismatic_passive):
             raise TypeError("Pinocchio does not have passive joints. They are represented as frames")
 
 

@@ -33,7 +33,7 @@ def divide_db_in_types(db: ModulesDB) -> Tuple[ModulesDB, ModulesDB, ModulesDB, 
     Takes one module db and splits it into subsets of bases, links, joints and end-effectors if possible.
 
     In general, this distinction is an oversimplification, so in cases a module is not clearly one of the possible
-      types, this will raise an Exception.
+    types, this will raise an Exception.
     :param db: Any input modules db with modules that can be uniquely assigned to a ModuleType
     :return: Four DBs in the following order: (Bases, Links, Joints, End-Effectors)
     :raises: ModuleClassificationError
@@ -51,16 +51,13 @@ def get_module_type(module: AtomicModule, strict: bool = True) -> ModuleType:
     Tries to get the module type from Atomic Module data.
 
     Be aware the distinction is not always unique, so only use this method if you know your module set.
-
     :param module:
     :param strict: If true, this method will raise an Error if there are any doubts about the uniqueness
-      of the classification. There are no doubts if there is:
-
-        - Exactly one base connector, one body, zero joints and one other connector OR
-        - Exactly one eef connector, one body, zero joints and one other connector OR
-        - One or more joints with a "serial" setup and no special connectors OR
-        - Exactly one body, no special connectors and no joints
-
+    of the classification. There are no doubts if there is:
+    - Exactly one base connector, one body, zero joints and one other connector OR
+    - Exactly one eef connector, one body, zero joints and one other connector OR
+    - One or more joints with a "serial" setup and no special connectors OR
+    - Exactly one body, no special connectors and no joints
     :return: A Module Type
     """
     is_unique = True

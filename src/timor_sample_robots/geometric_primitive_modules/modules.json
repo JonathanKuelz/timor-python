@@ -1,13 +1,20 @@
 [
   {
-    "Header": {
+    "header": {
       "moduleID": "J1",
       "moduleName": "Prismatic Joint",
-      "author": "Jonathan K\u00fclz",
-      "authorEMail": "jonathan.kuelz@tum.de",
-      "affiliation": "Technical University of Munich"
+      "author": [
+        "Jonathan K\u00fclz"
+      ],
+      "email": [
+        "jonathan.kuelz@tum.de"
+      ],
+      "affiliation": [
+        "Technical University of Munich"
+      ],
+      "cost": 0.0
     },
-    "Bodies": [
+    "bodies": [
       {
         "ID": "J1_distal",
         "mass": 0.3377840421139745,
@@ -87,48 +94,55 @@
         ]
       }
     ],
-    "Joints": [
+    "joints": [
       {
         "ID": "Prismatic",
         "parent": "J1_proximal",
         "child": "J1_distal",
         "type": "prismatic",
         "passive": false,
-        "pose_parent": [
+        "poseParent": [
           [ 1.0, 0.0, 0.0, 0.0 ],
           [ 0.0, 1.0, 0.0, 0.0 ],
           [ 0.0, 0.0, 1.0, 0.05 ],
           [ 0.0, 0.0, 0.0, 1.0 ]
         ],
-        "pose_child": [
+        "poseChild": [
           [ 1.0, 0.0, 0.0, 0.0 ],
           [ 0.0, 1.0, 0.0, 0.0 ],
           [ 0.0, 0.0, 1.0, 0.0 ],
           [ 0.0, 0.0, 0.0, 1.0 ]
         ],
         "limits": {
-          "position_lower": [ 0.0 ],
-          "position_upper": [ 0.06 ],
-          "peak_torque": Infinity,
+          "positionLower": [ 0.0 ],
+          "positionUpper": [ 0.06 ],
+          "peakTorque": Infinity,
           "velocity": Infinity,
           "acceleration": Infinity
         },
-        "gear_ratio": 1.0,
-        "motor_inertia": 0.0,
-        "friction_coulomb": 0.0,
-        "friction_viscous": 0.0
+        "gearRatio": 1.0,
+        "motorInertia": 0.0,
+        "frictionCoulomb": 0.0,
+        "frictionViscous": 0.0
       }
     ]
   },
   {
-    "Header": {
+    "header": {
       "moduleID": "J2",
       "moduleName": "Revolute Joint",
-      "author": "Jonathan K\u00fclz",
-      "authorEMail": "jonathan.kuelz@tum.de",
-      "affiliation": "Technical University of Munich"
+      "author": [
+        "Jonathan K\u00fclz"
+      ],
+      "email": [
+        "jonathan.kuelz@tum.de"
+      ],
+      "affiliation": [
+        "Technical University of Munich"
+      ],
+      "cost": 0.0
     },
-    "Bodies": [
+    "bodies": [
       {
         "ID": "J2_distal",
         "mass": 0.39584067435231396,
@@ -220,48 +234,55 @@
         ]
       }
     ],
-    "Joints": [
+    "joints": [
       {
         "ID": "Revolute",
         "parent": "J2_proximal",
         "child": "J2_distal",
         "type": "revolute",
         "passive": false,
-        "pose_parent": [
+        "poseParent": [
           [ 6.123233995736766e-17, 0.0, 1.0, 0.0 ],
           [ 0.0, 1.0, 0.0, 0.0 ],
           [ -1.0, 0.0, 6.123233995736766e-17, 0.075 ],
           [ 0.0, 0.0, 0.0, 1.0 ]
         ],
-        "pose_child": [
+        "poseChild": [
           [ 1.0, 0.0, 0.0, 0.0 ],
           [ 0.0, 1.0, 0.0, 0.0 ],
           [ 0.0, 0.0, 1.0, 0.075 ],
           [ 0.0, 0.0, 0.0, 1.0 ]
         ],
         "limits": {
-          "position_lower": [ -3.141592653589793 ],
-          "position_upper": [ 3.141592653589793 ],
-          "peak_torque": 1000.0,
+          "positionLower": [ -3.141592653589793 ],
+          "positionUpper": [ 3.141592653589793 ],
+          "peakTorque": 1000.0,
           "velocity": 10.0,
           "acceleration": 5.0
         },
-        "gear_ratio": 1.0,
-        "motor_inertia": 0.0,
-        "friction_coulomb": 0.0,
-        "friction_viscous": 0.0
+        "gearRatio": 1.0,
+        "motorInertia": 0.0,
+        "frictionCoulomb": 0.0,
+        "frictionViscous": 0.0
       }
     ]
   },
   {
-    "Header": {
+    "header": {
       "moduleID": "base",
       "moduleName": "Base",
-      "author": "Jonathan K\u00fclz",
-      "authorEMail": "jonathan.kuelz@tum.de",
-      "affiliation": "Technical University of Munich"
+      "author": [
+        "Jonathan K\u00fclz"
+      ],
+      "email": [
+        "jonathan.kuelz@tum.de"
+      ],
+      "affiliation": [
+        "Technical University of Munich"
+      ],
+      "cost": 0.0
     },
-    "Bodies": [
+    "bodies": [
       {
         "ID": "base",
         "mass": 0.0,
@@ -315,17 +336,24 @@
         ]
       }
     ],
-    "Joints": []
+    "joints": []
   },
   {
-    "Header": {
+    "header": {
       "moduleID": "eef",
       "moduleName": "Demo EEF",
-      "author": "Jonathan K\u00fclz",
-      "authorEMail": "jonathan.kuelz@tum.de",
-      "affiliation": "Technical University of Munich"
+      "author": [
+        "Jonathan K\u00fclz"
+      ],
+      "email": [
+        "jonathan.kuelz@tum.de"
+      ],
+      "affiliation": [
+        "Technical University of Munich"
+      ],
+      "cost": 0.0
     },
-    "Bodies": [
+    "bodies": [
       {
         "ID": "EEF",
         "mass": 0.0,
@@ -377,17 +405,24 @@
         ]
       }
     ],
-    "Joints": []
+    "joints": []
   },
   {
-    "Header": {
+    "header": {
       "moduleID": "i_15",
       "moduleName": "I shaped link 0.08-0.08-15",
-      "author": "Jonathan K\u00fclz",
-      "authorEMail": "jonathan.kuelz@tum.de",
-      "affiliation": "Technical University of Munich"
+      "author": [
+        "Jonathan K\u00fclz"
+      ],
+      "email": [
+        "jonathan.kuelz@tum.de"
+      ],
+      "affiliation": [
+        "Technical University of Munich"
+      ],
+      "cost": 0.0
     },
-    "Bodies": [
+    "bodies": [
       {
         "ID": "i_15",
         "mass": 0.39584067435231396,
@@ -440,17 +475,24 @@
         ]
       }
     ],
-    "Joints": []
+    "joints": []
   },
   {
-    "Header": {
+    "header": {
       "moduleID": "i_30",
       "moduleName": "I shaped link 0.08-0.08-30",
-      "author": "Jonathan K\u00fclz",
-      "authorEMail": "jonathan.kuelz@tum.de",
-      "affiliation": "Technical University of Munich"
+      "author": [
+        "Jonathan K\u00fclz"
+      ],
+      "email": [
+        "jonathan.kuelz@tum.de"
+      ],
+      "affiliation": [
+        "Technical University of Munich"
+      ],
+      "cost": 0.0
     },
-    "Bodies": [
+    "bodies": [
       {
         "ID": "i_30",
         "mass": 0.7916813487046279,
@@ -503,17 +545,24 @@
         ]
       }
     ],
-    "Joints": []
+    "joints": []
   },
   {
-    "Header": {
+    "header": {
       "moduleID": "i_45",
       "moduleName": "I shaped link 0.08-0.08-45",
-      "author": "Jonathan K\u00fclz",
-      "authorEMail": "jonathan.kuelz@tum.de",
-      "affiliation": "Technical University of Munich"
+      "author": [
+        "Jonathan K\u00fclz"
+      ],
+      "email": [
+        "jonathan.kuelz@tum.de"
+      ],
+      "affiliation": [
+        "Technical University of Munich"
+      ],
+      "cost": 0.0
     },
-    "Bodies": [
+    "bodies": [
       {
         "ID": "i_45",
         "mass": 1.1875220230569419,
@@ -566,17 +615,24 @@
         ]
       }
     ],
-    "Joints": []
+    "joints": []
   },
   {
-    "Header": {
+    "header": {
       "moduleID": "l_15",
       "moduleName": "L shaped link 0.1-0.08-15",
-      "author": "Jonathan K\u00fclz",
-      "authorEMail": "jonathan.kuelz@tum.de",
-      "affiliation": "Technical University of Munich"
+      "author": [
+        "Jonathan K\u00fclz"
+      ],
+      "email": [
+        "jonathan.kuelz@tum.de"
+      ],
+      "affiliation": [
+        "Technical University of Munich"
+      ],
+      "cost": 0.0
     },
-    "Bodies": [
+    "bodies": [
       {
         "ID": "l_15",
         "mass": 0.6597344572538566,
@@ -654,17 +710,24 @@
         ]
       }
     ],
-    "Joints": []
+    "joints": []
   },
   {
-    "Header": {
+    "header": {
       "moduleID": "l_30",
       "moduleName": "L shaped link 0.1-0.08-30",
-      "author": "Jonathan K\u00fclz",
-      "authorEMail": "jonathan.kuelz@tum.de",
-      "affiliation": "Technical University of Munich"
+      "author": [
+        "Jonathan K\u00fclz"
+      ],
+      "email": [
+        "jonathan.kuelz@tum.de"
+      ],
+      "affiliation": [
+        "Technical University of Munich"
+      ],
+      "cost": 0.0
     },
-    "Bodies": [
+    "bodies": [
       {
         "ID": "l_30",
         "mass": 1.0555751316061706,
@@ -742,17 +805,24 @@
         ]
       }
     ],
-    "Joints": []
+    "joints": []
   },
   {
-    "Header": {
+    "header": {
       "moduleID": "l_45",
       "moduleName": "L shaped link 0.1-0.08-45",
-      "author": "Jonathan K\u00fclz",
-      "authorEMail": "jonathan.kuelz@tum.de",
-      "affiliation": "Technical University of Munich"
+      "author": [
+        "Jonathan K\u00fclz"
+      ],
+      "email": [
+        "jonathan.kuelz@tum.de"
+      ],
+      "affiliation": [
+        "Technical University of Munich"
+      ],
+      "cost": 0.0
     },
-    "Bodies": [
+    "bodies": [
       {
         "ID": "l_45",
         "mass": 1.4514158059584845,
@@ -830,6 +900,6 @@
         ]
       }
     ],
-    "Joints": []
+    "joints": []
   }
 ]

@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from pinocchio.visualize import MeshcatVisualizer
 from typing import Dict, List, Optional, Union
 
-from timor.scenario import Tolerance
+from pinocchio.visualize import MeshcatVisualizer
+
+from timor.task import Tolerance
 from timor.utilities import logging
 from timor.utilities.transformation import Transformation, TransformationLike
 
@@ -20,8 +21,8 @@ class ToleratedPose:
         """A tolerated placement defines a nominal placement and a volume around it which is considered valid.
 
         :param nominal: The nominal placement (placement-like, so a 4x4 transform).
-        :param tolerance: The tolerance around the nominal placement. Can be any cartesian or rotation tolerance from
-          crok. Defaults to a narrow spatial tolerance.
+        :param tolerance: The tolerance around the nominal placement. Can be any cartesian or rotation tolerance.
+          Defaults to a narrow spatial tolerance.
         """
         self.nominal = Transformation(nominal)
         if tolerance is None:
@@ -38,10 +39,10 @@ class ToleratedPose:
         return self.tolerance.valid(self.nominal, other)
 
     @classmethod
-    def from_crok(cls, description: Dict[str, any]) -> ToleratedPose:
-        """Create a ToleratedPose from a crok description.
+    def from_json_data(cls, description: Dict[str, any]) -> ToleratedPose:
+        """Create a ToleratedPose from a json description.
 
-        :param description: A crok description as defined in the scenario documentation.
+        :param description: A json description as defined in the task documentation.
         :return: A ToleratedPose.
         """
         nominal = description['nominal']
@@ -55,9 +56,9 @@ class ToleratedPose:
         return cls(nominal, tolerance)
 
     @property
-    def crok_description(self) -> Dict[str, Union[List, str]]:
-        """The crok serialization of a placement with tolerance"""
-        return {'nominal': self.nominal.crok_description} | self.tolerance.to_projection()
+    def serialized(self) -> Dict[str, Union[List, str]]:
+        """The json-compatible serialization of a placement with tolerance"""
+        return {'nominal': self.nominal.serialized} | self.tolerance.to_projection()
 
     @property
     def tolerance(self) -> Tolerance.ToleranceBase:

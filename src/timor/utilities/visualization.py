@@ -10,7 +10,7 @@ import pinocchio as pin
 from pinocchio import COLLISION, VISUAL  # noqa: F401
 from pinocchio.visualize.meshcat_visualizer import MeshcatVisualizer, isMesh
 
-from timor.utilities import transformation, spatial
+from timor.utilities import spatial, transformation
 
 
 class MeshcatVisualizerWithAnimation(MeshcatVisualizer):
@@ -18,7 +18,7 @@ class MeshcatVisualizerWithAnimation(MeshcatVisualizer):
     Extends Pinocchio's MeshcatVisualizer by create_animation_frame.
 
     This creates an animation from the current state of all pinocchio robots within the scene; for an example see
-    demos/_solve_scenario.py.
+    demos/_solve_task.py.
     """
 
     @classmethod
@@ -37,7 +37,7 @@ class MeshcatVisualizerWithAnimation(MeshcatVisualizer):
         """
         Can be used to capture the current visualizer state as an animation frame
 
-        Example usage in demos/_solve_scenario.py
+        Example usage in demos/_solve_task.py
         """
         if geometry_type == pin.GeometryType.VISUAL:
             geom_model = self.visual_model

@@ -12,13 +12,13 @@ import warnings
 import numpy as np
 import pinocchio as pin
 
-from timor import Robot
 from timor.Geometry import ComposedGeometry, EmptyGeometry, Geometry
-from timor.utilities.crok_formatting import possibly_nest_as_list
+from timor import Robot
+from timor.utilities import logging
 from timor.utilities.dtypes import SingleSet, hppfcl_collision2pin_geometry
 import timor.utilities.errors as err
-from timor.utilities import logging
-from timor.utilities.transformation import TransformationLike, Transformation
+from timor.utilities.json_serialization_formatting import possibly_nest_as_list
+from timor.utilities.transformation import Transformation, TransformationLike
 
 
 class Gender(Enum):
@@ -98,9 +98,9 @@ class Connector:
         return f"Connector: {self.id}"
 
     @classmethod
-    def from_crok_specification(cls, d: Dict) -> 'Connector':
+    def from_json_data(cls, d: Dict) -> 'Connector':
         """
-        Maps the crok-connector description to an instance of this class.
+        Maps the serialized connector description to an instance of this class.
 
         :param d: A dictionary with relevant meta-information
         :return: An instantiated connector
@@ -112,7 +112,7 @@ class Connector:
             connector_type=d.get('type', ''),
             size=d.get('size', None))
 
-    def to_crok_specification(self) -> Dict[str, any]:
+    def to_json_data(self) -> Dict[str, any]:
         """
         :return: Returns the body specification in a json-ready dictionary
         """
@@ -122,7 +122,7 @@ class Connector:
             size = self.size
         return {
             'ID': self._id,
-            'pose': self.body2connector.crok_description,
+            'pose': self.body2connector.serialized,
             'gender': str(self.gender),
             'type': self.type,
             'size': size
@@ -174,9 +174,10 @@ class ConnectorSet(SingleSet[Connector]):
 
 class Body:
     """
-    A crok body.
+    A body describes a rigid robot element with kinematic, dynamic, geometric, and connection properties.
 
-    Refer to `crok -> robot description <https://crok.cps.in.tum.de/documentation/robot/>`_ for more details.
+    A body is defined by a geometry and inertia-parameters. Its placement is defined implicitly by the connectors
+      attached to it.
     """
 
     def __init__(self,
@@ -231,9 +232,9 @@ class Body:
         return f"Body: {self.id}"
 
     @classmethod
-    def from_crok_specification(cls, d: Dict, package_dir: Path = None) -> 'Body':
+    def from_json_data(cls, d: Dict, package_dir: Path = None) -> 'Body':
         """
-        Maps the crok-body description to an instance of this class.
+        Maps the json-serialized body description to an instance of this class.
 
         The dictionary will be modified in-place until empty (everything was parsed).
 
@@ -242,7 +243,7 @@ class Body:
         :return: An instantiated body
         """
         body_id = d.pop('ID')
-        connectors = [Connector.from_crok_specification(con_data)
+        connectors = [Connector.from_json_data(con_data)
                       for con_data in possibly_nest_as_list(d.pop('connectors', []))]
         inertia = pin.Inertia(float(d.pop('mass')),
                               np.array(d.pop('r_com'), dtype=float),
@@ -264,7 +265,7 @@ class Body:
             singular_geometries = list()
             for geo in possibly_nest_as_list(specs):  # There can be multiple geometries
                 try:
-                    singular_geometries.append(Geometry.from_crok_description(geo, package_dir=package_dir))
+                    singular_geometries.append(Geometry.from_json_data(geo, package_dir=package_dir))
                 except ValueError as verr:
                     if geo['type'] == 'mesh' and geo['parameters']['file'].endswith('.wrl'):
                         geometries[i] = EmptyGeometry({})
@@ -290,7 +291,7 @@ class Body:
 
         return cls(body_id, collision, visual, connectors, inertia)
 
-    def to_crok_specification(self) -> Dict[str, any]:
+    def to_json_data(self) -> Dict[str, any]:
         """
         :return: Returns the body specification in a json-ready dictionary
         """
@@ -298,13 +299,13 @@ class Body:
         for geo in ('_visual', 'collision'):
             if isinstance(self.__dict__[geo], EmptyGeometry) or self.__dict__[geo] is None:
                 continue
-            geometry[re.sub('_', '', geo)] = possibly_nest_as_list(self.__dict__[geo].crok)
+            geometry[re.sub('_', '', geo)] = possibly_nest_as_list(self.__dict__[geo].serialized)
         return {
                    'ID': self._id,
                    'mass': self.mass,
                    'inertia': self.inertia.inertia.tolist(),
                    'r_com': self.inertia.lever.tolist(),
-                   'connectors': [con.to_crok_specification() for con in
+                   'connectors': [con.to_json_data() for con in
                                   sorted(self.connectors, key=lambda con: con.id)]
                } | geometry
 

@@ -74,7 +74,7 @@ intersphinx_mapping = {'python': ('https://docs.python.org/3', None),
 # Auto API doc
 autoapi_type = 'python'
 autoapi_dirs = [os.path.abspath('../../src')]
-autoapi_ignore = ['*/utilities/update_crok_descriptions*']
+autoapi_ignore = []
 autoapi_options = ['members',
                    'undoc-members',
                    'show-inheritance',
