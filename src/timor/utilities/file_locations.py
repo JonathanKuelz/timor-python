@@ -31,17 +31,10 @@ def get_test_tasks(task_name: re.Pattern = EXAMPLE_SOLUTION_FILTER) -> Dict[str,
     task_files = list(file for file in task_dir.iterdir() if file.name.endswith('.json'))
 
     task_files = [task for task in task_files if task_name.search(task.name)]
-
-    good_solution_dir = task_dir.joinpath('solution')
-    wrong_solution_dir = task_dir.joinpath('negSolution')
-    solution_files = list(file for file in good_solution_dir.iterdir() if task_name.search(str(file)))
-    anti_solution_files = list(file for file in wrong_solution_dir.iterdir() if task_name.search(str(file)))
     asset_dir = task_dir.parent.joinpath("assets")
 
     return {"task_files": task_files,
             "task_dir": task_dir,
-            "solution_files": solution_files,
-            "anti_solution_files": anti_solution_files,
             "asset_dir": asset_dir}
 
 

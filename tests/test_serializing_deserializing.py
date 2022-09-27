@@ -141,11 +141,9 @@ class JsonSerializationTests(unittest.TestCase):
         random.seed(99)
         np.random.seed(99)
 
-        # Set up tasks and solutions, for which there are already some json files
+        # Set up tasks, for which there are already some json files
         self.assets = file_locations.get_test_tasks()["asset_dir"]
         self.task_files = file_locations.get_test_tasks()['task_files']
-        self.solution_files = file_locations.get_test_tasks()['solution_files']
-
         panda_loc = file_locations.robots.joinpath('panda')
         self.robot = Robot.PinRobot.from_urdf(panda_loc.joinpath('urdf').joinpath('panda.urdf'), panda_loc.parent)
 

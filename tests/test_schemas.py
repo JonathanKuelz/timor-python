@@ -43,11 +43,6 @@ class TestSchemas(unittest.TestCase):
 
         self._test_files_with_schema(validator, get_test_tasks()["task_files"])
 
-    def test_solution_schema(self):
-        _, validator = get_schema_validator(schema_dir.joinpath("SolutionSchema.json"))
-
-        self._test_files_with_schema(validator, get_test_tasks()["solution_files"])
-
     def test_module_schema(self):
         _, validator = get_schema_validator(schema_dir.joinpath("ModuleSchema.json"))
 

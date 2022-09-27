@@ -1,5 +1,4 @@
 import re
-from typing import Dict, Iterable
 
 """Contains functions to prettify, verify, fix, ... json file in and output."""
 
@@ -37,23 +36,3 @@ def possibly_nest_as_list(value: any, tuple_ok: bool = True):
 
     # Value was a list already
     return value
-
-
-def unfold_dict(d: Iterable, keys: Iterable) -> Dict[any, any]:
-    """Iterates over an iterable and yields all dictionaries with any of the keys
-
-    :param d: An iterable, should probably contain a couple of dictionaries if this method should be of any use
-    :param keys: A list of keys to look for in the containing dictionaries
-    :return: A generator of dictionaries that contain at least one of the specified keys
-    """
-    if isinstance(d, dict):
-        if any(k in keys for k in d):
-            yield d
-        else:
-            for key, value in d.items():
-                if isinstance(value, Iterable) and not isinstance(value, str):
-                    yield from unfold_dict(value, keys)
-    else:
-        for item in d:
-            if isinstance(item, Iterable) and not isinstance(item, str):
-                yield from unfold_dict(item, keys)
