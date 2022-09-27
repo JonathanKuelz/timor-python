@@ -9,8 +9,8 @@ import pinocchio as pin
 
 from timor import Module
 from timor.Robot import PinRobot
-from timor.utilities.file_locations import get_module_db_files
 from timor.utilities import visualization
+from timor.utilities.file_locations import get_module_db_files
 
 
 def random_assembly(n_joints: int, modules_file: Path, package: Path) -> Module.ModuleAssembly:

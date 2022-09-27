@@ -1,0 +1,50 @@
+{
+  "header": {
+    "taskID": 10,
+    "version": "R2020b",
+    "taskName": "Empty",
+    "author": [
+      "Matthias Mayer"
+    ],
+    "affiliation": [
+      "TU Muenchen"
+    ],
+    "email": [
+      "matthias.mayer@tum.de"
+    ],
+    "tags": [
+      "unitTest",
+      "testScenario",
+      "empty"
+    ],
+    "date": "2022-04-01",
+    "timeStepSize": 0.01,
+    "gravity": [ 0, 0, -9.81 ]
+  },
+  "obstacles": [],
+  "constraints": [
+    {
+      "type": "joint",
+      "parts": [
+        "q",
+        "dq",
+        "tau"
+      ]
+    },
+    {
+      "type": "selfCollisionFree"
+    },
+    {
+      "type": "basePlacement",
+      "pose": {
+        "nominal": [
+          [ 1, 0, 0, 0 ],
+          [ 0, 1, 0, 0 ],
+          [ 0, 0, 1, 0 ],
+          [ 0, 0, 0, 1 ]
+        ]
+      }
+    }
+  ],
+  "goals": []
+}

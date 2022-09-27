@@ -7,8 +7,8 @@ import numpy as np
 import pinocchio as pin
 
 from timor import Geometry
-from timor.utilities.transformation import Transformation
 from timor.utilities.spatial import homogeneous, mat2euler
+from timor.utilities.transformation import Transformation
 
 
 def from_geometry(geometry: Geometry.Geometry,

@@ -3,7 +3,7 @@ import unittest
 import hppfcl
 import numpy as np
 
-from timor.scenario.Obstacle import Obstacle
+from timor.task.Obstacle import Obstacle
 from timor.utilities.file_locations import robots
 
 
@@ -22,7 +22,7 @@ class TestModulesDB(unittest.TestCase):
         m = mesh_loader.load(str(self.demo_stl))
 
         geometry_desc = {'type': 'mesh', 'parameters': {"file": self.demo_stl.name}}
-        obs = Obstacle.from_crok_description('123', collision=geometry_desc, package_dir=self.demo_stl.parent)
+        obs = Obstacle.from_json_data(dict(ID='123', collision=geometry_desc, package_dir=self.demo_stl.parent))
 
         with open(self.demo_stl, "rb") as f:
             header = f.read(80)

@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 from functools import reduce
-from typing import Iterable, List, Optional, Union, Tuple, Collection
+from typing import Collection, Iterable, List, Optional, Tuple, Union
 
 import numpy as np
 import pinocchio as pin
+from scipy.spatial.transform import Rotation
 
 from timor.utilities import spatial
+import timor.utilities.errors as err
 
 _TransformationConvertable = Union[
     List[Union[List[float], Tuple[float, float, float, float]]],
@@ -20,6 +22,34 @@ _TransformationConvertable = Union[
     pin.SE3
 ]
 TransformationConvertable = Union[_TransformationConvertable, Iterable[_TransformationConvertable]]
+
+
+class Norm:
+    """A namespace for norms of transformations."""
+
+    def __init__(self, transformation: Transformation):
+        """Norms are directly defined on transformations. They return a single, non-negative scalar"""
+        self.transformation = transformation
+
+    @property
+    def rotation_angle(self) -> float:
+        """The rotation angle of this transformation about any axis, expressed in radian."""
+        return self.transformation.projection.axis_angles[3]
+
+    @property
+    def rotation_angle_degree(self) -> float:
+        """The rotation angle of this transformation about any axis, expressed in degree."""
+        return self.rotation_angle * 180 / np.pi
+
+    @property
+    def translation_euclidean(self) -> float:
+        """The Euclidean / L2 norm of this transformation's translation."""
+        return np.linalg.norm(self.transformation.translation)
+
+    @property
+    def translation_manhattan(self) -> float:
+        """The manhattan / absolute / L1 norm of this transformation's translation"""
+        return np.linalg.norm(self.transformation.translation, ord=1)
 
 
 class Projection:
@@ -55,12 +85,17 @@ class Transformation:
 
     shape: Tuple[int, int] = (4, 4)
 
-    def __init__(self, transformation: Union[Transformation, TransformationConvertable]):
+    def __init__(self,
+                 transformation: Union[Transformation, TransformationConvertable],
+                 set_safe: bool = False):
         """Initialize a spatial transform with a 4x4 matrix which must be a homogeneous transformation.
 
         :param transformation: A 4x4 homogeneous matrix representing the transformation. Can also be a sequence of
           (4x4) transformations, in which this parameter will be interpreted as the resulting transformation when
           performing all of them after one another.
+        :param set_safe: If true, a safety check will be performed to ensure the transformation is homogeneous. If that
+          is not the case, tries to auto-correct. Defaults to false as the check is expensive and should not be done
+          for every transformation to avoid performance issues.
         """
         if isinstance(transformation, Transformation):
             # The __init__ basically becomes a shallow copy
@@ -70,9 +105,17 @@ class Transformation:
         transformation = np.asarray(transformation, dtype=float)
         if len(transformation.shape) == 3:
             # Unpack a sequence of transformations by multiplying them from left to right
-            self.homogeneous = reduce(np.matmul, transformation)
-        else:
-            self.homogeneous: np.ndarray = transformation
+            transformation = reduce(np.matmul, transformation)
+
+        if set_safe:
+            try:
+                err.assert_is_homogeneous_transformation(transformation)
+            except err.NonOrthogonalRotationError:  # Try fixing almost orthogonal rotation matrices
+                transformation.setflags(write=True)
+                transformation[:3, :3] = Rotation.from_matrix(transformation[:3, :3]).as_matrix()
+                err.assert_is_homogeneous_transformation(transformation)
+
+        self.homogeneous: np.ndarray = transformation
 
     def multiply_from_left(self, other: np.ndarray) -> Transformation:
         """Multiply a placement from the left.
@@ -105,7 +148,7 @@ class Transformation:
         return cls(np.eye(4))
 
     @property
-    def crok_description(self) -> List[List[float]]:
+    def serialized(self) -> List[List[float]]:
         """Returns a serialized description if the nominal placement."""
         return self.homogeneous.tolist()
 
@@ -126,6 +169,13 @@ class Transformation:
         self._transformation.setflags(write=False)
 
     @property
+    def norm(self) -> Norm:
+        """
+        Returns the norm object of this transformation; can be queried with different measures.
+        """
+        return Norm(self)
+
+    @property
     def projection(self) -> Projection:
         """
         Returns a projection object that can be used to get projections to different conventions for this placement.
@@ -141,6 +191,19 @@ class Transformation:
     def rotation(self) -> np.ndarray:
         """The rotation part of the nominal placement as a 3x3 matrix."""
         return self[:3, :3]
+
+    def distance(self, other: TransformationConvertable) -> Norm:
+        """
+        Returns a norm  object for the transformation between self and other.
+
+        A distance between two poses is not uniquely defined -- returning a norm object is one possible way to deal
+        with this problem: The returned object itself has multiple properties, each one according to one possible
+        norm (translational, rotational or a combination) of the transformation representing the relative difference
+        between self and other.
+        :param other: A Transformation-Like object representing a placement and orientation in space to which the
+        distance shall be measured.
+        """
+        return (self.inv@Transformation(other)).norm
 
     def __eq__(self, other):
         """Allows comparison of transformations"""

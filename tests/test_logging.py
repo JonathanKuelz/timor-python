@@ -11,7 +11,7 @@ class TestLogger(unittest.TestCase):
         self.warning_str = "Test warning"
         self.debug_str = "Test debug"
 
-    def test_logging(self):
+    def test_custom_logging(self):
         try:
             os.remove(self.tmp_log_file)
         except FileNotFoundError as _:

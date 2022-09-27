@@ -14,7 +14,7 @@ import numpy as np
 import pinocchio as pin
 
 from timor.utilities.spatial import rotX
-from timor.utilities.transformation import TransformationLike, Transformation
+from timor.utilities.transformation import Transformation, TransformationLike
 
 
 class HppfclEnumMeta(EnumMeta):
@@ -80,7 +80,7 @@ def _geometry_type2class(geometry_type: GeometryType) -> Type[Geometry]:
 
 
 class Geometry(abc.ABC):
-    """A class describing geometries as specified in crok.
+    """A class describing geometries.
 
     A geometry is defined by a type (see GeometryType), an expansion (defined by custom parameters) and a
     placement, defining its spatial position and orientation.
@@ -113,19 +113,19 @@ class Geometry(abc.ABC):
             self.collision_geometry = hppfcl_representation
 
     @classmethod
-    def from_crok_description(cls, description: Union[List, Dict[str, any]],
-                              package_dir: Optional[Path] = None) -> Geometry:
+    def from_json_data(cls, description: Union[List, Dict[str, any]],
+                       package_dir: Optional[Path] = None) -> Geometry:
         """
-        Takes a crok geometry specification and returns the according Geometry instance.
+        Takes a serialized geometry specification and returns the according Geometry instance.
 
-        :param description: A crok Geometry as described in the crok documentation
+        :param description: A serialized geometry
         :param package_dir: The top directory to which the mesh file paths are relative to. Necessary for meshes (only).
         """
         if isinstance(description, (list, tuple, set)):
             if len(description) == 1:
                 description = description[0]
             else:
-                return ComposedGeometry((cls.from_crok_description(d, package_dir) for d in description))
+                return ComposedGeometry((cls.from_json_data(d, package_dir) for d in description))
 
         if cls is not Geometry:
             raise AttributeError("Class {} does not support this method. Call it on the Geometry class.".format(cls))
@@ -163,18 +163,18 @@ class Geometry(abc.ABC):
         return cd
 
     @property
-    def crok(self) -> List[Dict[str, any]]:
-        """Creates a crok-compliant dictionary of a Geometry"""
+    def serialized(self) -> List[Dict[str, any]]:
+        """Creates a serialization of a Geometry that can be stored as json"""
         return [{
             'type': self.type.value,
             'parameters': self.parameters,  # This is a dict itself
-            'pose': self.placement.crok_description
+            'pose': self.placement.serialized
         }]
 
     @property
     @abc.abstractmethod
     def parameters(self) -> Dict[str, Union[float, str]]:
-        """Returns the class parameters in a crok json compliant format."""
+        """Returns the class parameters in a json compliant format."""
 
     @parameters.setter
     @abc.abstractmethod
@@ -447,12 +447,12 @@ class ComposedGeometry(Geometry):
         return tuple(self._composing_geometries)
 
     @property
-    def crok(self) -> List[Dict[str, any]]:
-        """Creates a crok-compliant dictionary of a Geometry"""
+    def serialized(self) -> List[Dict[str, any]]:
+        """Creates a json-compliant dictionary of a Geometry"""
         return [{
             'type': g.type.value,
             'parameters': g.parameters,
-            'pose': g.placement.crok_description
+            'pose': g.placement.serialized
         } for g in self.composing_geometries]
 
     @property

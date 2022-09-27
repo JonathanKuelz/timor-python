@@ -3,18 +3,19 @@ import importlib
 from pathlib import Path
 import re
 import sys
-import pytest
 import unittest
+
+import pytest
 
 
 @pytest.mark.imports
 class TestImportingEverything(unittest.TestCase):
-    """Tests that all modules can be imported properly without any cyclic dependencies, etc."""
+    """Tests that every module can be imported properly without any cyclic dependencies, etc."""
     def setUp(self) -> None:
         self.file = Path(__file__)
         self.tests = self.file.parent
-        self.code_dir = self.tests.parent
-        self.py_files = list(path.relative_to(self.code_dir) for path in self.code_dir.rglob('*.py'))
+        self.src_dir = self.tests.parent
+        self.py_files = list(path.relative_to(self.src_dir) for path in self.src_dir.rglob('*.py'))
         self.imports = tuple(re.sub(r'/', '.', re.sub(r'\.py', '', str(file))) for file in self.py_files)
 
     def test_imports(self):

@@ -1,5 +1,6 @@
 import logging as root_logging
 import os
+
 import yaml
 
 from timor.utilities import file_locations
@@ -7,7 +8,7 @@ from timor.utilities import file_locations
 """
 Drop in replacement for the basic logging functionality provided by logging.
 
-Replaces the root logger by an Timor module logger.
+Replaces the root logger by a custom configured logger.
 """
 
 
@@ -20,9 +21,14 @@ NOTSET = root_logging.NOTSET
 settings = file_locations.head.joinpath('.log_conf')
 
 
+def getLogger() -> root_logging.Logger:
+    """Get the custom logger."""
+    return root_logging.getLogger('Timor')
+
+
 def setLevel(level):
-    """Set Timor logger level."""
-    root_logging.getLogger('Timor').setLevel(level)
+    """Set the logger level."""
+    getLogger().setLevel(level)
 
 
 def basicConfig(filename: str = file_locations.default_log,
@@ -31,19 +37,19 @@ def basicConfig(filename: str = file_locations.default_log,
                 datefmt: str = '%Y-%m-%d %H:%M:%S',
                 level: int = INFO):
     """
-    Set logging configuration for Timor
+    Set logging configurations for the runtime environment
 
     :param filename: Name to store logs to
     :param filemode: Mode (append ('a'), overwrite ('w'), ...)
     :param output_format: Format string for log
     :param datefmt: Specify time in logs
-    :param level: Logging level for Timor logger (use logging.DEBUG, WARN, ...)
+    :param level: Logging level for the logger (use logging.DEBUG, WARN, ...)
     :return:
     """
     try:
         handler = root_logging.FileHandler(filename=filename, mode=filemode)
         handler.setFormatter(root_logging.Formatter(fmt=output_format, datefmt=datefmt))
-        root_logging.getLogger('Timor').addHandler(handler)
+        getLogger().addHandler(handler)
         setLevel(level)
     except PermissionError as e:
         print(f"There is probably a old default log created with docker in {filename}")
@@ -51,56 +57,56 @@ def basicConfig(filename: str = file_locations.default_log,
 
 
 def getEffectiveLevel():
-    """Return the level the Timor logger is set at."""
-    return root_logging.getLogger('Timor').getEffectiveLevel()
+    """Return the level the logger is set at."""
+    return getLogger().getEffectiveLevel()
 
 
 def flush():
     """Tell logger to empty output buffers."""
-    for h in root_logging.getLogger('Timor').handlers:
+    for h in getLogger().handlers:
         h.flush()
 
 
 def critical(msg, *args, **kwargs):
     """
-    Log a message with severity 'CRITICAL' on the Timor logger.
+    Log a message with severity 'CRITICAL'.
     """
-    root_logging.getLogger('Timor').critical(msg, *args, **kwargs)
+    getLogger().critical(msg, *args, **kwargs)
 
 
 def error(msg, *args, **kwargs):
     """
-    Log a message with severity 'ERROR' on the Timor logger.
+    Log a message with severity 'ERROR'.
     """
-    root_logging.getLogger('Timor').error(msg, *args, **kwargs)
+    getLogger().error(msg, *args, **kwargs)
 
 
 def warning(msg, *args, **kwargs):
     """
-    Log a message with severity 'WARNING' on the Timor logger.
+    Log a message with severity 'WARNING'.
     """
-    root_logging.getLogger('Timor').warning(msg, *args, **kwargs)
+    getLogger().warning(msg, *args, **kwargs)
 
 
 def warn(msg, *args, **kwargs):
     """
     Deprecated name for warning.
     """
-    root_logging.getLogger('Timor').warning(msg, *args, **kwargs)
+    getLogger().warning(msg, *args, **kwargs)
 
 
 def info(msg, *args, **kwargs):
     """
-    Log a message with severity 'INFO' on the Timor logger.
+    Log a message with severity 'INFO'.
     """
-    root_logging.getLogger('Timor').info(msg, *args, **kwargs)
+    getLogger().info(msg, *args, **kwargs)
 
 
 def debug(msg, *args, **kwargs):
     """
-    Log a message with severity 'DEBUG' on the Timor logger.
+    Log a message with severity 'DEBUG'.
     """
-    root_logging.getLogger('Timor').debug(msg, *args, **kwargs)
+    getLogger().debug(msg, *args, **kwargs)
 
 
 """

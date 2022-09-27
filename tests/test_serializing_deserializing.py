@@ -9,16 +9,16 @@ import numpy as np
 import numpy.testing as np_test
 import pinocchio as pin
 
-from timor import Robot
-from timor.scenario import Constraints, Obstacle, Scenario, Tolerance
 from timor import Geometry
+from timor import Robot
+from timor.task import Constraints, Obstacle, Solution, Task, Tolerance
 from timor.utilities import file_locations, prebuilt_robots, spatial
 from timor.utilities.tolerated_pose import ToleratedPose
 
 
-class DummyScenario:
+class DummyTask:
     """A dummy class that implements everything that's needed to instantiate a solution without loading a functioning
-    real scenario it is tailored for first."""
+    real task it is tailored for first."""
 
     def __init__(self, ID: str):
         self.id = ID
@@ -135,16 +135,16 @@ def pin_geometry_models_functionally_equal(m1: pin.GeometryModel, m2: pin.Geomet
 
 
 class JsonSerializationTests(unittest.TestCase):
-    """Tests all relevant crok to and from json methods"""
+    """Tests all relevant json (de)serialization methods"""
 
     def setUp(self) -> None:
         random.seed(99)
         np.random.seed(99)
 
-        # Set up scenarios and solutions, for which there are already some json files
-        self.assets = file_locations.get_test_scenarios()["asset_dir"]
-        self.scenario_files = file_locations.get_test_scenarios()['scenario_files']
-        self.solution_files = file_locations.get_test_scenarios()['solution_files']
+        # Set up tasks and solutions, for which there are already some json files
+        self.assets = file_locations.get_test_tasks()["asset_dir"]
+        self.task_files = file_locations.get_test_tasks()['task_files']
+        self.solution_files = file_locations.get_test_tasks()['solution_files']
 
         panda_loc = file_locations.robots.joinpath('panda')
         self.robot = Robot.PinRobot.from_urdf(panda_loc.joinpath('urdf').joinpath('panda.urdf'), panda_loc.parent)
@@ -188,39 +188,39 @@ class JsonSerializationTests(unittest.TestCase):
 
     def test_constraints_to_json(self):
         for constraint in self.constraints:
-            as_json = json.dumps(constraint.to_dict())
+            as_json = json.dumps(constraint.to_json_data())
             from_json = json.loads(as_json)
-            new = Constraints.ConstraintBase.from_crok_description(from_json)
+            new = Constraints.ConstraintBase.from_json_data(from_json)
             self.assertIs(type(new), type(constraint))
             for key in constraint.__dict__:
                 self.assertEqual(constraint.__dict__[key], new.__dict__[key])
 
-    def test_load_then_dump_scenario(self):
-        for scenario_file in self.scenario_files:
-            scenario = Scenario.Scenario.from_json(scenario_file, self.assets)
-            scenario_json = json.dumps(scenario.to_dict(), indent=4)
+    def test_load_then_dump_task(self):
+        for task_file in self.task_files:
+            task = Task.Task.from_json(task_file, self.assets)
+            task_json = json.dumps(task.to_json_data(), indent=4)
 
             with tempfile.NamedTemporaryFile() as tmp_json_dump:
-                tmp_json_dump.write(scenario_json.encode('utf-8'))
+                tmp_json_dump.write(task_json.encode('utf-8'))
                 tmp_json_dump.flush()  # Necessary to certainly write to tempfile!
-                another_copy = Scenario.Scenario.from_json(Path(tmp_json_dump.name), self.assets)
+                another_copy = Task.Task.from_json(Path(tmp_json_dump.name), self.assets)
                 # This does not test 100% for equality but should cover the most central sanity checks
-                self.assertEqual(scenario.header, another_copy.header)
-                self.assertEqual(set(o.id for o in scenario.obstacles), set(o.id for o in another_copy.obstacles))
-                self.assertEqual(set(g.id for g in scenario.goals), set(g.id for g in another_copy.goals))
-                self.assertEqual(set(type(c) for c in scenario.constraints),
+                self.assertEqual(task.header, another_copy.header)
+                self.assertEqual(set(o.id for o in task.obstacles), set(o.id for o in another_copy.obstacles))
+                self.assertEqual(set(g.id for g in task.goals), set(g.id for g in another_copy.goals))
+                self.assertEqual(set(type(c) for c in task.constraints),
                                  set(type(c) for c in another_copy.constraints))
 
     def test_obstacles_to_json(self):
         package_dir = Path(__file__)  # Not used in this test, but needed for the method
         for obstacle in self.obstacles:
-            as_json = json.dumps(obstacle.to_crok())
+            as_json = json.dumps(obstacle.to_json_data())
             from_json = json.loads(as_json)
-            new = Obstacle.Obstacle.from_crok_description(
+            new = Obstacle.Obstacle.from_json_data(dict(
                 collision=from_json['collision'],
                 package_dir=package_dir,
                 ID=from_json['ID'],
-                name=from_json['name'])
+                name=from_json['name']))
             self.assertIs(type(new), type(obstacle))
             new_dict = new.__dict__.copy()
             comp_dict = obstacle.__dict__.copy()

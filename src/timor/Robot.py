@@ -5,7 +5,7 @@ import abc
 import itertools
 from pathlib import Path
 import string
-from typing import Collection, Dict, List, Tuple, Union, Optional
+from typing import Collection, Dict, List, Optional, Tuple, Union
 from warnings import warn
 
 from hppfcl.hppfcl import CollisionObject, CollisionRequest, CollisionResult, Transform3f, collide
@@ -15,12 +15,11 @@ from numpy.linalg import norm
 import pinocchio as pin
 import scipy.optimize as optimize
 
-from timor.scenario import Tolerance
-from timor.scenario.Obstacle import Obstacle
+from timor.task.Obstacle import Obstacle
 from timor.utilities import logging, spatial
 from timor.utilities.dtypes import float2array
-from timor.utilities.transformation import TransformationLike, Transformation
 from timor.utilities.tolerated_pose import ToleratedPose
+from timor.utilities.transformation import Transformation, TransformationLike
 
 
 class PinBody:
@@ -192,11 +191,11 @@ class RobotBase(abc.ABC):
         """
 
     @abc.abstractmethod
-    def collisions(self, scenario: 'Scenario.Scenario') -> List[Tuple['RobotBase', Obstacle]]:  # noqa: F821
+    def collisions(self, task: 'Task.Task') -> List[Tuple['RobotBase', Obstacle]]:  # noqa: F821
         """
-        Returns all collisions that appear between the robot and itself or obstacles in the scenario.
+        Returns all collisions that appear between the robot and itself or obstacles in the task.
 
-        :param scenario: The scenario to check for collisions
+        :param task: The task to check for collisions
         :return: A list of tuples (robot, obstacle) for robot an obstacle in collision
         """
 
@@ -210,13 +209,13 @@ class RobotBase(abc.ABC):
         """
 
     @abc.abstractmethod
-    def has_collisions(self, scenario: 'Scenario.Scenario') -> bool:  # noqa: F821
+    def has_collisions(self, task: 'Task.Task') -> bool:  # noqa: F821
         """
-        Returns true if there is at least one collision in the scenario or one self-collision.
+        Returns true if there is at least one collision in the task or one self-collision.
 
         Faster than self.collisions in case of collision, as this method breaks as soon as the first one is detected.
 
-        :param scenario: The scenario the robot is in.
+        :param task: The task the robot is in.
         :return: Boolean indicator whether there are any collisions.
         """
 
@@ -308,15 +307,15 @@ class RobotBase(abc.ABC):
 
     # ---------- Methods ----------
 
-    def collision_info(self, scenario: 'Scenario.Scenario'):  # noqa: F821
+    def collision_info(self, task: 'Task.Task'):  # noqa: F821
         """
-        Calculates all collisions in the scenario and prints human-readable information.
+        Calculates all collisions in the task and prints human-readable information.
 
-        :param scenario: Scenario to test for collisions
+        :param task: Task to test for collisions
         """
-        print(f"{scenario.id} contains the following collisions:")
+        print(f"{task.id} contains the following collisions:")
         i = -1
-        for i, (robot, obstacle) in enumerate(self.collisions(scenario)):
+        for i, (robot, obstacle) in enumerate(self.collisions(task)):
             print(f"{robot.name} collides with {obstacle.display_name}.")
         if i >= 0:
             print(f"Total: {i + 1}")
@@ -340,7 +339,7 @@ class RobotBase(abc.ABC):
     def ik_scipy(self,
                  eef_pose: ToleratedPose,
                  q_init: np.ndarray = None,
-                 max_iter: int = 100,
+                 max_iter: int = 1000,
                  restore_config: bool = True,
                  max_n_tries: int = 10,
                  **kwargs
@@ -361,13 +360,10 @@ class RobotBase(abc.ABC):
         """
         # Custom errors to make sure no more deprecated arguments are used for the IK solver
         if 'tolerance' in kwargs:
-            raise ValueError("The placement needs to be tolerated - providing an extra tolerance is deprecated.")
-        if not isinstance(eef_pose.tolerance, Tolerance.Cartesian):
-            if isinstance(eef_pose.tolerance, Tolerance.Composed):
-                if not all(isinstance(tol, Tolerance.Cartesian) for tol in eef_pose.tolerance.tolerances):
-                    raise ValueError("IK Scipy cannot optimize for orientation tolerances")
-            else:
-                raise ValueError("IK Scipy cannot optimize for orientation tolerances")
+            raise ValueError("The pose needs to be tolerated - providing an extra tolerance is deprecated.")
+
+        if self.njoints == 0:
+            return self.configuration, eef_pose.valid(self.fk())
 
         previous_config = self.configuration
 
@@ -621,9 +617,14 @@ class PinRobot(RobotBase):
     # ---------- Utilities and Dynamic and Kinematics Methods ----------
     def _ik_cost_function(self, q: np.ndarray, goal: Transformation) -> float:
         """A custom cost function to evaluate the quality of an inverse kinematic solution."""
-        # TODO: This error ignores angular displacement
         current = self.fk(q, kind='tcp')
-        return norm(current[:3, 3] - goal[:3, 3])
+        translation_error = norm(current[:3, 3] - goal[:3, 3])
+        rotation_error = (current.inv @ goal).projection.axis_angles[-1]
+        translation_weight = 1.
+        rotation_weight = .1 / np.pi  # .1 meter displacement ~ 180 degree orientation error
+        return (translation_weight * translation_error + rotation_weight * rotation_error) / (
+            translation_weight + rotation_weight
+        )
 
     def _update_geometry_placement(self):
         """Updates the collision (for collision detection) and visual (for plotting) geometry placements."""
@@ -777,7 +778,7 @@ class PinRobot(RobotBase):
                     q_init: np.ndarray = None,
                     gain: Union[float, np.ndarray] = 1.,
                     damp: float = 1e-12,
-                    max_iter: int = 100,
+                    max_iter: int = 1000,
                     kind='damped_ls_inverse',
                     **kwargs) -> Tuple[np.ndarray, bool]:
         """
@@ -875,8 +876,8 @@ class PinRobot(RobotBase):
                 return self.ik_jacobian(eef_pose, self.random_configuration(), gain, damp, max_iter - i, kind, **kwargs)
             success = False
 
-        if 'scenario' in kwargs and self.has_collisions(kwargs['scenario']):
-            logging.info("IK solution had environment, re-try")
+        if 'task' in kwargs and self.has_collisions(kwargs['task']):
+            logging.info("IK solution collides with environment, re-try")
             if i < max_iter:
                 # Give it another try, starting from a different configuration
                 i += 1
@@ -896,7 +897,7 @@ class PinRobot(RobotBase):
 
         :param displacement: Transformation / transformation transform to move, given in the world/universe frame
         """
-        displacement = pin.SE3(Transformation(displacement).homogeneous)  # Use Transformation builtin conversion
+        displacement = pin.SE3(Transformation(displacement, set_safe=True).homogeneous)
         for i, frame in enumerate(self.model.frames):
             if frame.type == pin.FrameType.JOINT:
                 break
@@ -915,13 +916,15 @@ class PinRobot(RobotBase):
         assert len(tuple(p_idx for p_idx in self.model.parents if p_idx == 0)) <= 2, \
             "Robot should only be connected to world in joint 0 and 1"
         self.update_configuration(self.configuration)
-        self._base_placement = self.placement.multiply_from_left(displacement.homogeneous)
+        self._base_placement = Transformation(self.placement.multiply_from_left(displacement.homogeneous),
+                                              set_safe=True)
 
     def random_configuration(self) -> np.ndarray:
         """Generates a random configuration."""
         try:
             return pin.randomConfiguration(self.model)
         except RuntimeError:
+            logging.info('Random configuration failed due to infinite joint limits - setting to (-2pi, 2pi)')
             lower = np.maximum(self.joint_limits[0, :], -2 * np.pi)
             upper = np.minimum(self.joint_limits[1, :], 2 * np.pi)
             return (upper - lower) * np.random.rand(self.njoints) + lower
@@ -984,13 +987,13 @@ class PinRobot(RobotBase):
     # ---------- Collision Methods ----------
 
     def __check_collisions(self,
-                           scenario: 'Scenario.Scenario',  # noqa: F821
+                           task: 'Task.Task',  # noqa: F821
                            return_at_first: bool
                            ) -> Union[bool, List[Tuple[RobotBase, Union[RobotBase, Obstacle]]]]:
         """
         Checks all collision pairs or all collisions pairs until the first colliding one is found.
 
-        :param scenario: The scenario tocheck for collisions
+        :param task: The task to check for collisions
         :param return_at_first: If true, this function behaves like a "has_collision". If false, it behaves like a
           "get_all_collisions" function,
         :return: Bool if return_at_first is true, otherwise a list of all colliding pairs.
@@ -1005,7 +1008,7 @@ class PinRobot(RobotBase):
             collisions.append((self, self))
 
         geometries = [rco.geometry for rco in self.collision_objects]
-        for obstacle in scenario.obstacles:
+        for obstacle in task.obstacles:
             for (robot_geometry, omg), (t, geometry) in \
                     itertools.product(zip(geometries, self.collision_data.oMg), obstacle.collision.collision_data):
                 t3f = Transform3f(t[:3, :3], t[:3, 3])
@@ -1019,24 +1022,24 @@ class PinRobot(RobotBase):
         return collisions
 
     def collisions(self,
-                   scenario: 'Scenario.Scenario'  # noqa: F821
+                   task: 'Task.Task'  # noqa: F821
                    ) -> List[Tuple[RobotBase, Union[RobotBase, Obstacle]]]:
         """
-        Returns all collisions that appear between the robot and itself or obstacles in the scenario.
+        Returns all collisions that appear between the robot and itself or obstacles in the task.
 
-        :param scenario: The scenario to check for collisions
+        :param task: The task to check for collisions
         :return: A list of tuples (robot, obstacle) for robot an obstacle in collision
         """
-        return self.__check_collisions(scenario, return_at_first=False)
+        return self.__check_collisions(task, return_at_first=False)
 
-    def has_collisions(self, scenario: 'Scenario.Scenario') -> bool:  # noqa: F821
+    def has_collisions(self, task: 'Task.Task') -> bool:  # noqa: F821
         """
-        Returns true if there is at least one collision in the scenario or one self-collision.
+        Returns true if there is at least one collision in the task or one self-collision.
 
-        :param scenario: The scenario the robot is in.
+        :param task: The task the robot is in.
         :return: Boolean indicator whether there are any collisions.
         """
-        return self.__check_collisions(scenario, return_at_first=True)
+        return self.__check_collisions(task, return_at_first=True)
 
     def has_self_collision(self, q: np.ndarray = None) -> bool:
         """
@@ -1301,8 +1304,8 @@ class PinRobot(RobotBase):
         else:
             raise ValueError("Cannot interpret the parent parameter as it is neither the index nor the name.")
 
-        gear_ratio = kwargs.pop('gear_ratio', 1.)
-        rotor_inertia = kwargs.pop('rotor_inertia', 0.)
+        gear_ratio = kwargs.pop('gearRatio', 1.)
+        rotor_inertia = kwargs.pop('motorInertia', 0.)
 
         # First add the joint
         idx = self.model.addJoint(parent_id, joint, **kwargs)

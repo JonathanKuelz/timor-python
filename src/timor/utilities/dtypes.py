@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from dataclasses import dataclass, field
 import random
 from typing import Callable, Collection, Dict, Generator, Iterable, List, Tuple, Union
@@ -10,7 +11,7 @@ import pinocchio as pin
 from roboticstoolbox.tools.trajectory import mstraj
 
 import timor.utilities.errors as err
-from timor.utilities.transformation import TransformationLike, Transformation
+from timor.utilities.transformation import Transformation, TransformationLike
 
 
 class EternalDict(dict):
@@ -238,34 +239,6 @@ class Trajectory:
             ddq = (self.dq[1:] - self.dq[:-1]) / time_delta[:, None]
             self.ddq = np.vstack([init, ddq])
 
-    def plot(self, show_goals_reached: bool = False) -> plt.Figure:
-        """
-        Plot this trajectory
-
-        :param show_goals_reached: If set to true, the time at which goals are reached is highlighted in the plot
-        :return: Figure with a plot of this trajectory.
-        """
-        f, (ax1, ax2, ax3) = plt.subplots(3, 1, sharex='all')
-        ax1.plot(self.t, self.q)
-        ax2.plot(self.t, self.dq)
-        ax3.plot(self.t, self.ddq)
-
-        ax1.set(ylabel="Configuration q")
-        ax2.set(ylabel="Velocity dq")
-        ax3.set(xlabel="Time [s]", ylabel="Acceleration ddq")
-
-        if show_goals_reached:
-            t_offset = 0.01 * (max(self.t) - min(self.t))
-            for goal_id, goal_time in self.goals.items():
-                for ax in (ax1, ax2, ax3):
-                    ax.axvline(goal_time, c='blue')
-                    ax.text(goal_time + t_offset, .9, goal_id, c='blue', transform=ax.get_xaxis_transform())
-
-        plt.tight_layout()
-        plt.show()
-
-        return f
-
     @staticmethod
     def from_mstraj(via_points: np.array, dt: float, t_acc: float, qd_max: float, **kwargs) -> 'Trajectory':
         """
@@ -299,11 +272,41 @@ class Trajectory:
         ddq = np.zeros_like(q)
         return Trajectory(t=np.asarray([0, time]), q=q, dq=dq, ddq=ddq, goals={})
 
+    def plot(self, show_goals_reached: bool = False) -> plt.Figure:
+        """
+        Plot this trajectory
+
+        :param show_goals_reached: If set to true, the time at which goals are reached is highlighted in the plot
+        :return: Figure with a plot of this trajectory.
+        """
+        f, (ax1, ax2, ax3) = plt.subplots(3, 1, sharex='all')
+        ax1.plot(self.t, self.q)
+        ax2.plot(self.t, self.dq)
+        ax3.plot(self.t, self.ddq)
+
+        ax1.set(ylabel="Configuration q")
+        ax2.set(ylabel="Velocity dq")
+        ax3.set(xlabel="Time [s]", ylabel="Acceleration ddq")
+
+        if show_goals_reached:
+            t_offset = 0.01 * (max(self.t) - min(self.t))
+            for goal_id, goal_time in self.goals.items():
+                for ax in (ax1, ax2, ax3):
+                    ax.axvline(goal_time, c='blue')
+                    ax.text(goal_time + t_offset, .9, goal_id, c='blue', transform=ax.get_xaxis_transform())
+
+        plt.tight_layout()
+        plt.show()
+
+        return f
+
     def __add__(self, other: 'Trajectory'):
         """Append another trajectory to self"""
         if not isinstance(other, Trajectory):
             return NotImplemented
-        if self.t.size > 1:
+        if (other.t.size == 0) or (self.t.size == 0):
+            return self
+        elif self.t.size > 1:
             # dt is the offset between end of self and start of other
             dt = self.t[-1] - self.t[-2]
         else:

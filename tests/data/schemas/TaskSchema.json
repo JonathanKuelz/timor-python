@@ -1,0 +1,515 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://www.crok.cps.in.tum.de/schemas/TaskSchema.json",
+    "title": "cRoK Task",
+    "description": "A task from the cRoK benchmarking suite defining where a robot should work and what it should do",
+    "type": "object",
+    "required": ["header", "goals"],
+    "propertyOrder": ["header", "frames", "obstacles", "objects", "constraints", "goals"],
+    "version": "2020b",
+    "additionalProperties": false,
+    "properties": {
+        "header": {
+            "type": "object",
+            "required": ["taskID", "version", "taskName", "author", "affiliation", "email", "date"],
+            "propertyOrder": ["taskID", "version", "taskName", "author", "affiliation", "email", "tags", "date", "timeStepSize", "gravity"],
+            "properties": {
+                "taskID": {
+                    "description": "Unique identifier for the given benchmark version",
+                    "type": "integer",
+                    "exclusiveMinimum": 0
+                },
+                "version": {
+                    "description": "A version desriptor (allows updated tasks under same ID)",
+                    "type": "string"
+                },
+                "taskName": {
+                    "description": "A human-readable name",
+                    "type": "string"
+                },
+                "author": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "affiliation": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "email": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "type": "string",
+                        "format": "email"
+                    }
+                },
+                "tags": {
+                    "description": "tags is a list of comma separated key-words that allow cataloging and filtering tasks. e.g., welding, or subjective difficulty ratings such as easy, medium and hard. We include a set of basic tasks and solutions to test singular aspects of the benchmark which are taged as unitTest.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "date": {
+                    "description": "Date as string in form yyyy-MM-dd",
+                    "type": "string",
+                    "format": "date"
+                },
+                "timeStepSize": {
+                    "type": "number",
+                    "exclusiveMinimum": 0.0,
+                    "default": 0.01
+                },
+                "gravity": {
+                    "type": "array",
+                    "items": {
+                        "type": "number",
+                        "minItems": 3,
+                        "maxItems": 3
+                    },
+                    "default": [0,0,-9.81]
+                }
+            }
+        },
+        "frames": {
+            "description": "Draft",
+            "type": "array",
+            "default": []
+        },
+        "obstacles": {
+            "type": "array",
+            "default": [],
+            "items": {
+                "type": "object",
+                "required": ["ID", "collision"],
+                "properties": {
+                    "ID": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string",
+                        "default": ""
+                    },
+                    "visual": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/$defs/geometry"
+                        },
+                        "default": []
+                    },
+                    "collision": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/$defs/geometry"
+                        },
+                        "minItems": 1
+                    }
+                }
+            }
+        },
+        "objects": {
+            "description": "Things to interact with (Draft)",
+            "type": "array",
+            "default": [],
+            "items": {
+                "type": "object",
+                "required": ["ID", "collision"],
+                "properties": {
+                    "ID": {
+                        "type": "string"
+                    },
+                    "mass": {
+                        "type": "number",
+                        "minimum": 0
+                    },
+                    "inertia": {
+                        "type": "array",
+                        "minItems": 3,
+                        "maxItems": 3,
+                        "items": {
+                            "type": "array",
+                            "minItems": 3,
+                            "maxItems": 3,
+                            "items": {
+                                "type": "number",
+                                "default": 0
+                            }
+                        }
+                    },
+                    "r_com": {
+                        "type": "array",
+                        "minItems": 3,
+                        "maxItems": 3,
+                        "items": {
+                            "type": "number",
+                            "default": 0
+                        }
+                    },
+                    "visual": {
+                        "type": "array",
+                        "items": {"$ref": "#/$defs/geometry"}
+                    },
+                    "collision": {
+                        "type": "array",
+                        "items": {"$ref": "#/$defs/geometry"},
+                        "minItems": 1
+                    },
+                    "graspPose": {"$ref": "https://www.crok.cps.in.tum.de/schemas/PoseSchema.json#/$defs/poseWithTolerance"}
+                }
+            }
+        },
+        "constraints": {
+            "description": "Rules to obey with the solving robot",
+            "type": "array",
+            "default": [],
+            "items": {"$ref": "#/$defs/constraint"}
+        },
+        "goals": {
+            "description": "Things the robot should do",
+            "type": "array",
+            "items":
+            {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["ID", "type"],
+                "properties": {
+                    "ID": {"type": "string"},
+                    "type": {
+                        "type": "string",
+                        "enum": ["at", "reach", "returnTo", "pause", "pick", "place", "follow", "leave", "cover"]
+                    },
+                    "constraints": {
+                        "description": "Rules to obey while solving this goal",
+                        "type": "array",
+                        "items": {"$ref": "#/$defs/constraint"}
+                    },
+                    "goalPose": {
+                        "description": "Where to move the end-effector or place object",
+                        "$ref": "https://www.crok.cps.in.tum.de/schemas/PoseSchema.json#/$defs/poseWithTolerance"
+                    },
+                    "returnToGoal": {"type": "string", "description": "ID of another goal"},
+                    "duration": {
+                        "description": "Time in seconds to stand still for",
+                        "type": "number",
+                        "exclusiveMinimum": 0
+                    },
+                    "objectID": {
+                        "type": "string",
+                        "description": "Refers to object by ID to be picked up / placed"
+                    },
+                    "trajectory": {
+                        "description": "Poses to move through",
+                        "type": "object",
+                        "required": ["pose"],
+                        "properties": {
+                            "pose": {
+                                "type": "array",
+                                "description": "Array of poses to pass through to execute this trajectory",
+                                "items": {"$ref": "https://www.crok.cps.in.tum.de/schemas/PoseSchema.json#/$defs/poseWithTolerance"}
+                            },
+                            "t": {
+                                "type": "array",
+                                "description": "Time step for elements in pose, force, torque arrays",
+                                "items": {
+                                    "type": "number",
+                                    "minimum": 0
+                                }
+                            },
+                            "force": {
+                                "type": "array",
+                                "description": "For each time step the three force components acting on the end-effector",
+                                "items": {
+                                    "type": "array",
+                                    "minItems": 3,
+                                    "maxItems": 3,
+                                    "items": {
+                                        "type": "number",
+                                        "default": 0
+                                    }
+                                }
+                            },
+                            "torque": {
+                                "type": "array",
+                                "description": "For each time step the three torque components acting on the end-effector",
+                                "items": {
+                                    "type": "array",
+                                    "minItems": 3,
+                                    "maxItems": 3,
+                                    "items": {
+                                        "type": "number",
+                                        "default": 0
+                                    }
+                                }
+                            },
+                            "forceTorqueReferenceFrame": {
+                                "description": "Frame the force and torque values are provided in",
+                                "type": "string",
+                                "enum": ["world"]
+                            }
+                        }
+                    },
+                    "occupiedSpace": {
+                        "type": "array",
+                        "items": {"$ref": "#/$defs/geometry"},
+                        "minItems": 1
+                    },
+                    "volume": {
+                        "description": "Draft - Space to cover"
+                    },
+                    "tool": {
+                        "description": "Draft - Tool to cover volume with"
+                    }
+                },
+                "oneOf": [
+                    {
+                        "description": "For at / reach goal",
+                        "required": ["goalPose"],
+                        "not" : { "required" : ["objectID"] },
+                        "properties": {
+                            "type": {
+                                "enum": ["at", "reach"]
+                            }
+                        }
+                    },
+                    {
+                        "description": "For returnTo goal (returnToGoal optional)",
+                        "not": {"required": ["goalPose", "objectID", "duration", "occupiedSpace", "trajectory", "volume", "tool"]},
+                        "properties": {
+                            "type": {
+                                "enum": ["returnTo"]
+                            }
+                        }
+                    },
+                    {
+                        "description": "For pause goal",
+                        "required": ["duration"],
+                        "not": {"required": ["occupiedSpace"]},
+                        "properties": {
+                            "type": {
+                                "enum": ["pause"]
+                            }
+                        }
+                    },
+                    {
+                        "description": "For pick goal (Not finalized yet)",
+                        "required": ["objectID"],
+                        "not" : { "required" : ["goalPose"] },
+                        "properties": {
+                            "type": {
+                                "enum": ["pick"]
+                            }
+                        }
+                    },
+                    {
+                        "description": "For place goal (Not finalized yet)",
+                        "required": ["objectID", "goalPose"],
+                        "properties": {
+                            "type": {
+                                "enum": ["place"]
+                            }
+                        }
+                    },
+                    {
+                        "description": "For follow trajectory goal (Not finalized yet)",
+                        "required": ["trajectory"],
+                        "properties": {
+                            "type": {
+                                "enum": ["follow"]
+                            }
+                        }
+                    },
+                    {
+                        "description": "For leave goal",
+                        "required": ["occupiedSpace", "duration"],
+                        "properties": {
+                            "type": {
+                                "enum": ["leave"]
+                            }
+                        }
+                    },
+                    {
+                        "description": "For cover goal",
+                        "required": ["volume", "tool"],
+                        "properties": {
+                            "type": {
+                                "enum": ["cover"]
+                            }
+                        }
+                    }
+                ]
+            }
+        }
+    },
+    "$defs": {
+        "geometryTypes": {
+            "type": "string",
+            "enum": ["mesh", "sphere", "cylinder", "box"]
+        },
+        "geometry": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["type"],
+            "properties": {
+                "type": {"$ref": "#/$defs/geometryTypes"},
+                "pose": {"$ref": "https://www.crok.cps.in.tum.de/schemas/PoseSchema.json#/$defs/pose"},
+                "parameters":{
+                    "type": "object",
+                    "properties": {
+                        "file": {"type": "string"}, 
+                        "scale": {"type": "number", "exclusiveMinimum":0, "default": 1.0},
+                        "r": {"type": "number", "exclusiveMinimum":0}, 
+                        "z":{"type": "number", "exclusiveMinimum":0},
+                        "x":{"type": "number", "exclusiveMinimum":0}, 
+                        "y":{"type": "number", "exclusiveMinimum":0}
+                    },
+                    "oneOf": [
+                        {
+                            "description": "mesh parameters",
+                            "required": ["file"]
+                        },
+                        {
+                            "description": "sphere parameters",
+                            "required": ["r"],
+                            "not": {"required": ["z"]}
+                        },
+                        {
+                            "description": "cylinder parameters",
+                            "required": ["r", "z"]
+                        },
+                        {
+                            "description": "box parameters",
+                            "required": ["x", "y", "z"]
+                        }
+                    ]
+                }
+            }
+        },
+        "constraint": {
+            "oneOf": [
+                {
+                    "type": "null"
+                },
+                {
+                    "type": "object",
+                    "description": "Empty constraint",
+                    "required": [],
+                    "additionalProperties": false,
+                    "properties": {}
+                },
+                {
+                    "type": "object",
+                    "description": "For joint constraint",
+                    "required": ["type", "parts"],
+                    "additionalProperties": false,
+                    "properties": {
+                        "type": {
+                            "type": "string",
+                            "enum": ["joint"]
+                        },
+                        "parts": {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "enum": ["q", "dq", "ddq", "tau"]
+                            }
+                        }
+                    }
+                },
+                {
+                    "type": "object",
+                    "description": "For end-effector and constraint",
+                    "required": ["type"], 
+                    "additionalProperties": false,
+                    "anyOf": [
+                        {"required": ["pose"]},
+                        {"required": ["v_min"]},
+                        {"required": ["v_max"]},
+                        {"required": ["o_min"]},
+                        {"required": ["o_max"]}
+                    ],    
+                    "properties": {
+                        "type": {
+                            "type": "string",
+                            "enum": ["endEffector"]
+                        },
+                        "pose": {
+                            "$ref": "https://www.crok.cps.in.tum.de/schemas/PoseSchema.json#/$defs/poseWithTolerance"
+                        },
+                        "v_min": {
+                            "description": "Minimum translational speed of end effector",
+                            "type": "number",
+                            "minimum": 0
+                        },
+                        "v_max": {
+                            "description": "Maximum translational speed of end effector",
+                            "type": "number",
+                            "minimum": 0
+                        },
+                        "o_min": {
+                            "description": "Minimum rotational speed of end effector",
+                            "type": "number",
+                            "minimum": 0
+                        },
+                        "o_max": {
+                            "description": "Maximum rotational speed of end effector",
+                            "type": "number",
+                            "minimum": 0
+                        }
+                    }
+                },
+                {
+                    "type": "object",
+                    "description": "For all goals in order constraint",
+                    "required": ["type", "order"],
+                    "additionalProperties": false,
+                    "properties": {
+                        "type": {
+                            "type": "string",
+                            "enum": ["allGoalsFulfilledInOrder"]
+                        },
+                        "order": {
+                            "description": "Goal ids in order they should be fulfilled in",
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                },
+                {
+                    "type": "object",
+                    "description": "For those without additional properties allGoalsFulfilled, (self)CollisionFree",
+                    "required": ["type"],
+                    "additionalProperties": false,
+                    "properties": {
+                        "type": {
+                            "type": "string",
+                            "enum": ["allGoalsFulfilled", "selfCollisionFree", "collisionFree"]
+                        }
+                    }
+                },
+                {
+                    "type": "object",
+                    "description": "For basePlacement constraint",
+                    "required": ["type", "pose"], 
+                    "additionalProperties": false,    
+                    "properties": {
+                        "type": {
+                            "type": "string",
+                            "enum": ["basePlacement"]
+                        },
+                        "pose": {
+                            "$ref": "https://www.crok.cps.in.tum.de/schemas/PoseSchema.json#/$defs/poseWithTolerance"
+                        }
+                    }
+                }
+            ]
+        }
+    }
+}

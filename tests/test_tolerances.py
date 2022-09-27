@@ -1,13 +1,13 @@
 import abc
 from copy import deepcopy
+import inspect
 import random
 import unittest
-import inspect
 
 import numpy as np
 import numpy.testing as np_test
 
-from timor.scenario import Tolerance
+from timor.task import Tolerance
 from timor.utilities import spatial
 from timor.utilities.transformation import Transformation
 

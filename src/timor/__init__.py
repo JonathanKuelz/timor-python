@@ -4,7 +4,7 @@ from .Joints import Joint
 from .Module import *
 from .Robot import *
 
-from .scenario import *
+from .task import *
 from .utilities import errors, visualization
 
 from .utilities.tolerated_pose import ToleratedPose

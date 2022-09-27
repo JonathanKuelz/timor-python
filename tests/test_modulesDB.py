@@ -10,8 +10,9 @@ import numpy.testing as np_test
 
 
 from timor.Module import AtomicModule, ModuleAssembly, ModuleHeader, ModulesDB
+from timor.utilities import logging
 
-from timor.utilities.file_locations import get_module_db_files
+from timor.utilities.file_locations import get_module_db_files, robots
 
 
 class TestModulesDB(unittest.TestCase):
@@ -39,7 +40,7 @@ class TestModulesDB(unittest.TestCase):
         """Test that classes can be instantiated empty"""
         minimum_header = ModuleHeader('id', 'name')
         mod = AtomicModule(minimum_header)  # Header required
-        mod = AtomicModule.from_crok_specification({'Header': minimum_header._asdict()}, Path())
+        mod = AtomicModule.from_json_data({'header': minimum_header._asdict()}, Path())
         db = ModulesDB()
         assembly = ModuleAssembly(db)
         with self.assertRaises(ValueError):
@@ -66,6 +67,15 @@ class TestModulesDB(unittest.TestCase):
                                    "There are self-loops in the assembly")
 
         G_a = assembly.assembly_graph
+
+    def test_load_all_from_file(self):
+        available_robots = [folder.name for folder in robots.iterdir()]
+        for db_name in available_robots:
+            if len(tuple(robots.joinpath(db_name).rglob('*.json'))) == 0:
+                logging.debug('Not trying to load db {} - probably not a database'.format(db_name))
+                continue  # Not a json DB file in there
+            db = ModulesDB.from_file(*get_module_db_files(db_name))
+            self.assertGreater(len(db), 0, msg=f"{db_name} is empty after loading")
 
     def test_possible_connections(self):
         possibilities = self.db.possible_connections

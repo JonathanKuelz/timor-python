@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from collections import Counter
 import copy
 import itertools
@@ -16,12 +17,12 @@ import numpy as np
 import pinocchio as pin
 
 from timor.Bodies import Body, BodySet, Connector, ConnectorSet, Gender
-from timor.Joints import CrokJointType, Joint, JointSet
+from timor.Joints import Joint, JointSet, TimorJointType
 from timor import Robot
 from timor.utilities import spatial, write_urdf
-from timor.utilities.crok_formatting import compress_json_vectors, possibly_nest_as_list
 from timor.utilities.dtypes import SingleSet, fuzzy_dict_key_matching, randomly
 import timor.utilities.errors as err
+from timor.utilities.json_serialization_formatting import compress_json_vectors, possibly_nest_as_list
 from timor.utilities.transformation import Transformation, TransformationLike
 
 
@@ -30,9 +31,10 @@ class ModuleHeader(NamedTuple):
 
     moduleID: str
     moduleName: str
-    author: str = ''
-    authorEMail: str = ''
-    affiliation: str = ''
+    author: List[str] = ['']
+    email: List[str] = ['']
+    affiliation: List[str] = ['']
+    cost: float = 0.
 
 
 class AtomicModule:
@@ -46,7 +48,7 @@ class AtomicModule:
                  joints: Iterable[Joint] = ()
                  ):
         """
-        One single module as defined in the crok-specification.
+        One single module, an atomic building block of a modular robot.
 
         :param header: The header of the module containing distinct meta-information
         :param bodies: The bodies contained in the module - defaults to none.
@@ -80,18 +82,18 @@ class AtomicModule:
         """
         Maps a concert-module description to an instance of this class.
 
-        The concert module definition closely follows the crok one. However, in the concert project, we only deal with
+        The concert module definition closely follows the Timor one. However, in the concert project, we only deal with
         "serial", "chain-like" robots and monodirectional modules. For the sake of simplicity (makes implementation for
         partners easier), proximal (here: female) connectors are pointing INSIDE the module. To work in the more general
         case this toolbox is dealing with, they have to be "turned to the outside".
-        Furthermore, CONCERT defines child geometries relative to joint frames, while crok would define them relative to
+        Furthermore, CONCERT defines child geometries relative to joint frames, while we would define them relative to
         their body frames (for CONCERT, the "body" frame always aligns with the connector frame). Therefore, geometry
         placements after joints need to be offset.
         :param package_dir: Package directory relative to which mesh file paths are defined
         :param d: A dictionary with relevant meta-information
         :return: An instantiated module
         """
-        module = cls.from_crok_specification(d, package_dir)
+        module = cls.from_json_data(d, package_dir)
         for connector in module.available_connectors.values():
             if connector.gender is Gender.female:
                 connector.body2connector = connector.body2connector @ spatial.rotX(np.pi)
@@ -105,9 +107,9 @@ class AtomicModule:
         return module
 
     @classmethod
-    def from_crok_specification(cls, d: Dict, package_dir: Path) -> 'AtomicModule':
+    def from_json_data(cls, d: Dict, package_dir: Path) -> 'AtomicModule':
         """
-        Maps the crok-module description to an instance of this class.
+        Maps the a json module description to an instance of this class.
 
         The dictionary will be modified in-place until empty (everything was parsed).
 
@@ -115,24 +117,24 @@ class AtomicModule:
         :param d: A dictionary with relevant meta-information
         :return: An instantiated module
         """
-        _header = d.pop('Header')
-        module_aliases = {'id': 'moduleID', 'name': 'moduleName', 'authorName': 'author'}
+        _header = d.pop('header')
+        module_aliases = {'ID': 'moduleID', 'name': 'moduleName'}
 
         header = fuzzy_dict_key_matching(_header, module_aliases, ModuleHeader._fields)
         header['moduleID'] = str(header['moduleID'])
         header = ModuleHeader(**header)
 
-        if 'Bodies' in d:
-            bodies = [Body.from_crok_specification(body_data, package_dir)
-                      for body_data in possibly_nest_as_list(d.pop('Bodies'))]
+        if 'bodies' in d:
+            bodies = [Body.from_json_data(body_data, package_dir)
+                      for body_data in possibly_nest_as_list(d.pop('bodies'))]
             body_name_to_instance = {b._id: b for b in bodies}
-            if 'Joints' in d:
-                joints = [Joint.from_crok_specification(joint_data, body_name_to_instance)
-                          for joint_data in possibly_nest_as_list(d.pop('Joints'))]
+            if 'joints' in d:
+                joints = [Joint.from_json_data(joint_data, body_name_to_instance)
+                          for joint_data in possibly_nest_as_list(d.pop('joints'))]
             else:
                 joints = ()
         else:
-            if 'Joints' in d:
+            if 'joints' in d:
                 raise ValueError("Joints specified without any bodies!")
             bodies = ()
             joints = ()
@@ -239,7 +241,7 @@ class AtomicModule:
         new_header = ModuleHeader(
             moduleID=self.id + suffix,
             moduleName=self.name + suffix,
-            author=self.header.author, authorEMail=self.header.authorEMail, affiliation=self.header.affiliation
+            author=self.header.author, email=self.header.email, affiliation=self.header.affiliation
         )
         new_bodies = BodySet(copy.copy(body) for body in self.bodies)
         bodies_by_id = {body.id: body for body in new_bodies}
@@ -279,16 +281,16 @@ class AtomicModule:
         return any(this_con.connects(other_con) for this_con, other_con
                    in itertools.product(self.available_connectors.values(), other.available_connectors.values()))
 
-    def to_crok_specification(self) -> Dict:
+    def to_json_data(self) -> Dict:
         """
-        Write a json in crok-format that fully describes this module.
+        Write a json in that fully describes this module.
 
         :return: Returns the module specification in a json-ready dictionary
         """
         return {
-            'Header': self.header._asdict(),
-            'Bodies': [body.to_crok_specification() for body in sorted(self.bodies, key=lambda b: b.id)],
-            'Joints': [joint.to_crok_specification() for joint in sorted(self.joints, key=lambda j: j.id)]
+            'header': self.header._asdict(),
+            'bodies': [body.to_json_data() for body in sorted(self.bodies, key=lambda b: b.id)],
+            'joints': [joint.to_json_data() for joint in sorted(self.joints, key=lambda j: j.id)]
         }
 
 
@@ -366,7 +368,7 @@ class ModulesDB(SingleSet[AtomicModule]):
         db = cls()
 
         for module_data in json_content:
-            db.add(AtomicModule.from_crok_specification(module_data, package_dir))
+            db.add(AtomicModule.from_json_data(module_data, package_dir))
         return db
 
     def to_json(self, save_at: Path = None) -> str:
@@ -376,7 +378,7 @@ class ModulesDB(SingleSet[AtomicModule]):
         :param save_at: If given, the file will be written to that path.
         :return: The json string
         """
-        content = json.dumps([mod.to_crok_specification() for mod in sorted(self, key=lambda mod: mod.id)], indent=2)
+        content = json.dumps([mod.to_json_data() for mod in sorted(self, key=lambda mod: mod.id)], indent=2)
 
         content = compress_json_vectors(content)
 
@@ -927,7 +929,7 @@ class ModuleAssembly:
                                                 pin.FrameType.OP_FRAME))
                         frames[successor.id + ("CoM",)] = new_frame
                         parent_joints[successor.id + ("CoM",)] = parent_joints[successor.id]
-                elif isinstance(successor, Joint) and successor.type is not CrokJointType.fixed:
+                elif isinstance(successor, Joint) and successor.type is not TimorJointType.fixed:
                     options = successor.pin_joint_kwargs
                     options.update(no_update)  # Robot data will be updated once only - at the very end
                     options['joint_placement'] = pin.SE3(transform)  # Relative placement to parent joint
@@ -941,7 +943,7 @@ class ModuleAssembly:
                     transforms[successor.id] = Transformation.neutral().homogeneous
                     frames[successor.id] = robot.model.getFrameId(options['joint_name'])
                 elif isinstance(successor, Connector) or \
-                        (isinstance(successor, Joint) and successor.type is CrokJointType.fixed):
+                        (isinstance(successor, Joint) and successor.type is TimorJointType.fixed):
                     new_frame = robot.model.addFrame(
                         pin.Frame('.'.join(successor.id), parent_joints[node.id], frames[node.id], pin.SE3(transform),
                                   pin.FrameType.FIXED_JOINT))
@@ -989,7 +991,7 @@ class ModuleAssembly:
                     link.append(write_urdf.from_geometry(successor.collision, 'collision',
                                                          name=body_name + '_visual', link_frame=transform))
                     links.append(link)
-                elif isinstance(successor, Joint) and successor.type is not CrokJointType.fixed:
+                elif isinstance(successor, Joint) and successor.type is not TimorJointType.fixed:
                     joint = ET.Element('joint', {'name': '.'.join(successor.id),
                                                  'type': get_urdf_joint_type(successor)})
                     ET.SubElement(joint, 'origin', {'xyz': ' '.join(map(str, transform[:3, 3])),
@@ -1017,7 +1019,7 @@ class ModuleAssembly:
                         ET.SubElement(joint, 'child', {'link': '.'.join(successor.parent.id)})
                         joints.append(joint)
                         transforms[successor.id] = Transformation.neutral().homogeneous
-                elif isinstance(successor, Joint) and successor.type is CrokJointType.fixed:
+                elif isinstance(successor, Joint) and successor.type is TimorJointType.fixed:
                     assert False, "Did not think about that yet"
                 else:
                     raise NotImplementedError("Graph can only contain bodies, joints and connectors")
