@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections import Counter
 import copy
+import datetime
 import itertools
 import json
 import math
@@ -20,7 +21,7 @@ from timor.Bodies import Body, BodySet, Connector, ConnectorSet, Gender
 from timor.Joints import Joint, JointSet, TimorJointType
 from timor import Robot
 from timor.utilities import spatial, write_urdf
-from timor.utilities.dtypes import SingleSet, fuzzy_dict_key_matching, randomly
+from timor.utilities.dtypes import SingleSet, randomly
 import timor.utilities.errors as err
 from timor.utilities.json_serialization_formatting import compress_json_vectors, possibly_nest_as_list
 from timor.utilities.transformation import Transformation, TransformationLike
@@ -29,8 +30,9 @@ from timor.utilities.transformation import Transformation, TransformationLike
 class ModuleHeader(NamedTuple):
     """The header every module contains"""
 
-    moduleID: str
-    moduleName: str
+    ID: str
+    name: str
+    date: datetime.datetime = datetime.datetime(1970, 1, 1)
     author: List[str] = ['']
     email: List[str] = ['']
     affiliation: List[str] = ['']
@@ -56,7 +58,7 @@ class AtomicModule:
           provided for each joint.
         """
         if isinstance(header, dict):
-            header['moduleID'] = str(header['moduleID'])  # Sensitive due to json parsing
+            header['ID'] = str(header['ID'])  # Sensitive due to json parsing
             header = ModuleHeader(**header)
         self.header: ModuleHeader = header
         self._bodies: BodySet[Body] = BodySet(bodies)
@@ -117,11 +119,9 @@ class AtomicModule:
         :param d: A dictionary with relevant meta-information
         :return: An instantiated module
         """
-        _header = d.pop('header')
-        module_aliases = {'ID': 'moduleID', 'name': 'moduleName'}
-
-        header = fuzzy_dict_key_matching(_header, module_aliases, ModuleHeader._fields)
-        header['moduleID'] = str(header['moduleID'])
+        header = d.pop('header')
+        if isinstance(header['date'], str):
+            header['date'] = datetime.datetime.strptime(header['date'], '%Y-%m-%d')
         header = ModuleHeader(**header)
 
         if 'bodies' in d:
@@ -143,6 +143,21 @@ class AtomicModule:
             raise ValueError("Unrecognized keys in module specification: " + str(d.keys()))
 
         return cls(header, bodies, joints)
+
+    def to_json_data(self) -> Dict:
+        """
+        Write a json in that fully describes this module.
+
+        :return: Returns the module specification in a json-ready dictionary
+        """
+        header = self.header._asdict()
+        header['date'] = header['date'].strftime('%Y-%m-%d')
+
+        return {
+            'header': header,
+            'bodies': [body.to_json_data() for body in sorted(self.bodies, key=lambda b: b.id)],
+            'joints': [joint.to_json_data() for joint in sorted(self.joints, key=lambda j: j.id)]
+        }
 
     @property
     def connectors_by_own_id(self) -> Dict[str, Connector]:
@@ -195,7 +210,7 @@ class AtomicModule:
     @property
     def id(self) -> str:
         """The unique ID of this module."""
-        return self.header.moduleID
+        return self.header.ID
 
     @property
     def joints(self) -> JointSet[Joint]:
@@ -221,7 +236,7 @@ class AtomicModule:
     @property
     def name(self) -> str:
         """Returns the unique name of this module."""
-        return self.header.moduleName
+        return self.header.name
 
     def _check_unique_connectors(self):
         """Sanity check that all connectors are unique"""
@@ -239,8 +254,8 @@ class AtomicModule:
         :return: A functional copy of this module with altered ID
         """
         new_header = ModuleHeader(
-            moduleID=self.id + suffix,
-            moduleName=self.name + suffix,
+            ID=self.id + suffix,
+            name=self.name + suffix,
             author=self.header.author, email=self.header.email, affiliation=self.header.affiliation
         )
         new_bodies = BodySet(copy.copy(body) for body in self.bodies)
@@ -281,18 +296,6 @@ class AtomicModule:
         return any(this_con.connects(other_con) for this_con, other_con
                    in itertools.product(self.available_connectors.values(), other.available_connectors.values()))
 
-    def to_json_data(self) -> Dict:
-        """
-        Write a json in that fully describes this module.
-
-        :return: Returns the module specification in a json-ready dictionary
-        """
-        return {
-            'header': self.header._asdict(),
-            'bodies': [body.to_json_data() for body in sorted(self.bodies, key=lambda b: b.id)],
-            'joints': [joint.to_json_data() for joint in sorted(self.joints, key=lambda j: j.id)]
-        }
-
 
 class ModulesDB(SingleSet[AtomicModule]):
     """
@@ -314,8 +317,8 @@ class ModulesDB(SingleSet[AtomicModule]):
         (All of the below holds for modules and their sub-modules and their sub-sub-modules, and...
         to keep it short, all of those are just described as "modules")
 
-          - All moduleIDs in the DB are unique
-          - All moduleNames in the DB are unique
+          - All module IDs in the DB are unique
+          - All module names in the DB are unique
           - All JointIDs in the DB are unique
           - All BodyIDs in the DB are unique
           - All ConnectorIDs in the DB are unique

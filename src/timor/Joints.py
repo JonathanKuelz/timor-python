@@ -165,8 +165,8 @@ class Joint:
             'poseParent': self.parent2joint.serialized,
             'poseChild': self.joint2child.serialized,
             'limits': {
-                'positionLower': self.limits[0, :].tolist(),
-                'positionUpper': self.limits[1, :].tolist(),
+                'positionLower': self.limits[0, :].tolist()[0],
+                'positionUpper': self.limits[1, :].tolist()[0],
                 'peakTorque': self.torque_limit,
                 'velocity': self.velocity_limit,
                 'acceleration': self.acceleration_limit

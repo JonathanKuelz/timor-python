@@ -87,6 +87,8 @@ class Task:
         if 'Tasks' in content or 'tasks' in content:
             raise NotImplementedError("Using tasks is deprecated! Define goals directly in tasks.")
         content['header']['taskID'] = str(content['header']['taskID'])
+        if isinstance(content['header']['date'], str):
+            content['header']['date'] = datetime.datetime.strptime(content['header']['date'], '%Y-%m-%d')
         header = TaskHeader(**{key: arg for key, arg in content.pop('header').items()})
         obstacles = [Obstacle.from_json_data(
             specs | {'package_dir': package_dir}) for specs in content.pop('obstacles')]
@@ -129,6 +131,7 @@ class Task:
 
         # Header
         content['header'] = self.header._asdict()
+        content['header']['date'] = content['header']['date'].strftime('%Y-%m-%d')
 
         # Constraints
         content['constraints'] = []

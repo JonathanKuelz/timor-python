@@ -2,7 +2,7 @@ import abc
 import datetime
 import json
 from pathlib import Path
-from typing import Dict, NamedTuple, Tuple, Union
+from typing import Dict, List, NamedTuple, Tuple, Union
 import warnings
 
 import numpy as np
@@ -22,9 +22,9 @@ class SolutionHeader(NamedTuple):
 
     taskID: str  # This is NOT the Solution ID, but identifies the task the solution was crafted for!
     version: str = "Py2022"
-    author: str = ''
-    authorEMail: str = ''
-    affiliation: str = ''
+    author: List[str] = ''
+    email: List[str] = ''
+    affiliation: List[str] = ''
     publication: str = ''
     date: datetime.datetime = datetime.datetime(1970, 1, 1)
     computationTime: float = -1.
@@ -70,6 +70,8 @@ class SolutionBase(abc.ABC):
         content = json.load(json_path.open('r'))
         _header = fuzzy_dict_key_matching(content, desired_only=SolutionHeader._fields)
         _header['taskID'] = str(_header['taskID'])
+        if isinstance(_header['date'], str):
+            _header['date'] = datetime.datetime.strptime(_header['date'], "%Y-%m-%d")
         header = SolutionHeader(**_header)
         try:
             sol_task = tasks[header.taskID]

@@ -69,7 +69,7 @@ class Connector:
                  parent: 'Body' = None,
                  gender: Union[Gender, str] = Gender.hermaphroditic,
                  connector_type: str = '',
-                 size: Union[int, float, np.ndarray] = None  # size format depends on type
+                 size: Union[int, float, np.ndarray] = tuple()  # size format depends on type
                  ):
         """
         Construct a Connector.
@@ -118,6 +118,8 @@ class Connector:
         """
         if isinstance(self.size, np.ndarray):
             size = self.size.tolist()
+        elif isinstance(self.size, float):
+            size = (self.size,)
         else:
             size = self.size
         return {
