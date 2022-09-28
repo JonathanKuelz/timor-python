@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, fields
 import datetime
 import logging
 import random
@@ -211,10 +211,10 @@ class TypedHeader:
         def list_factory() -> List[str]: return ['']
         return field(default_factory=list_factory)
 
-    @property
-    def _fields(self) -> Tuple[str]:
+    @classmethod
+    def fields(cls) -> Tuple[str, ...]:
         """Returns the fields of this class"""
-        return tuple(self._asdict().keys())
+        return tuple(f.name for f in fields(cls))
 
     def _asdict(self) -> Dict[str, Any]:
         """Returns a dictionary representation of this object"""

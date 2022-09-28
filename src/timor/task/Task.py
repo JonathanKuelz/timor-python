@@ -87,8 +87,6 @@ class Task:
         :param package_dir: The path to the package directory, to which the mesh file paths are relative to.
         """
         content = json.load(filepath.open('r'))
-        if 'Tasks' in content or 'tasks' in content:
-            raise NotImplementedError("Using tasks is deprecated! Define goals directly in tasks.")
         content['header']['taskID'] = str(content['header']['taskID'])
         if isinstance(content['header']['date'], str):
             content['header']['date'] = datetime.datetime.strptime(content['header']['date'], '%Y-%m-%d')

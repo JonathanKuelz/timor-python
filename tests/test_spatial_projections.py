@@ -9,11 +9,22 @@ from timor.utilities.spatial import dh_extended_to_homogeneous, homogeneous, rot
 from timor.utilities.transformation import Transformation
 
 
-class MyTestCase(unittest.TestCase):
+class TestSpatialutilities(unittest.TestCase):
     """Place to test spatial projections."""
     def setUp(self) -> None:
         np.random.seed(0)
         random.seed(0)
+
+    @staticmethod
+    def test_dh_extended_to_homogeneous():
+        np_test.assert_array_almost_equal(dh_extended_to_homogeneous(a=1), homogeneous((1, 0, 0)))
+        np_test.assert_array_almost_equal(dh_extended_to_homogeneous(alpha=1), rotX(1))
+        np_test.assert_array_almost_equal(dh_extended_to_homogeneous(delta=1), rotZ(-1))
+        np_test.assert_array_almost_equal(dh_extended_to_homogeneous(p=1), homogeneous((0, 0, -1)))
+        np_test.assert_array_almost_equal(dh_extended_to_homogeneous(n=1), homogeneous((0, 0, 1)))
+
+        np_test.assert_array_almost_equal(dh_extended_to_homogeneous(p=1, n=1), Transformation.neutral().homogeneous)
+        np_test.assert_array_almost_equal(dh_extended_to_homogeneous(n=1, a=1), homogeneous((1, 0, 1)))
 
     @staticmethod
     def test_euler():
@@ -96,16 +107,13 @@ class MyTestCase(unittest.TestCase):
                 # The only valid reason to fail is that the projection is not possible
                 self.assertTrue((limits[1, :] - limits[0, :] < 2 * np.pi).any())
 
-    @staticmethod
-    def test_dh_extended_to_homogeneous():
-        np_test.assert_array_almost_equal(dh_extended_to_homogeneous(a=1), homogeneous((1, 0, 0)))
-        np_test.assert_array_almost_equal(dh_extended_to_homogeneous(alpha=1), rotX(1))
-        np_test.assert_array_almost_equal(dh_extended_to_homogeneous(delta=1), rotZ(-1))
-        np_test.assert_array_almost_equal(dh_extended_to_homogeneous(p=1), homogeneous((0, 0, -1)))
-        np_test.assert_array_almost_equal(dh_extended_to_homogeneous(n=1), homogeneous((0, 0, 1)))
-
-        np_test.assert_array_almost_equal(dh_extended_to_homogeneous(p=1, n=1), Transformation.neutral().homogeneous)
-        np_test.assert_array_almost_equal(dh_extended_to_homogeneous(n=1, a=1), homogeneous((1, 0, 1)))
+    def test_skew_vector(self):
+        for _ in range(50):
+            v = np.random.random(3)
+            x = np.random.random(3)
+            M = spatial.skew(v)
+            np_test.assert_array_almost_equal(M @ x, np.cross(v, x))
+            np_test.assert_array_almost_equal(M, -M.T)
 
 
 if __name__ == '__main__':

@@ -238,11 +238,6 @@ def rotX(alpha: float) -> np.ndarray:
     return R
 
 
-def rotX_coordinate_frame(alpha: float) -> np.ndarray:
-    """Returns a transformation rotation matrix for a rotation of a coordinate frame around the x-axis"""
-    return rotX(alpha).T
-
-
 def rotY(beta: float) -> np.ndarray:
     """Returns a transformation rotation matrix for a rotation of a vector around the y-axis"""
     R = np.eye(4)
@@ -250,21 +245,11 @@ def rotY(beta: float) -> np.ndarray:
     return R
 
 
-def rotY_coordinate_frame(beta: float) -> np.ndarray:
-    """Returns a transformation rotation matrix for a rotation of a coordinate frame around the y-axis"""
-    return rotY(beta).T
-
-
 def rotZ(gamma: float) -> np.ndarray:
     """Returns a transformation rotation matrix for a rotation of a vector around the z-axis"""
     R = np.eye(4)
     R[:2, :2] = rot2D(gamma)
     return R
-
-
-def rotZ_coordinate_frame(gamma: float) -> np.ndarray:
-    """Returns a transformation rotation matrix for a rotation of a coordinate frame around the z-axis"""
-    return rotZ(gamma).T
 
 
 def skew(vec3: np.ndarray) -> np.ndarray:
@@ -276,14 +261,3 @@ def skew(vec3: np.ndarray) -> np.ndarray:
         [vec3[2], 0, -vec3[0]],
         [-vec3[1], vec3[0], 0]
     ])
-
-
-def xyz_rpy_to_homogeneous(xyz: np.ndarray, rpy: np.ndarray) -> np.ndarray:
-    """
-    Transforms a URDF-Like position description of xyz and roll pitch yaw to a transformation transform.
-
-    Uses `EXTRINSIC euler rotation
-    <https://answers.ros.org/question/58863/incorrect-rollpitch-yaw-values-using-getrpy/>`_
-    """
-    rot = Rotation.from_euler('xyz', rpy).as_matrix()
-    return homogeneous(xyz, rot)

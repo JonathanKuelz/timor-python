@@ -70,7 +70,7 @@ class SolutionBase(abc.ABC):
     def from_json(json_path: Path, package_dir: Path, tasks: Dict[str, 'Task.Task']) -> 'SolutionBase':
         """Factory method to load a class instance from a json file."""
         content = json.load(json_path.open('r'))
-        _header = fuzzy_dict_key_matching(content, desired_only=SolutionHeader._fields)
+        _header = fuzzy_dict_key_matching(content, desired_only=SolutionHeader.fields())
         _header['taskID'] = str(_header['taskID'])
         if isinstance(_header['date'], str):
             _header['date'] = datetime.datetime.strptime(_header['date'], "%Y-%m-%d")
