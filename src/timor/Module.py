@@ -2,12 +2,14 @@ from __future__ import annotations
 
 from collections import Counter
 import copy
+from dataclasses import dataclass
+import datetime
 import itertools
 import json
 import math
 from pathlib import Path
 import random
-from typing import Callable, Collection, Dict, Iterable, List, NamedTuple, Optional, Set, Tuple, Union
+from typing import Callable, Collection, Dict, Iterable, List, Optional, Set, Tuple, Union
 import uuid
 import xml.etree.ElementTree as ET
 
@@ -20,20 +22,22 @@ from timor.Bodies import Body, BodySet, Connector, ConnectorSet, Gender
 from timor.Joints import Joint, JointSet, TimorJointType
 from timor import Robot
 from timor.utilities import spatial, write_urdf
-from timor.utilities.dtypes import SingleSet, fuzzy_dict_key_matching, randomly
+from timor.utilities.dtypes import SingleSet, TypedHeader, randomly
 import timor.utilities.errors as err
 from timor.utilities.json_serialization_formatting import compress_json_vectors, possibly_nest_as_list
 from timor.utilities.transformation import Transformation, TransformationLike
 
 
-class ModuleHeader(NamedTuple):
+@dataclass
+class ModuleHeader(TypedHeader):
     """The header every module contains"""
 
-    moduleID: str
-    moduleName: str
-    author: List[str] = ['']
-    email: List[str] = ['']
-    affiliation: List[str] = ['']
+    ID: str
+    name: str
+    date: datetime.datetime = datetime.datetime(1970, 1, 1)
+    author: List[str] = TypedHeader.string_list_factory()
+    email: List[str] = TypedHeader.string_list_factory()
+    affiliation: List[str] = TypedHeader.string_list_factory()
     cost: float = 0.
 
 
@@ -56,7 +60,7 @@ class AtomicModule:
           provided for each joint.
         """
         if isinstance(header, dict):
-            header['moduleID'] = str(header['moduleID'])  # Sensitive due to json parsing
+            header['ID'] = str(header['ID'])  # Sensitive due to json parsing
             header = ModuleHeader(**header)
         self.header: ModuleHeader = header
         self._bodies: BodySet[Body] = BodySet(bodies)
@@ -78,10 +82,12 @@ class AtomicModule:
         return f"Module {self.name}, ID: {self.id}"
 
     @classmethod
-    def from_concert_specification(cls, d: Dict, package_dir: Path) -> 'AtomicModule':
+    def from_concert_specification(cls, d: Dict, package_dir: Path) -> 'AtomicModule':  # pragma: no cover
         """
         Maps a concert-module description to an instance of this class.
 
+        This library was developed in the context of the EU sponsored CONCERT project.
+        For more information visit https://concertproject.eu/
         The concert module definition closely follows the Timor one. However, in the concert project, we only deal with
         "serial", "chain-like" robots and monodirectional modules. For the sake of simplicity (makes implementation for
         partners easier), proximal (here: female) connectors are pointing INSIDE the module. To work in the more general
@@ -117,11 +123,7 @@ class AtomicModule:
         :param d: A dictionary with relevant meta-information
         :return: An instantiated module
         """
-        _header = d.pop('header')
-        module_aliases = {'ID': 'moduleID', 'name': 'moduleName'}
-
-        header = fuzzy_dict_key_matching(_header, module_aliases, ModuleHeader._fields)
-        header['moduleID'] = str(header['moduleID'])
+        header = d.pop('header')
         header = ModuleHeader(**header)
 
         if 'bodies' in d:
@@ -143,6 +145,21 @@ class AtomicModule:
             raise ValueError("Unrecognized keys in module specification: " + str(d.keys()))
 
         return cls(header, bodies, joints)
+
+    def to_json_data(self) -> Dict:
+        """
+        Write a json in that fully describes this module.
+
+        :return: Returns the module specification in a json-ready dictionary
+        """
+        header = self.header._asdict()
+        header['date'] = header['date'].strftime('%Y-%m-%d')
+
+        return {
+            'header': header,
+            'bodies': [body.to_json_data() for body in sorted(self.bodies, key=lambda b: b.id)],
+            'joints': [joint.to_json_data() for joint in sorted(self.joints, key=lambda j: j.id)]
+        }
 
     @property
     def connectors_by_own_id(self) -> Dict[str, Connector]:
@@ -195,7 +212,7 @@ class AtomicModule:
     @property
     def id(self) -> str:
         """The unique ID of this module."""
-        return self.header.moduleID
+        return self.header.ID
 
     @property
     def joints(self) -> JointSet[Joint]:
@@ -221,7 +238,7 @@ class AtomicModule:
     @property
     def name(self) -> str:
         """Returns the unique name of this module."""
-        return self.header.moduleName
+        return self.header.name
 
     def _check_unique_connectors(self):
         """Sanity check that all connectors are unique"""
@@ -239,8 +256,8 @@ class AtomicModule:
         :return: A functional copy of this module with altered ID
         """
         new_header = ModuleHeader(
-            moduleID=self.id + suffix,
-            moduleName=self.name + suffix,
+            ID=self.id + suffix,
+            name=self.name + suffix,
             author=self.header.author, email=self.header.email, affiliation=self.header.affiliation
         )
         new_bodies = BodySet(copy.copy(body) for body in self.bodies)
@@ -253,7 +270,7 @@ class AtomicModule:
             new_joints.add(new)
         return self.__class__(new_header, new_bodies, new_joints)
 
-    def debug_visualization(self,
+    def debug_visualization(self,  # pragma: no cover
                             viz: pin.visualize.MeshcatVisualizer = None,
                             show_com: bool = True,
                             base_placement: np.array = Transformation.neutral()) -> pin.visualize.MeshcatVisualizer:
@@ -277,21 +294,9 @@ class AtomicModule:
         return tmp_ass.to_pin_robot(add_com_frames=show_com, base_placement=base_placement).visualize(viz, 'full')
 
     def can_connect(self, other: 'AtomicModule') -> bool:
-        """Returnrs true if at least one of the connectors of this module matches at least one connector of other"""
+        """Returns true if at least one of the connectors of this module matches at least one connector of other"""
         return any(this_con.connects(other_con) for this_con, other_con
                    in itertools.product(self.available_connectors.values(), other.available_connectors.values()))
-
-    def to_json_data(self) -> Dict:
-        """
-        Write a json in that fully describes this module.
-
-        :return: Returns the module specification in a json-ready dictionary
-        """
-        return {
-            'header': self.header._asdict(),
-            'bodies': [body.to_json_data() for body in sorted(self.bodies, key=lambda b: b.id)],
-            'joints': [joint.to_json_data() for joint in sorted(self.joints, key=lambda j: j.id)]
-        }
 
 
 class ModulesDB(SingleSet[AtomicModule]):
@@ -314,8 +319,8 @@ class ModulesDB(SingleSet[AtomicModule]):
         (All of the below holds for modules and their sub-modules and their sub-sub-modules, and...
         to keep it short, all of those are just described as "modules")
 
-          - All moduleIDs in the DB are unique
-          - All moduleNames in the DB are unique
+          - All module IDs in the DB are unique
+          - All module names in the DB are unique
           - All JointIDs in the DB are unique
           - All BodyIDs in the DB are unique
           - All ConnectorIDs in the DB are unique
@@ -478,7 +483,7 @@ class ModulesDB(SingleSet[AtomicModule]):
             G.add_edge(mod_b, mod_a, connectors=(con_b, con_a))
         return G
 
-    def debug_visualization(self,
+    def debug_visualization(self,  # pragma: no cover
                             viz: pin.visualize.MeshcatVisualizer = None,
                             stride: float = 1) -> pin.visualize.MeshcatVisualizer:
         """

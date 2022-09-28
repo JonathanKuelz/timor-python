@@ -1,8 +1,9 @@
 [
   {
     "header": {
-      "moduleID": "J1",
-      "moduleName": "Prismatic Joint",
+      "ID": "J1",
+      "name": "Prismatic Joint",
+      "date": "2022-09-15",
       "author": [
         "Jonathan K\u00fclz"
       ],
@@ -35,7 +36,7 @@
             ],
             "gender": "m",
             "type": "default",
-            "size": 0.08
+            "size": [ 0.08 ]
           }
         ],
         "collision": [
@@ -74,7 +75,7 @@
             ],
             "gender": "f",
             "type": "default",
-            "size": 0.08
+            "size": [ 0.08 ]
           }
         ],
         "collision": [
@@ -114,8 +115,8 @@
           [ 0.0, 0.0, 0.0, 1.0 ]
         ],
         "limits": {
-          "positionLower": [ 0.0 ],
-          "positionUpper": [ 0.06 ],
+          "positionLower": 0.0,
+          "positionUpper": 0.06,
           "peakTorque": Infinity,
           "velocity": Infinity,
           "acceleration": Infinity
@@ -129,8 +130,9 @@
   },
   {
     "header": {
-      "moduleID": "J2",
-      "moduleName": "Revolute Joint",
+      "ID": "J2",
+      "name": "Revolute Joint",
+      "date": "2022-09-15",
       "author": [
         "Jonathan K\u00fclz"
       ],
@@ -163,7 +165,7 @@
             ],
             "gender": "m",
             "type": "default",
-            "size": 0.08
+            "size": [ 0.08 ]
           }
         ],
         "collision": [
@@ -202,7 +204,7 @@
             ],
             "gender": "f",
             "type": "default",
-            "size": 0.08
+            "size": [ 0.08 ]
           }
         ],
         "collision": [
@@ -254,8 +256,8 @@
           [ 0.0, 0.0, 0.0, 1.0 ]
         ],
         "limits": {
-          "positionLower": [ -3.141592653589793 ],
-          "positionUpper": [ 3.141592653589793 ],
+          "positionLower": -3.141592653589793,
+          "positionUpper": 3.141592653589793,
           "peakTorque": 1000.0,
           "velocity": 10.0,
           "acceleration": 5.0
@@ -269,8 +271,9 @@
   },
   {
     "header": {
-      "moduleID": "base",
-      "moduleName": "Base",
+      "ID": "base",
+      "name": "Base",
+      "date": "2022-09-15",
       "author": [
         "Jonathan K\u00fclz"
       ],
@@ -303,7 +306,7 @@
             ],
             "gender": "f",
             "type": "base",
-            "size": 0.08
+            "size": [ 0.08 ]
           },
           {
             "ID": "base2robot",
@@ -315,7 +318,7 @@
             ],
             "gender": "m",
             "type": "default",
-            "size": 0.08
+            "size": [ 0.08 ]
           }
         ],
         "collision": [
@@ -340,8 +343,9 @@
   },
   {
     "header": {
-      "moduleID": "eef",
-      "moduleName": "Demo EEF",
+      "ID": "eef",
+      "name": "Demo EEF",
+      "date": "2022-09-15",
       "author": [
         "Jonathan K\u00fclz"
       ],
@@ -374,7 +378,7 @@
             ],
             "gender": "m",
             "type": "eef",
-            "size": null
+            "size": []
           },
           {
             "ID": "robot2eef",
@@ -386,7 +390,7 @@
             ],
             "gender": "f",
             "type": "default",
-            "size": 0.08
+            "size": [ 0.08 ]
           }
         ],
         "collision": [
@@ -409,8 +413,9 @@
   },
   {
     "header": {
-      "moduleID": "i_15",
-      "moduleName": "I shaped link 0.08-0.08-15",
+      "ID": "i_15",
+      "name": "I shaped link 0.08-0.08-15",
+      "date": "2022-09-15",
       "author": [
         "Jonathan K\u00fclz"
       ],
@@ -443,7 +448,7 @@
             ],
             "gender": "f",
             "type": "default",
-            "size": 0.08
+            "size": [ 0.08 ]
           },
           {
             "ID": "8-1",
@@ -455,7 +460,7 @@
             ],
             "gender": "m",
             "type": "default",
-            "size": 0.08
+            "size": [ 0.08 ]
           }
         ],
         "collision": [
@@ -479,8 +484,9 @@
   },
   {
     "header": {
-      "moduleID": "i_30",
-      "moduleName": "I shaped link 0.08-0.08-30",
+      "ID": "i_30",
+      "name": "I shaped link 0.08-0.08-30",
+      "date": "2022-09-15",
       "author": [
         "Jonathan K\u00fclz"
       ],
@@ -513,7 +519,7 @@
             ],
             "gender": "f",
             "type": "default",
-            "size": 0.08
+            "size": [ 0.08 ]
           },
           {
             "ID": "8-1",
@@ -525,7 +531,7 @@
             ],
             "gender": "m",
             "type": "default",
-            "size": 0.08
+            "size": [ 0.08 ]
           }
         ],
         "collision": [
@@ -549,8 +555,9 @@
   },
   {
     "header": {
-      "moduleID": "i_45",
-      "moduleName": "I shaped link 0.08-0.08-45",
+      "ID": "i_45",
+      "name": "I shaped link 0.08-0.08-45",
+      "date": "2022-09-15",
       "author": [
         "Jonathan K\u00fclz"
       ],
@@ -583,7 +590,7 @@
             ],
             "gender": "f",
             "type": "default",
-            "size": 0.08
+            "size": [ 0.08 ]
           },
           {
             "ID": "8-1",
@@ -595,7 +602,7 @@
             ],
             "gender": "m",
             "type": "default",
-            "size": 0.08
+            "size": [ 0.08 ]
           }
         ],
         "collision": [
@@ -619,8 +626,9 @@
   },
   {
     "header": {
-      "moduleID": "l_15",
-      "moduleName": "L shaped link 0.1-0.08-15",
+      "ID": "l_15",
+      "name": "L shaped link 0.1-0.08-15",
+      "date": "2022-09-15",
       "author": [
         "Jonathan K\u00fclz"
       ],
@@ -653,7 +661,7 @@
             ],
             "gender": "f",
             "type": "default",
-            "size": 0.08
+            "size": [ 0.08 ]
           },
           {
             "ID": "8-1",
@@ -665,7 +673,7 @@
             ],
             "gender": "m",
             "type": "default",
-            "size": 0.08
+            "size": [ 0.08 ]
           }
         ],
         "collision": [
@@ -714,8 +722,9 @@
   },
   {
     "header": {
-      "moduleID": "l_30",
-      "moduleName": "L shaped link 0.1-0.08-30",
+      "ID": "l_30",
+      "name": "L shaped link 0.1-0.08-30",
+      "date": "2022-09-15",
       "author": [
         "Jonathan K\u00fclz"
       ],
@@ -748,7 +757,7 @@
             ],
             "gender": "f",
             "type": "default",
-            "size": 0.08
+            "size": [ 0.08 ]
           },
           {
             "ID": "8-1",
@@ -760,7 +769,7 @@
             ],
             "gender": "m",
             "type": "default",
-            "size": 0.08
+            "size": [ 0.08 ]
           }
         ],
         "collision": [
@@ -809,8 +818,9 @@
   },
   {
     "header": {
-      "moduleID": "l_45",
-      "moduleName": "L shaped link 0.1-0.08-45",
+      "ID": "l_45",
+      "name": "L shaped link 0.1-0.08-45",
+      "date": "2022-09-15",
       "author": [
         "Jonathan K\u00fclz"
       ],
@@ -843,7 +853,7 @@
             ],
             "gender": "f",
             "type": "default",
-            "size": 0.08
+            "size": [ 0.08 ]
           },
           {
             "ID": "8-1",
@@ -855,7 +865,7 @@
             ],
             "gender": "m",
             "type": "default",
-            "size": 0.08
+            "size": [ 0.08 ]
           }
         ],
         "collision": [

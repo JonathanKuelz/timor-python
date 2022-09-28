@@ -1,8 +1,9 @@
 import abc
+from dataclasses import dataclass
 import datetime
 import json
 from pathlib import Path
-from typing import Dict, NamedTuple, Tuple, Union
+from typing import Dict, List, Tuple, Union
 import warnings
 
 import numpy as np
@@ -11,20 +12,21 @@ import pinocchio as pin
 from timor.Module import ModuleAssembly, ModulesDB
 from timor.Robot import RobotBase
 from timor.task import Constraints, CostFunctions, Goals, Task
-from timor.utilities.dtypes import Lazy, TorqueInput, Trajectory, fuzzy_dict_key_matching  # noqa: F401
+from timor.utilities.dtypes import Lazy, TorqueInput, Trajectory, TypedHeader, fuzzy_dict_key_matching  # noqa: F401
 from timor.utilities.file_locations import get_module_db_files
 from timor.utilities.transformation import Transformation, TransformationLike
 from timor.utilities.visualization import MeshcatVisualizerWithAnimation, animation
 
 
-class SolutionHeader(NamedTuple):
+@dataclass
+class SolutionHeader(TypedHeader):
     """The header every solution contains"""
 
     taskID: str  # This is NOT the Solution ID, but identifies the task the solution was crafted for!
     version: str = "Py2022"
-    author: str = ''
-    authorEMail: str = ''
-    affiliation: str = ''
+    author: List[str] = ''
+    email: List[str] = ''
+    affiliation: List[str] = ''
     publication: str = ''
     date: datetime.datetime = datetime.datetime(1970, 1, 1)
     computationTime: float = -1.
@@ -68,8 +70,7 @@ class SolutionBase(abc.ABC):
     def from_json(json_path: Path, package_dir: Path, tasks: Dict[str, 'Task.Task']) -> 'SolutionBase':
         """Factory method to load a class instance from a json file."""
         content = json.load(json_path.open('r'))
-        _header = fuzzy_dict_key_matching(content, desired_only=SolutionHeader._fields)
-        _header['taskID'] = str(_header['taskID'])
+        _header = fuzzy_dict_key_matching(content, desired_only=SolutionHeader.fields())
         header = SolutionHeader(**_header)
         try:
             sol_task = tasks[header.taskID]

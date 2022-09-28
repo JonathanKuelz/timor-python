@@ -1,8 +1,11 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field, fields
+import datetime
+import logging
 import random
-from typing import Callable, Collection, Dict, Generator, Iterable, List, Tuple, Union
+import re
+from typing import Any, Callable, Collection, Dict, Generator, Iterable, List, Tuple, Type, Union, get_type_hints
 
 from hppfcl import hppfcl
 from matplotlib import pyplot as plt
@@ -167,6 +170,74 @@ class SingleSet(set):
                     raise err.UniqueValueError(f"The element {element} is provided multiple times in the input.")
                 elements.add(element)
         return self.__class__(super().union(elements))
+
+
+@dataclass
+class TypedHeader:
+    """A dataclass that ensures and transforms {Module, Task, Solution}-header data to the desired datatypes."""
+
+    def __post_init__(self):
+        """Post init function that ensures the correct datatypes"""
+        self.__setattr__('__immutable', False)
+        for name, type_annotation in get_type_hints(self, globalns=globals(), localns=locals()).items():
+            value = self.__getattribute__(name)
+            self.__setattr__(name, self.cast(value, type_annotation))
+        self.__setattr__('__immutable', True)
+
+    @staticmethod
+    def cast(value: Any, cast_to_type: Type) -> Any:
+        """Casts the value to the dtype"""
+        if cast_to_type is datetime.datetime:
+            return TypedHeader.cast_to_datetime(value)
+        try:
+            return cast_to_type(value)
+        except TypeError:
+            logging.info("Could not cast {} to type {}. Returning original value.".format(value, cast_to_type))
+            return value
+
+    @staticmethod
+    def cast_to_datetime(value: Union[str, datetime.datetime]) -> datetime.datetime:
+        """Casts the value to a datetime.datetime object"""
+        if isinstance(value, datetime.datetime):
+            return value
+        if isinstance(value, str):
+            value = re.sub('/', '-', value)  # Allows parsing yyyy/mm/dd formatted dates
+            return datetime.datetime.strptime(value, "%Y-%m-%d")
+        raise TypeError(f"Cannot cast {value} to datetime.datetime")
+
+    @staticmethod
+    def string_list_factory() -> field:
+        """Returns a field with a default factory that returns a list with one empty string"""
+        def list_factory() -> List[str]: return ['']
+        return field(default_factory=list_factory)
+
+    @classmethod
+    def fields(cls) -> Tuple[str, ...]:
+        """Returns the fields of this class"""
+        return tuple(f.name for f in fields(cls))
+
+    def _asdict(self) -> Dict[str, Any]:
+        """Returns a dictionary representation of this object"""
+        return asdict(self)
+
+    def _raise_immutable(self, f: Callable) -> Callable:
+        """Raises error if objects in this dataclass are to be resetted but the instance is set to immutable"""
+        def wrapper(*args, **kwargs):
+            try:
+                if self.__getattribute__('__immutable'):
+                    raise TypeError("Cannot reset attributes of an immutable object")
+            except AttributeError:  # __init__, __immutable not yet set
+                pass
+            return f(*args, **kwargs)
+        return wrapper
+
+    def __delattr__(self, item):
+        """Delete attribute"""
+        self._raise_immutable(super().__delattr__)(item)
+
+    def __setattr__(self, key, value):
+        """Sets an attribute of this class"""
+        return self._raise_immutable(super().__setattr__)(key, value)
 
 
 @dataclass

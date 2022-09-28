@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+import pickle
 import random
 import tempfile
 import unittest
@@ -11,6 +12,7 @@ import pinocchio as pin
 
 from timor import Geometry
 from timor import Robot
+from timor.Module import ModuleAssembly
 from timor.task import Constraints, Obstacle, Solution, Task, Tolerance
 from timor.utilities import file_locations, prebuilt_robots, spatial
 from timor.utilities.tolerated_pose import ToleratedPose
@@ -141,11 +143,9 @@ class JsonSerializationTests(unittest.TestCase):
         random.seed(99)
         np.random.seed(99)
 
-        # Set up tasks and solutions, for which there are already some json files
+        # Set up tasks, for which there are already some json files
         self.assets = file_locations.get_test_tasks()["asset_dir"]
         self.task_files = file_locations.get_test_tasks()['task_files']
-        self.solution_files = file_locations.get_test_tasks()['solution_files']
-
         panda_loc = file_locations.robots.joinpath('panda')
         self.robot = Robot.PinRobot.from_urdf(panda_loc.joinpath('urdf').joinpath('panda.urdf'), panda_loc.parent)
 
@@ -174,7 +174,7 @@ class JsonSerializationTests(unittest.TestCase):
 
     def test_assembly_to_urdf(self):
         db_loc, db_assets = file_locations.get_module_db_files('IMPROV')
-        for _ in range(10):
+        for _ in range(5):
             assembly = prebuilt_robots.random_assembly(n_joints=6, modules_file=db_loc, package=db_assets)
 
             r1 = assembly.to_pin_robot()
@@ -211,6 +211,12 @@ class JsonSerializationTests(unittest.TestCase):
                 self.assertEqual(set(type(c) for c in task.constraints),
                                  set(type(c) for c in another_copy.constraints))
 
+    def test_pickle_robot(self):
+        """Tests whether the kinematic model remains when pickling - geometry cannot be preserved at the moment"""
+        pickled = pickle.dumps(self.robot)
+        unpickled = pickle.loads(pickled)
+        self.assertTrue(pin_models_functionally_equal(self.robot.model, unpickled.model))
+
     def test_obstacles_to_json(self):
         package_dir = Path(__file__)  # Not used in this test, but needed for the method
         for obstacle in self.obstacles:
@@ -228,6 +234,16 @@ class JsonSerializationTests(unittest.TestCase):
                 if key in ('_children', 'collision'):
                     continue
                 np_test.assert_array_equal(new_dict[key], comp_dict[key])
+
+    def test_serial_module_assembly(self):
+        db_loc, db_assets = file_locations.get_module_db_files('IMPROV')
+        for _ in range(5):
+            assembly = prebuilt_robots.random_assembly(n_joints=6, modules_file=db_loc, package=db_assets)
+            modules = assembly.internal_module_ids
+            original_ids = tuple(assembly._module_copies.get(mod_id, mod_id) for mod_id in modules)
+            copied = ModuleAssembly.from_serial_modules(assembly.db, original_ids)
+            self.assertEqual(assembly.internal_module_ids, copied.internal_module_ids)
+            self.assertEqual(assembly.nJoints, copied.nJoints)
 
     def test_tolerances_to_json(self):
         for tolerance in self.tolerances:

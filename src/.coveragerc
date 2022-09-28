@@ -10,6 +10,7 @@ data_file = ../ci/coverage/report.coverage
 skip_empty = True
 omit = 
 	*/__init__.py
+	timor/utilities/visualization.py
 	tests/
 	doc/
 	

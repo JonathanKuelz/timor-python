@@ -2,11 +2,12 @@
 # Author: Jonathan Külz
 # Date: 17.01.22
 from copy import deepcopy
+from dataclasses import dataclass, field
 import datetime
 import itertools
 import json
 from pathlib import Path
-from typing import Collection, Dict, Iterable, List, NamedTuple, Optional, Sequence, Tuple, Union
+from typing import Collection, Dict, Iterable, List, Optional, Sequence, Tuple, Union
 import warnings
 
 from hppfcl import hppfcl
@@ -16,25 +17,27 @@ import pinocchio as pin
 from timor.Robot import PinRobot, RobotBase
 from timor.task import Constraints, Goals
 from timor.task.Obstacle import Obstacle
+from timor.utilities.dtypes import TypedHeader
 import timor.utilities.logging as logging
 
 GRAVITY = np.array([0, 0, -9.81], dtype=float)  # Default gravity for z upwards TODO : Move to global configuration?!
 robot_or_robots = Union[PinRobot, Iterable[PinRobot]]
 
 
-class TaskHeader(NamedTuple):
+@dataclass
+class TaskHeader(TypedHeader):
     """The header every task contains"""
 
     taskID: str
     version: str = 'Py'
     taskName: str = ""
-    tags: List = []
+    tags: List = field(default_factory=list)
     date: datetime.datetime = datetime.datetime(1970, 1, 1)
     timeStepSize: float = .01  # 10ms
     gravity: np.ndarray = GRAVITY
-    author: List[str] = ['']
-    email: List[str] = ['']
-    affiliation: List[str] = ['']
+    author: List[str] = TypedHeader.string_list_factory()
+    email: List[str] = TypedHeader.string_list_factory()
+    affiliation: List[str] = TypedHeader.string_list_factory()
 
 
 class Task:
@@ -84,9 +87,6 @@ class Task:
         :param package_dir: The path to the package directory, to which the mesh file paths are relative to.
         """
         content = json.load(filepath.open('r'))
-        if 'Tasks' in content or 'tasks' in content:
-            raise NotImplementedError("Using tasks is deprecated! Define goals directly in tasks.")
-        content['header']['taskID'] = str(content['header']['taskID'])
         header = TaskHeader(**{key: arg for key, arg in content.pop('header').items()})
         obstacles = [Obstacle.from_json_data(
             specs | {'package_dir': package_dir}) for specs in content.pop('obstacles')]
@@ -129,6 +129,7 @@ class Task:
 
         # Header
         content['header'] = self.header._asdict()
+        content['header']['date'] = content['header']['date'].strftime('%Y-%m-%d')
 
         # Constraints
         content['constraints'] = []
