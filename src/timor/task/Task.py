@@ -87,9 +87,6 @@ class Task:
         :param package_dir: The path to the package directory, to which the mesh file paths are relative to.
         """
         content = json.load(filepath.open('r'))
-        content['header']['taskID'] = str(content['header']['taskID'])
-        if isinstance(content['header']['date'], str):
-            content['header']['date'] = datetime.datetime.strptime(content['header']['date'], '%Y-%m-%d')
         header = TaskHeader(**{key: arg for key, arg in content.pop('header').items()})
         obstacles = [Obstacle.from_json_data(
             specs | {'package_dir': package_dir}) for specs in content.pop('obstacles')]

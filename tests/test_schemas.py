@@ -50,10 +50,12 @@ class TestSchemas(unittest.TestCase):
         for robot_dir in robots.iterdir():
             module_set = robot_dir.name
             try:
-                module_sets.append(get_module_db_files(module_set)[0])
-                logging.info(f"Testing {module_set}")
+                new_set = get_module_db_files(module_set)[0]
             except FileNotFoundError:
                 logging.info(f"Skipping not found module set {module_set}")
+                continue
+            logging.info(f"Testing {module_set}")
+            module_sets.append(new_set)
 
         self._test_files_with_schema(validator, module_sets)
 

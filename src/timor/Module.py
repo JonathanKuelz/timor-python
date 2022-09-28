@@ -124,8 +124,6 @@ class AtomicModule:
         :return: An instantiated module
         """
         header = d.pop('header')
-        if isinstance(header['date'], str):
-            header['date'] = datetime.datetime.strptime(header['date'], '%Y-%m-%d')
         header = ModuleHeader(**header)
 
         if 'bodies' in d:
