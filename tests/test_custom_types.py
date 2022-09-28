@@ -1,3 +1,5 @@
+from dataclasses import dataclass
+import datetime
 import random
 import time
 import unittest
@@ -5,7 +7,7 @@ import unittest
 import numpy as np
 import numpy.testing as np_test
 
-from timor.utilities.dtypes import EternalDict, Lazy, SingleSet, Trajectory
+from timor.utilities.dtypes import EternalDict, Lazy, SingleSet, Trajectory, TypedHeader
 import timor.utilities.errors as err
 
 
@@ -61,6 +63,28 @@ class CustomTypeUnitTests(unittest.TestCase):
             else:
                 with self.assertRaises(err.UniqueValueError):
                     SingleSet(numbers)
+
+    def test_StronglyTypedHeader(self):
+        @dataclass
+        class TestHeader(TypedHeader):
+            name: str
+            number: int = 2
+            date: datetime.datetime = datetime.datetime(1970, 1, 1)
+
+        header = TestHeader(name='test')
+        with self.assertRaises(TypeError):
+            header.name = 'new_name'
+        with self.assertRaises(TypeError):
+            header.__delattr__('name')
+
+        header = TestHeader(name=666)
+        self.assertIsInstance(header.name, str)
+        self.assertEqual(header.name, '666')
+
+        first_date = TestHeader(name='test', date='1970-01-01')
+        second_date = TestHeader(name='test', date='1970/1/1')
+        self.assertEqual(header.date, first_date.date)
+        self.assertEqual(header.date, second_date.date)
 
     def test_Trajectory(self):
         t = np.linspace(0, 1, 1001)

@@ -2,13 +2,14 @@ from __future__ import annotations
 
 from collections import Counter
 import copy
+from dataclasses import dataclass
 import datetime
 import itertools
 import json
 import math
 from pathlib import Path
 import random
-from typing import Callable, Collection, Dict, Iterable, List, NamedTuple, Optional, Set, Tuple, Union
+from typing import Callable, Collection, Dict, Iterable, List, Optional, Set, Tuple, Union
 import uuid
 import xml.etree.ElementTree as ET
 
@@ -21,21 +22,22 @@ from timor.Bodies import Body, BodySet, Connector, ConnectorSet, Gender
 from timor.Joints import Joint, JointSet, TimorJointType
 from timor import Robot
 from timor.utilities import spatial, write_urdf
-from timor.utilities.dtypes import SingleSet, randomly
+from timor.utilities.dtypes import SingleSet, TypedHeader, randomly
 import timor.utilities.errors as err
 from timor.utilities.json_serialization_formatting import compress_json_vectors, possibly_nest_as_list
 from timor.utilities.transformation import Transformation, TransformationLike
 
 
-class ModuleHeader(NamedTuple):
+@dataclass
+class ModuleHeader(TypedHeader):
     """The header every module contains"""
 
     ID: str
     name: str
     date: datetime.datetime = datetime.datetime(1970, 1, 1)
-    author: List[str] = ['']
-    email: List[str] = ['']
-    affiliation: List[str] = ['']
+    author: List[str] = TypedHeader.string_list_factory()
+    email: List[str] = TypedHeader.string_list_factory()
+    affiliation: List[str] = TypedHeader.string_list_factory()
     cost: float = 0.
 
 

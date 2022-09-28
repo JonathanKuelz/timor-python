@@ -188,7 +188,8 @@ class TestModule(unittest.TestCase):
                                  child_body=Bodies.Body('12', collision=box))
         jnt_works = Joints.Joint('2', Joints.TimorJointType.revolute, parent_body=box_body, child_body=another_body)
 
-        header_one = Module.ModuleHeader('1', 'Test module one', ['Jonathan'], ['jonathan.kuelz@tum.de'], ['TUM'])
+        header_one = Module.ModuleHeader('1', 'Test module one', author=['Jonathan'], email=['jonathan.kuelz@tum.de'],
+                                         affiliation=['TUM'])
         header_two = dict(ID='2', name='Test module two', author=['Jonathan'],
                           email=['jonathan.kuelz@tum.de'], affiliation=['TUM'])
         # ----- Let's go -----

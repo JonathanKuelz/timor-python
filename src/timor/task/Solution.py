@@ -1,8 +1,9 @@
 import abc
+from dataclasses import dataclass
 import datetime
 import json
 from pathlib import Path
-from typing import Dict, List, NamedTuple, Tuple, Union
+from typing import Dict, List, Tuple, Union
 import warnings
 
 import numpy as np
@@ -11,13 +12,14 @@ import pinocchio as pin
 from timor.Module import ModuleAssembly, ModulesDB
 from timor.Robot import RobotBase
 from timor.task import Constraints, CostFunctions, Goals, Task
-from timor.utilities.dtypes import Lazy, TorqueInput, Trajectory, fuzzy_dict_key_matching  # noqa: F401
+from timor.utilities.dtypes import Lazy, TorqueInput, Trajectory, TypedHeader, fuzzy_dict_key_matching  # noqa: F401
 from timor.utilities.file_locations import get_module_db_files
 from timor.utilities.transformation import Transformation, TransformationLike
 from timor.utilities.visualization import MeshcatVisualizerWithAnimation, animation
 
 
-class SolutionHeader(NamedTuple):
+@dataclass
+class SolutionHeader(TypedHeader):
     """The header every solution contains"""
 
     taskID: str  # This is NOT the Solution ID, but identifies the task the solution was crafted for!
