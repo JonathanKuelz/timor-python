@@ -79,7 +79,6 @@ class TestModulesDB(unittest.TestCase):
 
     def test_possible_connections(self):
         possibilities = self.db.possible_connections
-        connects_to = dict()
 
         # Make sure there are no unnecessary duplicates
         def switch_mod(con): return con[2], con[1], con[0], con[3]  # When A -> B, B -> A

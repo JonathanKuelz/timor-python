@@ -134,7 +134,7 @@ class PinocchioRobotSetup(unittest.TestCase):
         robot.add_tcp_frame('panda_joint7', panda_tcp)
 
         error_count = {"scipy": 0, "jacobian": 0}
-        N = 200
+        N = 100
         n = 0
         scipy_tolerance = Tolerance.CartesianXYZ.default()
         jacobian_tolerance = Tolerance.DEFAULT_SPATIAL

@@ -117,6 +117,33 @@ class Transformation:
 
         self.homogeneous: np.ndarray = transformation
 
+    def distance(self, other: TransformationConvertable) -> Norm:
+        """
+        Returns a norm  object for the transformation between self and other.
+
+        A distance between two poses is not uniquely defined -- returning a norm object is one possible way to deal
+        with this problem: The returned object itself has multiple properties, each one according to one possible
+        norm (translational, rotational or a combination) of the transformation representing the relative difference
+        between self and other.
+        :param other: A Transformation-Like object representing a placement and orientation in space to which the
+        distance shall be measured.
+        """
+        return (self.inv@Transformation(other)).norm
+
+    def interpolate(self, other: Transformation, alpha: float) -> Transformation:
+        """
+        Interpolate between self and other transformation.
+
+        :param other: Transformation to interpolate to. Returned if alpha=1
+        :param alpha: interpolation parameter (0 = self, 1 = other); inbetween linear interpolation in translation and
+            slerp in rotation (linear in axis-angle space between rotation of self and other)
+        """
+        delta_transformation = self.inv @ other
+        delta_translation = alpha * delta_transformation.translation
+        delta_rotation = spatial.axis_angle2rot_mat(np.multiply((1, 1, 1, alpha),
+                                                                delta_transformation.projection.axis_angles))
+        return self @ Transformation(spatial.homogeneous(delta_translation, delta_rotation))
+
     def multiply_from_left(self, other: np.ndarray) -> Transformation:
         """Multiply a placement from the left.
 
@@ -191,19 +218,6 @@ class Transformation:
     def rotation(self) -> np.ndarray:
         """The rotation part of the nominal placement as a 3x3 matrix."""
         return self[:3, :3]
-
-    def distance(self, other: TransformationConvertable) -> Norm:
-        """
-        Returns a norm  object for the transformation between self and other.
-
-        A distance between two poses is not uniquely defined -- returning a norm object is one possible way to deal
-        with this problem: The returned object itself has multiple properties, each one according to one possible
-        norm (translational, rotational or a combination) of the transformation representing the relative difference
-        between self and other.
-        :param other: A Transformation-Like object representing a placement and orientation in space to which the
-        distance shall be measured.
-        """
-        return (self.inv@Transformation(other)).norm
 
     def __eq__(self, other):
         """Allows comparison of transformations"""

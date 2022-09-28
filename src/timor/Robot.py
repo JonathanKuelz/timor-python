@@ -55,28 +55,6 @@ class PinBody:
                 'body_placement': self.placement,
                 'previous_frame': parent_frame_id}
 
-    def copy(self, new_name: str = None):
-        """Custom copy method that allows to change the name of the copied geometries."""
-        cpy = self.__copy__()
-        if new_name is not None:
-            cpy.name = new_name
-            def appendix(idx): return '' if i == 0 else f'_{idx}'
-            for i, cg in enumerate(cpy.collision_geometries):
-                cg.name = new_name + appendix(i)
-            for i, vg in enumerate(cpy.visual_geometries):
-                vg.name = new_name + appendix(i)
-        return cpy
-
-    def __copy__(self):
-        """Custom copy method that instantiates new Geometry Objects for the robot. (think: partial deep-copy)"""
-        cpy = self.__class__(
-            self.inertia.copy(),
-            self.placement.copy(),
-            self.name)
-        cpy.collision_geometries = [pin.GeometryObject(cg) for cg in self.collision_geometries]
-        cpy.visual_geometries = [pin.GeometryObject(vg) for vg in self.visual_geometries]
-        return cpy
-
 
 class RobotBase(abc.ABC):
     """Abstract base class for all robot classes"""
@@ -114,11 +92,6 @@ class RobotBase(abc.ABC):
         """Class constructor from urdf file. kwargs should at least handle RobotBase keyword arguments."""
 
     # ---------- Abstract Properties ----------
-    @property
-    @abc.abstractmethod
-    def children(self) -> Dict[str, List[str]]:
-        """Returns a mapping from joint to a list of all DIRECT children transformation"""
-
     @property
     @abc.abstractmethod
     def joints(self) -> List[str]:
@@ -484,15 +457,6 @@ class PinRobot(RobotBase):
         )
 
     # ---------- Properties ----------
-    @property
-    def children(self) -> Dict[str, List[str]]:
-        """A dictionary from joints to all children joints in the robot. {child_name: [parent_name, ...]}"""
-        child2parent = {child_id: parent_id for child_id, parent_id in enumerate(self.model.parents)}
-        parent2children_pin_id = {parent: [c for c, p in child2parent.items() if p == parent] for parent in
-                                  range(self.model.njoints)}
-        return {self.model.names[pid]: [self.model.names[chld] for chld in chid] for pid, chid in
-                parent2children_pin_id.items()}
-
     @property
     def collision_pairs(self) -> np.ndarray:
         """
@@ -1126,15 +1090,8 @@ class PinRobot(RobotBase):
 
         if not hasattr(visualizer, 'viewer'):
             visualizer.initViewer()
-        try:
-            visualizer.loadViewerModel(rootNodeName=self.name)
-        except AttributeError as exe:
-            if "'GepettoVisualizer'" in str(exe):
-                print(exe)
-                raise ConnectionError("You might have forgotten to start gepetto (gepetto-gui)")
-            else:
-                raise exe
 
+        visualizer.loadViewerModel(rootNodeName=self.name)
         visualizer.display(self.configuration)
         if coordinate_systems is not None:
             if coordinate_systems == 'tcp':

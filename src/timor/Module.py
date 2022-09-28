@@ -82,10 +82,12 @@ class AtomicModule:
         return f"Module {self.name}, ID: {self.id}"
 
     @classmethod
-    def from_concert_specification(cls, d: Dict, package_dir: Path) -> 'AtomicModule':
+    def from_concert_specification(cls, d: Dict, package_dir: Path) -> 'AtomicModule':  # pragma: no cover
         """
         Maps a concert-module description to an instance of this class.
 
+        This library was developed in the context of the EU sponsored CONCERT project.
+        For more information visit https://concertproject.eu/
         The concert module definition closely follows the Timor one. However, in the concert project, we only deal with
         "serial", "chain-like" robots and monodirectional modules. For the sake of simplicity (makes implementation for
         partners easier), proximal (here: female) connectors are pointing INSIDE the module. To work in the more general
@@ -270,7 +272,7 @@ class AtomicModule:
             new_joints.add(new)
         return self.__class__(new_header, new_bodies, new_joints)
 
-    def debug_visualization(self,
+    def debug_visualization(self,  # pragma: no cover
                             viz: pin.visualize.MeshcatVisualizer = None,
                             show_com: bool = True,
                             base_placement: np.array = Transformation.neutral()) -> pin.visualize.MeshcatVisualizer:
@@ -294,7 +296,7 @@ class AtomicModule:
         return tmp_ass.to_pin_robot(add_com_frames=show_com, base_placement=base_placement).visualize(viz, 'full')
 
     def can_connect(self, other: 'AtomicModule') -> bool:
-        """Returnrs true if at least one of the connectors of this module matches at least one connector of other"""
+        """Returns true if at least one of the connectors of this module matches at least one connector of other"""
         return any(this_con.connects(other_con) for this_con, other_con
                    in itertools.product(self.available_connectors.values(), other.available_connectors.values()))
 
@@ -483,7 +485,7 @@ class ModulesDB(SingleSet[AtomicModule]):
             G.add_edge(mod_b, mod_a, connectors=(con_b, con_a))
         return G
 
-    def debug_visualization(self,
+    def debug_visualization(self,  # pragma: no cover
                             viz: pin.visualize.MeshcatVisualizer = None,
                             stride: float = 1) -> pin.visualize.MeshcatVisualizer:
         """
