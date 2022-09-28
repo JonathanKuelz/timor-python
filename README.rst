@@ -16,7 +16,7 @@ The Toolbox for Industrial Modular Robot Design (Timor) is a python library for 
     :alt: Documentation Status
     
 .. image:: https://gitlab.lrz.de/tum-cps/timor-python/badges/main/coverage.svg
-    :target: https://gitlab.lrz.de/tum-cps/timor-python/-/jobs/artifacts/main/file/ci/coverage/html//index.html?job=coverage
+    :target: https://gitlab.lrz.de/tum-cps/timor-python/-/jobs/artifacts/main/file/ci/coverage/html//index.html?job=coverage&min_acceptable=80&min_good=90
     :alt: Coverage Report
     
 With Timor you can:
