@@ -1,22 +1,21 @@
 import json
 from pathlib import Path
 import random
-
 import unittest
 
 import networkx as nx
 import numpy as np
 import numpy.testing as np_test
 
-
 from timor.Module import AtomicModule, ModuleAssembly, ModuleHeader, ModulesDB
 from timor.utilities import logging
-
+import timor.utilities.errors as err
 from timor.utilities.file_locations import get_module_db_files, robots
 
 
 class TestModulesDB(unittest.TestCase):
     """Test if all known good module DBs are loadable, class is working, I/O from/to json, assemblies, ..."""
+
     def setUp(self) -> None:
         """Defines the filepaths before testing"""
         self.json_file, self.package_dir = get_module_db_files('IMPROV')
@@ -49,13 +48,13 @@ class TestModulesDB(unittest.TestCase):
             assembly.add_random_from_db()  # The db is empty
 
     def test_graph_features(self):
-        """An assembly of modules is (given some abstraction) just a graph. Check some basic graph attributes:"""        
+        """An assembly of modules is (given some abstraction) just a graph. Check some basic graph attributes:"""
         assembly = ModuleAssembly(self.db)
         for _ in range(12):
             assembly.add_random_from_db(lambda x: x not in self.db.end_effectors)
-    
+
         adjacency = assembly.adjacency_matrix
-        self.assertEqual(2*len(assembly.connections), adjacency.sum())
+        self.assertEqual(2 * len(assembly.connections), adjacency.sum())
 
         num_nodes = len(assembly.module_instances)
         # Check the networkx graph functionality and use it to evaluate the assembly structure
@@ -76,13 +75,50 @@ class TestModulesDB(unittest.TestCase):
             db = ModulesDB.from_file(*get_module_db_files(db_name))
             self.assertGreater(len(db), 0, msg=f"{db_name} is empty after loading")
 
+    def test_modules_assembly(self):
+        module_ids = ['1', '21', '4', '21', '5', '23', '7', '12']
+        connections = [
+            (1, '21_proximal_connector', 0, 'base_out'),
+            (2, '4_proximal_connector', 1, '21_distal_connector'),
+            (3, '21_proximal_connector', 2, '4_distal_connector'),
+            (4, '5_proximal_connector', 3, '21_distal_connector'),
+            (5, '23_proximal_connector', 4, '5_distal_connector'),
+            (6, '7_proximal_connector', 5, '23_distal_connector'),
+            (7, '12_proximal_connector', 6, '7_distal_connector'),
+        ]
+        assembly = ModuleAssembly(self.db, module_ids, connections)
+        assembly = ModuleAssembly(self.db, module_ids, set(connections))  # Order invariance
+
+        # Now, add a "loose" module and see if it fails
+        with self.assertRaises(ValueError):
+            assembly = ModuleAssembly(self.db, module_ids + ['1'], connections)
+
+        # Add an invalid connection
+        module_ids = module_ids + ['1']  # base
+        connections.append((7, '12_distal_connector', 8, 'base'))
+        with self.assertRaises(err.InvalidAssemblyError):
+            assembly = ModuleAssembly(self.db, module_ids, connections)
+
+        # Check that an empty assembly does not need to stay empty
+        assembly = ModuleAssembly(self.db)
+        assembly.add_random_from_db()
+        assembly.add_random_from_db()
+        self.assertIsNotNone(assembly.base_connector)
+        self.assertEqual(len(assembly.module_instances), 2)
+
     def test_possible_connections(self):
         possibilities = self.db.possible_connections
 
         # Make sure there are no unnecessary duplicates
-        def switch_mod(con): return con[2], con[1], con[0], con[3]  # When A -> B, B -> A
-        def switch_cnctr(con): return con[0], con[3], con[1], con[1]  # Could only happen when A == B
-        def switch_both(con): return switch_cnctr(switch_mod(con))  # Combines the tests above
+        def switch_mod(con):
+            return con[2], con[1], con[0], con[3]  # When A -> B, B -> A
+
+        def switch_cnctr(con):
+            return con[0], con[3], con[1], con[1]  # Could only happen when A == B
+
+        def switch_both(con):
+            return switch_cnctr(switch_mod(con))  # Combines the tests above
+
         for connection in possibilities:
             if connection[0] is not connection[2]:  # Here of course, the assertion would always fail
                 self.assertFalse(switch_mod(connection) in possibilities)
@@ -102,11 +138,11 @@ class TestModulesDB(unittest.TestCase):
                 assembly.add_random_from_db(db_filter=lambda x: x not in self.db.bases.union(self.db.end_effectors))
 
     def test_robot_from_assembly(self):
-        
+
         assembly = ModuleAssembly(self.db)
         for _ in range(12):
             assembly.add_random_from_db(lambda x: x not in self.db.end_effectors)
-    
+
         robot = assembly.to_pin_robot()  # This is the crucial part
 
         # Visualize in a random configuration (meshcat visualizer, will be closed when tests are done)

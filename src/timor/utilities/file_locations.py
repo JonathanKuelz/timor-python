@@ -14,13 +14,13 @@ __utilities = Path(__file__).parent.absolute()
 package = __utilities.parent  # Main directory of the package
 head = package.parent
 
-loc_conf = TIMOR_CONFIG['FILE_LOCATIONS'] if TIMOR_CONFIG.has_section('FILE_LOCATIONS') else dict()
-test_data = loc_conf.get('test_data', head.parent.joinpath('tests/data'))
-schema_dir = Path(loc_conf.get('schema_dir', test_data.joinpath("schemas")))
+log_conf = TIMOR_CONFIG['FILE_LOCATIONS'] if TIMOR_CONFIG.has_section('FILE_LOCATIONS') else dict()
+test_data = log_conf.get('test_data', head.parent.joinpath('tests/data'))
+schema_dir = Path(log_conf.get('schema_dir', test_data.joinpath("schemas")))
 schemas = tuple(f for f in schema_dir.iterdir() if f.suffix == ".json")
-if 'robots' in loc_conf:
+if 'robots' in log_conf:
     robots = dict()
-    for __r in chain.from_iterable(Path(d).iterdir() for d in json.loads(loc_conf['robots'])):
+    for __r in chain.from_iterable(Path(d).iterdir() for d in json.loads(log_conf['robots'])):
         if __r.name in robots:
             logging.warning(f"Robot {__r.name} already loaded from different location. Ignoring {__r}!")
             continue
