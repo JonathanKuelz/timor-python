@@ -68,6 +68,8 @@ To inspect, run, or edit the tutorials, navigate to the tutorials folder and sta
 
   jupyter lab
   
+You can set custom configurations such as file paths of robot libraries or logging behavior by editing the config file. You can import the file location of the config file as :code:`from timor.utilities.configurations import CONFIG_FILE`.
+
 For further information, please visit the `documentation <https://timor-python.readthedocs.io>`_.
 
 Support

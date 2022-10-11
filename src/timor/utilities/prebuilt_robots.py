@@ -5,11 +5,9 @@
 from pathlib import Path
 
 import numpy as np
-import pinocchio as pin
 
 from timor import Module
 from timor.Robot import PinRobot
-from timor.utilities import visualization
 from timor.utilities.file_locations import get_module_db_files
 
 

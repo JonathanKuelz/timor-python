@@ -47,8 +47,7 @@ class TestSchemas(unittest.TestCase):
         _, validator = get_schema_validator(schema_dir.joinpath("ModuleSchema.json"))
 
         module_sets = []
-        for robot_dir in robots.iterdir():
-            module_set = robot_dir.name
+        for module_set, robot_dir in robots.items():
             try:
                 new_set = get_module_db_files(module_set)[0]
             except FileNotFoundError:

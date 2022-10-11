@@ -18,8 +18,8 @@ class PinocchioRobotSetup(unittest.TestCase):
     """Test if robots can instantiated, and works as expected."""
 
     def setUp(self) -> None:
-        self.package_dir = robots
-        self.urdf = self.package_dir.joinpath('panda').joinpath('urdf').joinpath('panda.urdf')
+        self.package_dir = robots['panda'].parent
+        self.urdf = robots['panda'].joinpath('urdf').joinpath('panda.urdf')
         random.seed(1234)
         np.random.seed(1234)
 

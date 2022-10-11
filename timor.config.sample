@@ -1,0 +1,8 @@
+[LOGGING]
+filemode = a
+level = INFO
+filename = /tmp/timor.log
+
+[FILE_LOCATIONS]
+robots = ["/home/<username>/timor-python/src/timor_sample_robots", "/home/<username>/my_robots"]
+

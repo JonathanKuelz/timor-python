@@ -1,26 +1,38 @@
 #!/usr/bin/env python3
 # Author: Jonathan Külz
 # Date: 29.03.22
+from itertools import chain
+import json
 from pathlib import Path
 import re
 from typing import Dict, List, Tuple, Union
 
+from timor.utilities import logging
+from timor.utilities.configurations import TIMOR_CONFIG
+
 __utilities = Path(__file__).parent.absolute()
 package = __utilities.parent  # Main directory of the package
 head = package.parent
-test_data = head.parent.joinpath('tests/data')
-schema_dir = test_data.joinpath("schemas")
+
+loc_conf = TIMOR_CONFIG['FILE_LOCATIONS'] if TIMOR_CONFIG.has_section('FILE_LOCATIONS') else dict()
+test_data = loc_conf.get('test_data', head.parent.joinpath('tests/data'))
+schema_dir = Path(loc_conf.get('schema_dir', test_data.joinpath("schemas")))
 schemas = tuple(f for f in schema_dir.iterdir() if f.suffix == ".json")
-robots = head.joinpath('timor_sample_robots')
-output = Path('~').expanduser().joinpath('timor_out')
-output.mkdir(parents=True, exist_ok=True)
-default_log = output.joinpath('timor.log')
-environments = package / 'environments'  # Gym environment base path
-EXAMPLE_SOLUTION_FILTER = re.compile(".*(PTP_1|PTP_2|PTP_2_cycle|PTP_3|Empty)+.json")
+if 'robots' in loc_conf:
+    robots = dict()
+    for __r in chain.from_iterable(Path(d).iterdir() for d in json.loads(loc_conf['robots'])):
+        if __r.name in robots:
+            logging.warning(f"Robot {__r.name} already loaded from different location. Ignoring {__r}!")
+            continue
+        robots[__r.name] = __r
+else:
+    robots = {d.name: d for d in head.joinpath('timor_sample_robots').iterdir()}
 module_DBs = robots  # alias
 
+DEFAULT_TASK_FILTER = re.compile(".*(PTP_1|PTP_2|PTP_2_cycle|PTP_3|Empty)+.json")
 
-def get_test_tasks(task_name: re.Pattern = EXAMPLE_SOLUTION_FILTER) -> Dict[str, Union[Path, List[Path]]]:
+
+def get_test_tasks(task_name: re.Pattern = DEFAULT_TASK_FILTER) -> Dict[str, Union[Path, List[Path]]]:
     """
     Gives access to all test tasks from the test_data folder.
 
@@ -45,7 +57,9 @@ def get_module_db_files(name: str) -> Tuple[Path, Path]:
     :param name: The (folder) name of the modular robot module set
     :return: (Path to modules.json, Path to package folder)
     """
-    module_file = module_DBs.joinpath(name, 'modules.json')
+    if name not in robots:
+        raise FileNotFoundError(f"Robot of name {name} is unknown!")
+    module_file = module_DBs[name].joinpath('modules.json')
     if not module_file.exists():
-        raise FileNotFoundError("Module set {} not found.".format(module_file))
-    return module_file, module_DBs.joinpath(name)
+        raise FileNotFoundError("Module Set File {} not found.".format(module_file))
+    return module_file, module_file.parent

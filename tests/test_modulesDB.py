@@ -69,9 +69,8 @@ class TestModulesDB(unittest.TestCase):
         G_a = assembly.assembly_graph
 
     def test_load_all_from_file(self):
-        available_robots = [folder.name for folder in robots.iterdir()]
-        for db_name in available_robots:
-            if len(tuple(robots.joinpath(db_name).rglob('*.json'))) == 0:
+        for db_name, db_dir in robots.items():
+            if len(tuple(db_dir.rglob('*.json'))) == 0:
                 logging.debug('Not trying to load db {} - probably not a database'.format(db_name))
                 continue  # Not a json DB file in there
             db = ModulesDB.from_file(*get_module_db_files(db_name))

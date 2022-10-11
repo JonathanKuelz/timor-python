@@ -1,9 +1,0 @@
-# Custom Logging Settings
-filemode: 'a'  # Append (default: overwrite)
-level: 10  # DEBUG
-
-# Other possible keywords:
-# filename
-# output_format
-# datefmt
-

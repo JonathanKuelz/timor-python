@@ -6,8 +6,8 @@ from typing import Union
 import meshcat.animation
 import meshcat.geometry
 import numpy as np
-import pinocchio as pin
 from pinocchio import COLLISION, VISUAL  # noqa: F401
+import pinocchio as pin
 from pinocchio.visualize.meshcat_visualizer import MeshcatVisualizer, isMesh
 
 from timor.utilities import spatial, transformation

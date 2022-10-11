@@ -15,7 +15,7 @@ doc/build/**
 doc/source/autoapi/**
 
 # Personalized files
-.log_conf
+timor.config
 
 # Jupyter
 .ipynb_checkpoints
