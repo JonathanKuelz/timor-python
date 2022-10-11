@@ -16,8 +16,8 @@ from timor.utilities.file_locations import robots
 class TestCollisionUtilities(unittest.TestCase):
     """Test collision checking."""
     def setUp(self) -> None:
-        self.package_dir = robots
-        self.urdf = self.package_dir.joinpath('panda').joinpath('urdf').joinpath('panda.urdf')
+        self.package_dir = robots['panda'].parent
+        self.urdf = robots['panda'].joinpath('urdf').joinpath('panda.urdf')
         self.robot = PinRobot.from_urdf(self.urdf, self.package_dir)
         self.header = TaskHeader('Collision Test')
         random.seed(123)

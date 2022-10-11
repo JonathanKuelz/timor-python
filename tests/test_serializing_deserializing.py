@@ -146,7 +146,7 @@ class JsonSerializationTests(unittest.TestCase):
         # Set up tasks, for which there are already some json files
         self.assets = file_locations.get_test_tasks()["asset_dir"]
         self.task_files = file_locations.get_test_tasks()['task_files']
-        panda_loc = file_locations.robots.joinpath('panda')
+        panda_loc = file_locations.robots['panda']
         self.robot = Robot.PinRobot.from_urdf(panda_loc.joinpath('urdf').joinpath('panda.urdf'), panda_loc.parent)
 
         # Set up some Obstacles

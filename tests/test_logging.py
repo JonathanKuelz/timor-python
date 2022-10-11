@@ -7,7 +7,7 @@ from timor.utilities import file_locations, logging
 class TestLogger(unittest.TestCase):
     """Test the custom Logger."""
     def setUp(self) -> None:
-        self.tmp_log_file = file_locations.default_log.parent.joinpath(f"tmp_{file_locations.default_log.name}")
+        self.tmp_log_file = '/tmp/.timor_log_test'
         self.warning_str = "Test warning"
         self.debug_str = "Test debug"
 

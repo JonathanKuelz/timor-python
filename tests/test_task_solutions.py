@@ -10,7 +10,7 @@ import pinocchio as pin
 from timor import Robot
 from timor.task import Constraints, CostFunctions, Goals, Solution, Task, Tolerance
 from timor.utilities import dtypes, prebuilt_robots, spatial
-from timor.utilities.file_locations import get_test_tasks, module_DBs, robots
+from timor.utilities.file_locations import get_test_tasks, robots
 from timor.utilities.tolerated_pose import ToleratedPose
 from timor.utilities.transformation import Transformation
 
@@ -22,23 +22,20 @@ class TestSolution(unittest.TestCase):
         self.solution_header = Solution.SolutionHeader('test_case', author=['Jonathan'])
         self.empty_task = Task.Task(self.task_header)
 
-        self.panda_urdf = robots.joinpath('panda').joinpath('urdf').joinpath('panda.urdf')
-        self.robot = Robot.PinRobot.from_urdf(self.panda_urdf, robots)
+        self.panda_urdf = robots['panda'].joinpath('urdf').joinpath('panda.urdf')
+        self.robot = Robot.PinRobot.from_urdf(self.panda_urdf, robots['panda'].parent)
 
         file_locations = get_test_tasks()
         self.task_files = file_locations["task_files"]
         self.task_dir = file_locations["task_dir"]
         self.asset_dir = file_locations["asset_dir"]
 
-        self.modrob_gen1_json = module_DBs.joinpath('modrob-gen1').joinpath('modules.json')
-        self.gen1_package_dir = self.modrob_gen1_json.parent
-
         random.seed(123)
         np.random.seed(123)
         self.random_configurations = np.asarray([pin.randomConfiguration(self.robot.model) for _ in range(200)])
 
     def test_constraint_abstraction_level(self):
-        panda = Robot.PinRobot.from_urdf(robots.joinpath('panda').joinpath('urdf').joinpath('panda.urdf'), robots)
+        panda = Robot.PinRobot.from_urdf(self.panda_urdf, robots['panda'].parent)
 
         limits = panda.joint_limits
         base_constraint = Constraints.BasePlacement(ToleratedPose(Transformation.neutral(),
@@ -241,7 +238,7 @@ class TestSolution(unittest.TestCase):
 
     def test_task_visuals(self):
         """Needs manual inspection for the plots"""
-        robot = Robot.PinRobot.from_urdf(self.panda_urdf, robots)
+        robot = Robot.PinRobot.from_urdf(self.panda_urdf, robots['panda'].parent)
         q0 = pin.neutral(robot.model)
         q1 = pin.randomConfiguration(robot.model)
         q2 = pin.randomConfiguration(robot.model)

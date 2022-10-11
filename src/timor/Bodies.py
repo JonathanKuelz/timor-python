@@ -12,8 +12,8 @@ import warnings
 import numpy as np
 import pinocchio as pin
 
-from timor.Geometry import ComposedGeometry, EmptyGeometry, Geometry
 from timor import Robot
+from timor.Geometry import ComposedGeometry, EmptyGeometry, Geometry
 from timor.utilities import logging
 from timor.utilities.dtypes import SingleSet, hppfcl_collision2pin_geometry
 import timor.utilities.errors as err

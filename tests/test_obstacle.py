@@ -10,7 +10,7 @@ from timor.utilities.file_locations import robots
 class TestModulesDB(unittest.TestCase):
     """Test reading / writing obstacle data"""
     def setUp(self) -> None:
-        self.demo_stl = robots.joinpath('panda/meshes/collision/hand.stl')
+        self.demo_stl = robots['panda'].joinpath('meshes/collision/hand.stl')
 
     def test_load_stl(self):
         """

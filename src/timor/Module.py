@@ -18,9 +18,9 @@ import networkx as nx
 import numpy as np
 import pinocchio as pin
 
+from timor import Robot
 from timor.Bodies import Body, BodySet, Connector, ConnectorSet, Gender
 from timor.Joints import Joint, JointSet, TimorJointType
-from timor import Robot
 from timor.utilities import spatial, write_urdf
 from timor.utilities.dtypes import SingleSet, TypedHeader, randomly
 import timor.utilities.errors as err
