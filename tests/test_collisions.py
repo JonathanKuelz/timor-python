@@ -5,12 +5,13 @@ import unittest
 import numpy as np
 import pinocchio as pin
 
+from timor import ModuleAssembly, ModulesDB, PinRobot
 from timor.Geometry import Sphere
 from timor.Robot import PinRobot
 from timor.task.Obstacle import Obstacle
 from timor.task.Task import Task, TaskHeader
 from timor.utilities import spatial
-from timor.utilities.file_locations import robots
+from timor.utilities.file_locations import get_module_db_files, robots
 
 
 class TestCollisionUtilities(unittest.TestCase):
@@ -19,9 +20,24 @@ class TestCollisionUtilities(unittest.TestCase):
         self.package_dir = robots['panda'].parent
         self.urdf = robots['panda'].joinpath('urdf').joinpath('panda.urdf')
         self.robot = PinRobot.from_urdf(self.urdf, self.package_dir)
+        self.modules = ModulesDB.from_file(*get_module_db_files('geometric_primitive_modules'))
         self.header = TaskHeader('Collision Test')
         random.seed(123)
         np.random.seed(123)
+
+    def test_assembly_to_robot_collisions(self):
+        modules = ('base', 'J2', 'i_30', 'J1', 'l_15', 'eef')
+        assembly = ModuleAssembly.from_serial_modules(self.modules, modules)
+
+        robot_colliding = assembly.to_pin_robot(collisions_between_neighboring_bodies=True)
+        robot_functional = assembly.to_pin_robot(collisions_between_neighboring_bodies=False)
+
+        self.assertTrue(robot_colliding.has_self_collision())
+        self.assertFalse(robot_functional.has_self_collision())
+        for _ in range(100):
+            q = robot_colliding.random_configuration()
+            robot_colliding.update_configuration(q)
+            self.assertTrue(robot_colliding.has_self_collision())
 
     def test_robot_self_collision(self):
         self.assertFalse(self.robot.has_self_collision())

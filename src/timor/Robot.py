@@ -1025,15 +1025,14 @@ class PinRobot(RobotBase):
 
     def _remove_home_collisions(self):
         """
-        Removes all collision pairs that are in collision while the robot is in its home configuration.
+        Removes all collision pairs that are in collision while the robot is in its current (usually home) configuration
 
         This can be replaced by manually defining collision pairs to be checked or reading an SRDF file that defines the
         collision pairs that can be ignored.
-        Keep in mind that this method leads to never detecting collisions that already exist in
-        the home/zero configuration of the robot - so it should eventually be replaced by something more sophisticated.
+        Keep in mind that this method leads to never detecting collisions that already exist in the current
+        configuration of the robot.
         """
         # TODO: Implement more precise methods, e.g. SRDF input
-        # print("WARNING: REMOVING ALL COLLISIIONS IN ZERO POSITION")
         self._update_collision_placement()
         pin.computeCollisions(self.model, self.data, self.collision, self.collision_data, self.configuration, False)
         active = np.zeros((self.collision.ngeoms, self.collision.ngeoms), bool)
@@ -1166,13 +1165,14 @@ class PinRobot(RobotBase):
                   body: PinBody,
                   parent_joint: Union[int, str],
                   parent_frame_id: int
-                  ) -> int:
+                  ) -> Tuple[int, Tuple[int, ...]]:
         """
         Adds a single body to the robot. Note that collision and visual data are not updated!
 
         :param body: A body wrapper
         :param parent_joint: The index or name of the parent joint
         :param parent_frame_id: The id of the parent frame of the body (important to calculate body placement)
+        :return: The index of the new body frame and indices for the newly added collision geometries
         """
         if isinstance(parent_joint, str):
             parent_joint = self.model.getJointId(parent_joint)
@@ -1187,18 +1187,19 @@ class PinRobot(RobotBase):
         )
 
         # And also the geometry objects belonging to the bodies
+        geometry_indices = list()
         for cg in body.collision_geometries:
             cg.parentJoint = bf_kwargs['parentJoint']
             cg.parentFrame = new_frame_id
             cg.placement = bf_kwargs['body_placement'].act(cg.placement)
-            self.collision.addGeometryObject(cg)
+            geometry_indices.append(self.collision.addGeometryObject(cg))
         for vg in body.visual_geometries:
             vg.parentJoint = bf_kwargs['parentJoint']
             vg.parentFrame = new_frame_id
             vg.placement = bf_kwargs['body_placement'].act(vg.placement)
             self.visual.addGeometryObject(vg)
 
-        return new_frame_id
+        return new_frame_id, tuple(geometry_indices)
 
     def _add_joint(self,
                    joint: pin.JointModel,
@@ -1278,7 +1279,7 @@ class PinRobot(RobotBase):
                 fj_frame.previousFrame = parent_frame_id
                 fj_frame.parent = idx
                 parent_frame_id = self.model.addFrame(fj_frame)
-            parent_frame_id = self._add_body(body, idx, parent_frame_id)
+            parent_frame_id, _ = self._add_body(body, idx, parent_frame_id)
 
         if inertia is not None:
             # Overwrite the inertia defined by the bodies added

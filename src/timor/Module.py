@@ -21,7 +21,7 @@ import pinocchio as pin
 from timor import Robot
 from timor.Bodies import Body, BodySet, Connector, ConnectorSet, Gender
 from timor.Joints import Joint, JointSet, TimorJointType
-from timor.utilities import spatial, write_urdf
+from timor.utilities import logging, spatial, write_urdf
 from timor.utilities.dtypes import SingleSet, TypedHeader, randomly
 import timor.utilities.errors as err
 from timor.utilities.json_serialization_formatting import compress_json_vectors, possibly_nest_as_list
@@ -885,12 +885,17 @@ class ModuleAssembly:
 
     def to_pin_robot(self,
                      base_placement: TransformationLike = Transformation.neutral(),
-                     add_com_frames: bool = False) -> Robot.PinRobot:
+                     add_com_frames: bool = False,
+                     collisions_between_neighboring_bodies: bool = False) -> Robot.PinRobot:
         """
         Creates a pinocchio robot from a module tree
 
         :param base_placement: placement for the (single) base connector as 4x4 hom. transformation
         :param add_com_frames: Add frames for the center of mass of each Body
+        :param collisions_between_neighboring_bodies: If True, any two bodies in the resulting robot can collide as long
+          as they are not rigidly connected. If false, bodies connected only by a joint are not checked for collisions.
+          The latter one allows defining overlapping geometries, but in that case collision-safety must be provided by
+          joint limits.
         :return: pinocchio robot for this assembly
         """
         if len(self.module_instances) == 0:
@@ -898,6 +903,7 @@ class ModuleAssembly:
         G = self.assembly_graph
         edges = self.assembly_graph.edges
         robot = Robot.PinRobot(wrapper=pin.RobotWrapper(pin.Model()))
+        body_collision_geometries = dict()
 
         parent_joints = {'universe': 0, self.base_connector.id: 0}
         no_update = {'update_kinematics': False, 'update_home_collisions': False}
@@ -916,11 +922,12 @@ class ModuleAssembly:
                 transform = transforms[node.id] @ edges[node, successor]['transform'].homogeneous
                 transforms[successor.id] = transform
                 if isinstance(successor, Body):
-                    new_frame = robot._add_body(successor.as_pin_body(transform),
-                                                parent_joints[node.id],
-                                                frames[node.id])
+                    new_frame, new_geometries = robot._add_body(successor.as_pin_body(transform),
+                                                                parent_joints[node.id],
+                                                                frames[node.id])
                     frames[successor.id] = new_frame
                     parent_joints[successor.id] = parent_joints[node.id]
+                    body_collision_geometries[successor.id] = new_geometries
                     if add_com_frames:  # Add center of mass as a child frame of this body
                         new_frame = robot \
                             .model \
@@ -961,7 +968,29 @@ class ModuleAssembly:
         robot._tcp = robot.model.nframes - 1
         robot._update_kinematic()
         robot.set_base_placement(Transformation(base_placement))
-        robot._remove_home_collisions()
+
+        if not collisions_between_neighboring_bodies:
+            # Remove collisions between bodies connected by a joint
+            neighbors_to_clean = set()
+            for node in G.nodes:
+                for neighbor in G.neighbors(node):
+                    if isinstance(neighbor, Joint):
+                        for potential_remove in G.neighbors(neighbor):
+                            if isinstance(potential_remove, Body) and not (potential_remove is node):
+                                neighbors_to_clean.add((node.id, potential_remove.id))
+                                logging.debug(f"Removing body pair ({node.id}, {potential_remove.id}) from collisions")
+            cps_to_remove = list()
+            for b1, b2 in neighbors_to_clean:
+                cps_to_remove.extend([[first, second] for first, second in itertools.product(
+                    body_collision_geometries[b1], body_collision_geometries[b2])])
+
+            original = robot.collision_pairs
+            active = np.zeros((robot.collision.ngeoms, robot.collision.ngeoms), bool)  # defaults all to false
+            for cg1, cg2 in original:
+                if [cg1, cg2] not in cps_to_remove:
+                    active[cg1, cg2] = True
+            robot.collision.setCollisionPairs(active)
+            robot.collision_data = robot.collision.createData()
 
         return robot
 

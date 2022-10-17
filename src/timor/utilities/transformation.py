@@ -228,7 +228,7 @@ class Transformation:
         return NotImplemented
 
     def __getitem__(self, item):
-        """Allows indexing a placement without accessing placement.placement"""
+        """Allows indexing the transformation without accessing the homogeneous attribute"""
         return self.homogeneous[item]
 
     def __matmul__(self, other):
