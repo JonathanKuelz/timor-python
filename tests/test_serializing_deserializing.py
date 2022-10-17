@@ -178,6 +178,7 @@ class JsonSerializationTests(unittest.TestCase):
             assembly = prebuilt_robots.random_assembly(n_joints=6, modules_file=db_loc, package=db_assets)
 
             r1 = assembly.to_pin_robot()
+            r1._remove_home_collisions()  # This is done per default when loading from URDF
             with tempfile.NamedTemporaryFile() as tmp_urdf:
                 urdf = assembly.to_urdf('test_robot', Path(tmp_urdf.name))
                 tmp_urdf.flush()

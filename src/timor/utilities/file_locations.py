@@ -13,7 +13,6 @@ from timor.utilities.configurations import TIMOR_CONFIG
 __utilities = Path(__file__).parent.absolute()
 package = __utilities.parent  # Main directory of the package
 head = package.parent
-
 log_conf = TIMOR_CONFIG['FILE_LOCATIONS'] if TIMOR_CONFIG.has_section('FILE_LOCATIONS') else dict()
 test_data = Path(log_conf.get('test_data', head.parent.joinpath('tests/data')))
 schema_dir = Path(log_conf.get('schema_dir', test_data.joinpath("schemas")))

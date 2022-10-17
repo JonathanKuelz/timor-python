@@ -1,5 +1,6 @@
 import logging as root_logging
 import os
+from pathlib import Path
 from typing import Union
 
 from timor.utilities.configurations import TIMOR_CONFIG
@@ -50,6 +51,7 @@ def basicConfig(filename: str = None,
             level = root_logging.getLevelName(level)
     if filename is not None:
         try:
+            Path(filename).parent.mkdir(exist_ok=True)
             handler = root_logging.FileHandler(filename=filename, mode=filemode)
         except PermissionError as e:
             print(f"There is probably a old default log created with docker in {filename}")
