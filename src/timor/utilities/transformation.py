@@ -19,7 +19,7 @@ _TransformationConvertable = Union[
     np.ndarray,
     List[np.ndarray],
     Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray],
-    pin.SE3
+    pin.SE3,
 ]
 TransformationConvertable = Union[_TransformationConvertable, Iterable[_TransformationConvertable]]
 

@@ -29,7 +29,7 @@ def random_assembly(n_joints: int, modules_file: Path, package: Path) -> Module.
         return len(module.available_connectors) > 1 and \
                not any(c.type == 'eef' for c in module.available_connectors.values())
 
-    def has_joint(module: Module.AtomicModule) -> bool:
+    def has_joint(module: Module.ModuleBase) -> bool:
         return len(module.joints) > 0
 
     def add_joint(module):

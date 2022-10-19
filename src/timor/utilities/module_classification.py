@@ -5,7 +5,7 @@ from enum import IntEnum
 from typing import Dict, Tuple
 
 from timor.Bodies import Connector
-from timor.Module import AtomicModule, ModulesDB
+from timor.Module import ModuleBase, ModulesDB
 
 
 class ModuleClassificationError(Exception):
@@ -46,9 +46,9 @@ def divide_db_in_types(db: ModulesDB) -> Tuple[ModulesDB, ModulesDB, ModulesDB, 
     return tuple(splits[mod_type] for mod_type in ModuleType)
 
 
-def get_module_type(module: AtomicModule, strict: bool = True) -> ModuleType:
+def get_module_type(module: ModuleBase, strict: bool = True) -> ModuleType:
     """
-    Tries to get the module type from Atomic Module data.
+    Tries to get the module type from Module data.
 
     Be aware the distinction is not always unique, so only use this method if you know your module set.
     :param module:

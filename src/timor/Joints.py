@@ -8,7 +8,7 @@ from typing import Dict, List, Tuple, Type, Union
 import numpy as np
 import pinocchio as pin
 
-from timor.Bodies import Body, Connector, ConnectorSet
+from timor.Bodies import BodyBase, Connector, ConnectorSet
 from timor.utilities.dtypes import SingleSet, fuzzy_dict_key_matching
 import timor.utilities.errors as err
 from timor.utilities.transformation import Transformation, TransformationLike
@@ -46,9 +46,9 @@ class Joint:
     def __init__(self,
                  joint_id: str,
                  joint_type: Union[str, TimorJointType],
-                 parent_body: Body,
-                 child_body: Body,
-                 in_module: 'AtomicModule' = None,
+                 parent_body: BodyBase,
+                 child_body: BodyBase,
+                 in_module: 'ModuleBase' = None,
                  q_limits: Union[np.ndarray, List[float], Tuple[float, float]] = (-np.inf, np.inf),
                  torque_limit: float = np.inf,
                  velocity_limit: float = np.inf,
@@ -83,9 +83,9 @@ class Joint:
         self._type: TimorJointType = TimorJointType[joint_type] if isinstance(joint_type, str) else joint_type
         if parent_body.id == child_body.id:
             raise err.UniqueValueError("Child and Parent Body IDs cannot be the same.")
-        self.parent_body: Body = parent_body
-        self.child_body: Body = child_body
-        self.in_module: 'AtomicModule' = in_module
+        self.parent_body: BodyBase = parent_body
+        self.child_body: BodyBase = child_body
+        self.in_module: 'ModuleBase' = in_module
         try:
             con = self.all_connectors  # noqa: F841
         except err.UniqueValueError:

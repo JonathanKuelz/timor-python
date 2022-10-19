@@ -13,6 +13,7 @@ import meshcat
 import numpy as np
 import pinocchio as pin
 
+from timor.utilities import logging
 from timor.utilities.spatial import rotX
 from timor.utilities.transformation import Transformation, TransformationLike
 
@@ -76,7 +77,10 @@ def _geometry_type2class(geometry_type: GeometryType) -> Type[Geometry]:
         GeometryType.COMPOSED: ComposedGeometry,
         GeometryType.EMPTY: EmptyGeometry
     }
-    return mapping[GeometryType[geometry_type]]
+    if isinstance(geometry_type, GeometryType):
+        return mapping[geometry_type]
+    else:
+        return mapping[GeometryType[geometry_type]]
 
 
 class Geometry(abc.ABC):
@@ -191,6 +195,11 @@ class Geometry(abc.ABC):
     def viz_object(self) -> Tuple[meshcat.geometry.Geometry, Transformation]:
         """Returns a visual representation that can be used by meshcats 'set_object' and the according transform"""
 
+    @property
+    @abc.abstractmethod
+    def volume(self) -> float:
+        """Returns the volume of the geometry"""
+
     @abc.abstractmethod
     def _make_collision_geometry(self) -> hppfcl.CollisionGeometry:
         """Creates a hppfcl collision object aligned with the parameters of the Geometry"""
@@ -203,6 +212,7 @@ class Geometry(abc.ABC):
 class Box(Geometry):
     """A simple geometry with a box extending in x, y and z direction."""
 
+    parameter_names: Tuple[str, str, str] = ('x', 'y', 'z')
     type: GeometryType = GeometryType.BOX
 
     @classmethod
@@ -238,6 +248,11 @@ class Box(Geometry):
         return meshcat.geometry.Box([self.x, self.y, self.z]), self.placement
 
     @property
+    def volume(self) -> float:
+        """Returns the volume of the box"""
+        return self.x * self.y * self.z
+
+    @property
     def x(self) -> float:
         """Keep access to these attributes private"""
         return self._x
@@ -256,6 +271,7 @@ class Box(Geometry):
 class Cylinder(Geometry):
     """A simple geometry with a cylinder extending in x-y plane (r) and z direction."""
 
+    parameter_names: Tuple[str, str] = ('r', 'z')
     type: GeometryType = GeometryType.CYLINDER
 
     @classmethod
@@ -293,6 +309,11 @@ class Cylinder(Geometry):
         return meshcat.geometry.Cylinder(height=self.z, radius=self.r), self.placement @ rotX(np.pi / 2)
 
     @property
+    def volume(self) -> float:
+        """Returns the volume of the cylinder"""
+        return np.pi * self.r ** 2 * self.z
+
+    @property
     def r(self) -> float:
         """Keep access to these attributes private"""
         return self._r
@@ -306,6 +327,7 @@ class Cylinder(Geometry):
 class Sphere(Geometry):
     """A simple geometry with a full sphere."""
 
+    parameter_names: Tuple[str] = ('r',)
     type: GeometryType = GeometryType.SPHERE
 
     @classmethod
@@ -337,6 +359,11 @@ class Sphere(Geometry):
     def viz_object(self) -> Tuple[meshcat.geometry.Geometry, Transformation]:
         """Returns a meshcat sphere"""
         return meshcat.geometry.Sphere(self.r), self.placement
+
+    @property
+    def volume(self) -> float:
+        """Returns the volume of the sphere"""
+        return 4 / 3 * np.pi * self.r ** 3
 
     @property
     def r(self) -> float:
@@ -395,6 +422,16 @@ class Mesh(Geometry):
     def viz_object(self) -> Tuple[meshcat.geometry.Geometry, Transformation]:
         """Returns a meshcat mesh"""
         return pin.visualize.meshcat_visualizer.loadMesh(self.collision_geometry), self.placement
+
+    @property
+    def volume(self) -> float:
+        """
+        Returns the volume of the mesh.
+
+        Details can be found in "EFFICIENT FEATURE EXTRACTION FOR 2D/3D OBJECTS IN MESH REPRESENTATION"
+        """
+        logging.warning("The volume of a mesh is uncertain as there is no guarantee the surface is closed!")
+        return self.collision_geometry.computeVolume()
 
     @property
     def filepath(self) -> Path:
@@ -470,11 +507,25 @@ class ComposedGeometry(Geometry):
         """meshcat geometries can only represent a single geometry, so this method is not implemented."""
         raise NotImplementedError("ComposedGeometries cannot be visualized.")
 
+    @property
+    def volume(self) -> float:
+        """The volume of a composed geometry is the sum of the volumes of the composing geometries."""
+        return sum(g.volume for g in self.composing_geometries)
+
 
 class EmptyGeometry(Geometry):
     """This is a dummy geometry to being able to prevent setting a geometry to None."""
 
     type: GeometryType = GeometryType.EMPTY
+
+    def __init__(self,
+                 parameters: Dict[str, Union[float, str]] = None,
+                 pose: TransformationLike = Transformation.neutral(),
+                 hppfcl_representation: Optional[hppfcl.CollisionGeometry] = None
+                 ):
+        """For an empty geometry, the parameters are not used."""
+        parameters = dict()
+        super().__init__(parameters, pose, hppfcl_representation)
 
     @property
     def parameters(self) -> Dict[str, Union[float, str]]:
@@ -500,6 +551,11 @@ class EmptyGeometry(Geometry):
     def viz_object(self) -> Tuple[meshcat.geometry.Geometry, Transformation]:
         """Omit this object when serializing."""
         raise NotImplementedError()
+
+    @property
+    def volume(self) -> float:
+        """No Geometry, no volume."""
+        return 0.0
 
     def _make_collision_geometry(self) -> hppfcl.CollisionGeometry:
         """No Geometry, no collision object."""

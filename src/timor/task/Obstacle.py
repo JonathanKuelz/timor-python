@@ -81,6 +81,25 @@ class Obstacle:
             visual_geometry = None
         return cls(ID, collision_geometry, visual_geometry, name=name)
 
+    def collides(self, other: Obstacle) -> bool:
+        """Check if this obstacle collides with another obstacle.
+
+        Be careful, this is probably slow due to the initialisation of a new request/result pair and should only be used
+        for debugging. Use the collision checking of the environment / robot instead.
+        :param other: The other obstacle
+        :return: True if the obstacles collide, False otherwise
+        """
+        request = hppfcl.CollisionRequest()
+        result = hppfcl.CollisionResult()
+
+        for own_t, own_collision in self.collision.collision_data:
+            for other_t, other_collision in other.collision.collision_data:
+                own_t, other_t = map(lambda t: hppfcl.Transform3f(t[:3, :3], t[:3, 3]), [own_t, other_t])
+                hppfcl.collide(own_collision, own_t, other_collision, other_t, request, result)
+                if result.isCollision():
+                    return True
+        return False
+
     def to_json_data(self) -> Dict[str, Union[str, dict]]:
         """
         Interface to write a list of geometry-dictionaries that is serializable to json.
