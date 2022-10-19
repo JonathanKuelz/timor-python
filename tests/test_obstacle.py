@@ -7,7 +7,7 @@ from timor.task.Obstacle import Obstacle
 from timor.utilities.file_locations import robots
 
 
-class TestModulesDB(unittest.TestCase):
+class TestObstacles(unittest.TestCase):
     """Test reading / writing obstacle data"""
     def setUp(self) -> None:
         self.demo_stl = robots['panda'].joinpath('meshes/collision/hand.stl')

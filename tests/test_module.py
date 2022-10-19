@@ -1,46 +1,25 @@
-from copy import copy
 import itertools
+import pickle
 import unittest
 
+import networkx as nx
+import numpy as np
 import pinocchio as pin
 
-from timor import Bodies
+from timor import Bodies, Body, Connector, ModuleAssembly, TimorJointType, Transformation
 from timor import Geometry
 from timor import Joints
-from timor import Module
+from timor import AtomicModule, ModuleHeader, ModulesDB
+from timor.parameterized import ParameterizedCylinderLink, ParameterizedOrthogonalJoint, ParameterizedOrthogonalLink, \
+    ParameterizedStraightJoint
 from timor.utilities import spatial
 import timor.utilities.errors as err
-from timor.utilities.module_classification import ModuleClassificationError, ModuleType, get_module_type, divide_db_in_types  # noqa: E501
-from timor.utilities.transformation import Transformation
+from timor.utilities.module_classification import ModuleClassificationError, ModuleType, get_module_type, \
+    divide_db_in_types  # noqa: E501
 
 
 class TestModule(unittest.TestCase):
     """Tests properties and methods of the Module implementation."""
-
-    def test_body(self):
-        """Tests body instantiation and basic functionality"""
-
-        female = Bodies.Gender.female
-        male = Bodies.Gender.male
-        c1 = Bodies.Connector('1', Transformation.from_translation([.4, 0, 0]), None, female, 'clamp', size=1)
-        c2 = Bodies.Connector('2', Transformation.from_translation([-.4, 0, 0]), None, male, 'clamp', size=1)
-        c3 = Bodies.Connector('3', Transformation.from_translation([-.1, .2, 0]), None, male, 'clamp', size=1)
-
-        box = Geometry.Box({'x': 1, 'y': 1, 'z': 1})
-        gen_c1 = copy(c1)
-        gen_c2 = copy(c2)
-        generic_body = Bodies.Body('42', collision=box, connectors=[gen_c1, gen_c2])
-        another_body = Bodies.Body('123', collision=box, connectors=[c1, c2, c3])
-
-        possible_connections = {(c1, gen_c2), (c2, gen_c1), (c3, gen_c1)}  # Between box and generic_body
-        self.assertEqual(possible_connections, another_body.possible_connections_with(generic_body))
-        self.assertEqual(len(another_body.possible_connections_with(
-            Bodies.Body('1', collision=box))), 0)  # No-connector body
-
-        same_id_body = Bodies.Body('123', collision=box)
-        with self.assertRaises(err.UniqueValueError):
-            # Cannot connect bodies with same ID
-            another_body.possible_connections_with(same_id_body)
 
     def test_classification(self):
         """Tests the classification utilities for simple modules"""
@@ -61,13 +40,13 @@ class TestModule(unittest.TestCase):
         module_headers = []
         for module_id in ('mod_link', 'mod_joint', 'mod_base', 'mod_eef'):
             module_headers.append(
-                Module.ModuleHeader(module_id, name=module_id + '_test')
+                ModuleHeader(module_id, name=module_id + '_test')
             )
         link_header, joint_header, base_header, eef_header = module_headers
-        link_module = Module.AtomicModule(link_header, bodies=[b1])
-        joint_module = Module.AtomicModule(joint_header, bodies=[b2, b3], joints=[jnt])
-        base_module = Module.AtomicModule(base_header, bodies=[b4])
-        eef_module = Module.AtomicModule(eef_header, bodies=[b5])
+        link_module = AtomicModule(link_header, bodies=[b1])
+        joint_module = AtomicModule(joint_header, bodies=[b2, b3], joints=[jnt])
+        base_module = AtomicModule(base_header, bodies=[b4])
+        eef_module = AtomicModule(eef_header, bodies=[b5])
 
         self.assertIs(get_module_type(link_module), ModuleType.LINK)
         with self.assertRaises(ModuleClassificationError):
@@ -94,7 +73,7 @@ class TestModule(unittest.TestCase):
 
         b4.connectors.add(c4)
 
-        db = Module.ModulesDB({base_module, link_module, joint_module, eef_module})
+        db = ModulesDB({base_module, link_module, joint_module, eef_module})
         for split in divide_db_in_types(db):
             self.assertEqual(len(split), 1)
 
@@ -188,26 +167,26 @@ class TestModule(unittest.TestCase):
                                  child_body=Bodies.Body('12', collision=box))
         jnt_works = Joints.Joint('2', Joints.TimorJointType.revolute, parent_body=box_body, child_body=another_body)
 
-        header_one = Module.ModuleHeader('1', 'Test module one', author=['Jonathan'], email=['jonathan.kuelz@tum.de'],
-                                         affiliation=['TUM'])
+        header_one = ModuleHeader('1', 'Test module one', author=['Jonathan'], email=['jonathan.kuelz@tum.de'],
+                                  affiliation=['TUM'])
         header_two = dict(ID='2', name='Test module two', author=['Jonathan'],
                           email=['jonathan.kuelz@tum.de'], affiliation=['TUM'])
         # ----- Let's go -----
-        module = Module.AtomicModule(header_one, [generic_body, box_body, another_body], [jnt, jnt_works])
+        module = AtomicModule(header_one, [generic_body, box_body, another_body], [jnt, jnt_works])
 
         with self.assertRaises(ValueError):
             # Joint body missing in module
-            mod = Module.AtomicModule(header_one, [generic_body], [jnt])
+            mod = AtomicModule(header_one, [generic_body], [jnt])
         with self.assertRaises(err.UniqueValueError):
             # Same connector ID for different bodies
-            mod = Module.AtomicModule(header_one, [generic_body, box_body_same_connectors])
+            mod = AtomicModule(header_one, [generic_body, box_body_same_connectors])
         with self.assertRaises(err.UniqueValueError):
-            mod = Module.AtomicModule(header_one, [generic_body, box_body, jnt_fails.parent_body, jnt_fails.child_body],
+            mod = AtomicModule(header_one, [generic_body, box_body, jnt_fails.parent_body, jnt_fails.child_body],
                                       [jnt, jnt_fails])
 
         new_joint = Joints.Joint('5', Joints.TimorJointType.revolute, parent_body=Bodies.Body('1000', collision=box),
                                  child_body=Bodies.Body('1001', collision=box))
-        new = Module.AtomicModule(header_two, [generic_body, box_body, new_joint.parent_body, new_joint.child_body],
+        new = AtomicModule(header_two, [generic_body, box_body, new_joint.parent_body, new_joint.child_body],
                                   [jnt, new_joint])
 
         self.assertEqual(Bodies.ConnectorSet(new.available_connectors.values()),
@@ -217,19 +196,166 @@ class TestModule(unittest.TestCase):
                          )
 
         # ------ Test the DB -----
-        new_almost_empty = Module.AtomicModule(header_two, [standalone_body])
-        db = Module.ModulesDB([module])
+        new_almost_empty = AtomicModule(header_two, [standalone_body])
+        db = ModulesDB([module])
         with self.assertRaises(err.UniqueValueError):
             db.add(new)
         with self.assertRaises(err.UniqueValueError):
-            Module.ModulesDB((module, new))
+            ModulesDB((module, new))
         db.add(new_almost_empty)
         self.assertEqual(len(db), 2)
 
-        db = Module.ModulesDB([module])
-        new_only_joint = Module.AtomicModule(header_two, [jnt_fails.parent_body, jnt_fails.child_body], [jnt_fails])
+        db = ModulesDB([module])
+        new_only_joint = AtomicModule(header_two, [jnt_fails.parent_body, jnt_fails.child_body], [jnt_fails])
         with self.assertRaises(err.UniqueValueError):
             db.add(new_only_joint)
+
+    def test_parameterizable_module(self):
+        """Tests a parameterizable module on instantiation and resizing capabilities"""
+        cyl_header = ModuleHeader('cylinder', 'cylinder')
+        l_header = ModuleHeader('L', 'orthogonal link')
+        cylinder = ParameterizedCylinderLink(cyl_header)
+        l_shaped = ParameterizedOrthogonalLink(l_header, lengths=(1, 3), radius=.2)
+        long_cylinder = ParameterizedCylinderLink(cyl_header, length=2)
+        constrained_cylinder = ParameterizedCylinderLink(cyl_header, length=2, radius=1, limits=((.1, 1.1), (0, 4)))
+
+        bottom = cylinder.connectors_by_own_id['proximal']
+        top = cylinder.connectors_by_own_id['distal']
+        self.assertEqual(abs(bottom.body2connector.translation[2]), abs(top.body2connector.translation[2]))
+        dz_initial = (bottom.connector2body @ top.body2connector).translation[2]
+        self.assertEqual(abs(dz_initial), cylinder.length)
+
+        initial_mass = cylinder.link.mass
+        self.assertEqual(cylinder.link.mass, long_cylinder.link.mass / 2)
+        cylinder.resize((1, 1.5))
+        dz_new = (bottom.connector2body @ top.body2connector).translation[2]
+        self.assertEqual(cylinder.link.mass, initial_mass * 1.5)
+        self.assertEqual(dz_new, dz_initial * 1.5)
+        cylinder.resize((1, 1))
+        self.assertEqual(cylinder.link.mass, initial_mass)
+        cylinder.resize((.33, 1.5))
+        self.assertEqual(cylinder.radius, .33)
+
+        with self.assertRaises(ValueError):
+            cylinder.resize((-1, 1))
+        with self.assertRaises(ValueError):
+            constrained_cylinder.resize((2, 1))
+
+        prox = l_shaped.connectors_by_own_id['proximal']
+        dist = l_shaped.connectors_by_own_id['distal']
+        trans_diff = (prox.connector2body @ dist.body2connector).translation
+        self.assertEqual(np.linalg.norm(trans_diff), np.sqrt(l_shaped.l1 ** 2 + l_shaped.l2 ** 2))
+
+        self.assertIsInstance(AtomicModule.from_json_data(cylinder.to_json_data(), None), AtomicModule)
+        self.assertIsInstance(AtomicModule.from_json_data(l_shaped.to_json_data(), None), AtomicModule)
+        self.assertIsInstance(cylinder.freeze(), AtomicModule)
+        self.assertIsInstance(l_shaped.freeze(), AtomicModule)
+        self.assertIsInstance(pickle.loads(pickle.dumps(cylinder)), ParameterizedCylinderLink)
+        self.assertIsInstance(pickle.loads(pickle.dumps(l_shaped)), ParameterizedOrthogonalLink)
+
+        # Check if freezing works even if the original parameterizable module changes
+        frozen_cyl = cylinder.freeze()
+        frozen_l = l_shaped.freeze()
+        inertia_cyl = tuple(b.inertia for b in frozen_cyl.bodies)
+        inertia_l = tuple(b.inertia for b in frozen_l.bodies)
+        jsons = (frozen_cyl.to_json_data(), frozen_l.to_json_data())
+        cylinder.resize((100, 100))
+        l_shaped.resize((100, 100, 100))
+        self.assertEqual(tuple(b.inertia for b in frozen_cyl.bodies), inertia_cyl)
+        self.assertEqual(tuple(b.inertia for b in frozen_l.bodies), inertia_l)
+        self.assertEqual(frozen_cyl.to_json_data(), jsons[0])
+        self.assertEqual(frozen_l.to_json_data(), jsons[1])
+
+        cylinder.link.parameters = (.2, .7)
+        with self.assertRaises(ValueError):
+            cylinder.freeze()
+        cylinder.resize((.2, .7))
+        self.assertIsInstance(cylinder.link.freeze(), Body)
+
+    def test_parameterizable_module_with_joint(self):
+        """Check parameterized modules that contain at least one joint"""
+        straight_header = ModuleHeader('J1', 'Straight Prismatic Joint')
+        straight = ParameterizedStraightJoint(straight_header, radius=.1, joint_type=TimorJointType.prismatic,
+                                              joint_parameters={'q_limits': (-.3, .5)})
+        orthogonal_header = ModuleHeader('J2', 'Orthogonal Revolute Joint')
+        orthogonal = ParameterizedOrthogonalJoint(orthogonal_header, radius=.1, joint_type=TimorJointType.revolute)
+
+        self.assertEqual(straight.joint.type, TimorJointType.prismatic)
+        self.assertEqual(orthogonal.joint.type, TimorJointType.revolute)
+
+        Gs = straight.module_graph
+        self.assert_(nx.is_weakly_connected(Gs))
+        nodes = {n._id: n for n in Gs.nodes}
+        path = nx.shortest_paths.shortest_path(Gs, nodes['proximal'], nodes['distal'])
+        end2end = Transformation.neutral()
+        for n1, n2 in zip(path[:-1], path[1:]):
+            end2end = end2end @ Gs.edges[n1, n2]['transform']
+        self.assertEqual(abs(end2end.translation[2]), straight.length)
+
+        Go = orthogonal.module_graph
+        self.assert_(nx.is_weakly_connected(Go))
+        nodes = {n._id: n for n in Go.nodes}
+        path = nx.shortest_paths.shortest_path(Go, nodes['proximal'], nodes['distal'])
+        end2end = Transformation.neutral()
+        for n1, n2 in zip(path[:-1], path[1:]):
+            end2end = end2end @ Go.edges[n1, n2]['transform']
+        self.assertAlmostEqual(abs(end2end.translation[1]), orthogonal.l2)
+        self.assertAlmostEqual(abs(end2end.translation[2]), orthogonal.l1)
+
+        self.assertIsInstance(AtomicModule.from_json_data(straight.to_json_data(), None), AtomicModule)
+        self.assertIsInstance(AtomicModule.from_json_data(orthogonal.to_json_data(), None), AtomicModule)
+        self.assertIsInstance(straight.freeze(), AtomicModule)
+        self.assertIsInstance(orthogonal.freeze(), AtomicModule)
+        self.assertIsInstance(pickle.loads(pickle.dumps(straight)), ParameterizedStraightJoint)
+        self.assertIsInstance(pickle.loads(pickle.dumps(orthogonal)), ParameterizedOrthogonalJoint)
+
+        orthogonal.proximal_link.parameters = (.4, .6)
+        with self.assertRaises(ValueError):
+            orthogonal.freeze()
+        orthogonal.resize((1, 2, 3))
+        self.assertIsInstance(orthogonal.proximal_link.freeze(), Body)
+
+    def test_parameterizable_assembly(self):
+        """Tests assemblies containing at least on parameterizable module."""
+        base_header = ModuleHeader('B', 'Base')
+        cyl_header = ModuleHeader('cylinder', 'cylinder')
+        l_header = ModuleHeader('L', 'orthogonal link')
+        straight_header = ModuleHeader('J1', 'Straight Prismatic Joint')
+        orthogonal_header = ModuleHeader('J2', 'Orthogonal Revolute Joint')
+        box = Geometry.Box({'x': .5, 'y': .5, 'z': .1})
+        base_cons = (
+            Connector('world', spatial.rotX(np.pi), gender='male', connector_type='base'),
+            Connector('out', Transformation.from_translation([0, 0, .1 / 2]), gender='male')
+        )
+        base_body = Body('base_body', box, connectors=base_cons)
+        base = AtomicModule(base_header, bodies=(base_body,))
+        cylinder = ParameterizedCylinderLink(cyl_header)
+        l_shaped = ParameterizedOrthogonalLink(l_header, lengths=(1, 3), radius=.2)
+        straight = ParameterizedStraightJoint(straight_header, radius=.1, joint_type=TimorJointType.prismatic)
+        orthogonal = ParameterizedOrthogonalJoint(orthogonal_header, radius=.1, joint_type=TimorJointType.revolute)
+
+        db = ModulesDB((base, cylinder, l_shaped, straight, orthogonal))
+
+        assembly = ModuleAssembly.from_serial_modules(db, ('B', 'cylinder', 'J1', 'L', 'J2'))
+        Gmod = assembly.graph_of_modules
+        self.assert_(nx.is_connected(Gmod))
+        Ga = assembly.assembly_graph
+        self.assert_(nx.is_weakly_connected(Ga))
+
+        rob = assembly.to_pin_robot()
+        fk = rob.fk()
+
+        move_up = .3
+
+        rob.update_configuration(np.array((move_up, 0)))
+        self.assertAlmostEqual(fk[2, 3], rob.fk()[2, 3] - move_up)
+        self.assert_(np.all(fk[:2, 3] == rob.fk()[:2, 3]))
+        self.assert_(np.all(fk[:3, :3] == rob.fk()[:3, :3]))
+
+        rob.update_configuration(np.array((0, np.pi)))
+        self.assertAlmostEqual(fk[0, 3], rob.fk()[0, 3])
+        self.assertAlmostEqual(fk[1, 3], rob.fk()[1, 3])
+        self.assertAlmostEqual(fk[2, 3] + orthogonal.l2 * 2, rob.fk()[2, 3])
 
 
 if __name__ == '__main__':

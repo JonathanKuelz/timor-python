@@ -1,0 +1,155 @@
+from copy import copy
+import pickle
+import unittest
+
+import numpy as np
+
+from timor import Bodies, Geometry, Obstacle, Transformation
+from timor.parameterized import ParameterizableBody, ParameterizableBoxBody, ParameterizableCylinderBody, \
+    ParameterizableMultiBody, \
+    ParameterizableSphereBody
+from timor.utilities import file_locations
+import timor.utilities.errors as err
+
+
+class TestBodiesAndGeometries(unittest.TestCase):
+
+    def test_body(self):
+        """Tests body instantiation and basic functionality"""
+
+        female = Bodies.Gender.female
+        male = Bodies.Gender.male
+        c1 = Bodies.Connector('1', Transformation.from_translation([.4, 0, 0]), None, female, 'clamp', size=1)
+        c2 = Bodies.Connector('2', Transformation.from_translation([-.4, 0, 0]), None, male, 'clamp', size=1)
+        c3 = Bodies.Connector('3', Transformation.from_translation([-.1, .2, 0]), None, male, 'clamp', size=1)
+
+        box = Geometry.Box({'x': 1, 'y': 1, 'z': 1})
+        gen_c1 = copy(c1)
+        gen_c2 = copy(c2)
+        generic_body = Bodies.Body('42', collision=box, connectors=[gen_c1, gen_c2])
+        another_body = Bodies.Body('123', collision=box, connectors=[c1, c2, c3])
+
+        possible_connections = {(c1, gen_c2), (c2, gen_c1), (c3, gen_c1)}  # Between box and generic_body
+        self.assertEqual(possible_connections, another_body.possible_connections_with(generic_body))
+        self.assertEqual(len(another_body.possible_connections_with(
+            Bodies.Body('1', collision=box))), 0)  # No-connector body
+
+        same_id_body = Bodies.Body('123', collision=box)
+        with self.assertRaises(err.UniqueValueError):
+            # Cannot connect bodies with same ID
+            another_body.possible_connections_with(same_id_body)
+
+    def test_geometry_volume(self):
+        box = Geometry.Box({'x': 1, 'y': 1, 'z': 1})
+        cylinder = Geometry.Cylinder({'r': 1, 'z': 5})
+        sphere = Geometry.Sphere({'r': 1})
+        mesh = Geometry.Mesh({'file': 'sample_tasks/assets/DMU_125P.stl', 'package_dir': file_locations.test_data,
+                              'scale': 0.001})
+
+        self.assertEqual(box.volume, 1)
+        self.assertAlmostEqual(cylinder.volume, 5 * np.pi * 1 ** 2)
+        self.assertAlmostEqual(sphere.volume, 4 / 3 * np.pi * 1 ** 3)
+        self.assertGreater(mesh.volume, 0)  # Just check that it makes sense
+
+        composed = Geometry.ComposedGeometry([box, cylinder, sphere, mesh])
+        empty = Geometry.EmptyGeometry()
+        self.assertEqual(composed.volume, box.volume + cylinder.volume + sphere.volume + mesh.volume)
+        composed._composing_geometries.append(empty)
+        self.assertEqual(composed.volume, box.volume + cylinder.volume + sphere.volume + mesh.volume)
+
+    def test_parameterizable_body(self):
+        num_params = {Geometry.GeometryType.BOX: 3, Geometry.GeometryType.CYLINDER: 2, Geometry.GeometryType.SPHERE: 1}
+        bodies = list()
+        parameters = list()
+        offset_bodies = list()
+        for i, (t, num) in enumerate(num_params.items()):
+            parameters.append(np.random.rand(num))
+            cls = ParameterizableMultiBody.geometry_type_to_class[t]
+            bodies.append(cls(str(i), parameters[-1]))
+            offset_bodies.append(cls(str(i), parameters[-1],
+                                     geometry_placement=Transformation.from_translation([0, 0, 15])))
+            with self.assertRaises(ValueError):
+                cls(str(i), ())
+            with self.assertRaises(ValueError):
+                cls(str(i), np.random.rand(num + 1))
+
+        for body in bodies:
+            self.assert_(all(body.inertia.lever == np.zeros(3)))
+
+        for b1, b2 in zip(bodies, offset_bodies):
+            self.assertEqual(b1.mass, b2.mass)
+            o1 = Obstacle.Obstacle('1', b1.collision)
+            o2 = Obstacle.Obstacle('2', b2.collision)
+            self.assertFalse(o1.collides(o2))
+            self.assertTrue(o1.collides(o1))
+            self.assertTrue(o2.collides(o2))
+
+        heavy_bodies = [copy(b) for b in bodies]
+        for b in heavy_bodies:
+            b.mass_density = 10
+        for b1, b2 in zip(bodies, heavy_bodies):
+            self.assertGreater(b2.mass, b1.mass)
+            self.assertEqual(b2.mass, b1.mass * 10)
+            self.assert_(np.all(b2.inertia.inertia >= b1.inertia.inertia))
+            self.assert_(all(b2.inertia.lever == b1.inertia.lever))
+
+        for body, parameters in zip(bodies, parameters):
+            body.connector_placements_valid = True  # Has to be done for freezing
+            self.assertIsInstance(Bodies.Body.from_json_data(body.to_json_data(), None), Bodies.Body)
+            self.assertIsInstance(body.freeze(), Bodies.Body)
+
+            pickle_body = pickle.loads(pickle.dumps(body))
+            self.assertIsInstance(pickle_body, ParameterizableBody)
+            self.assertEqual(pickle_body.mass, body.mass)
+            self.assertEqual(pickle_body.inertia, body.inertia)
+
+            okay_limits = np.vstack((np.maximum(parameters - 0.1, np.zeros_like(parameters)), parameters + 0.1)).T
+            not_okay_limits = np.vstack((np.maximum(parameters - 0.1, np.zeros_like(parameters)), parameters - 0.1)).T
+
+            body.parameter_limits = okay_limits
+            with self.assertRaises(ValueError):
+                body.parameter_limits = not_okay_limits
+
+            body._parameter_limits = not_okay_limits
+            with self.assertRaises(ValueError):
+                body.parameters = parameters
+
+    def test_parameterizable_multi_body(self):
+        cylinder = ParameterizableCylinderBody('cylinder', [.2, 1])
+        sphere = ParameterizableSphereBody('sphere', [.4])
+
+        p1 = Transformation.from_translation([0, 0, .5])
+        p2 = Transformation.from_translation([0, 0, 1])
+        dumbbell = ParameterizableMultiBody(
+            'dumbbell', [Geometry.GeometryType.SPHERE, Geometry.GeometryType.SPHERE, Geometry.GeometryType.CYLINDER],
+            parameters=[.4, .4, .2, 1],
+            geometry_placements=[Transformation.neutral(), p2, p1])
+
+        self.assertAlmostEqual(dumbbell.mass, cylinder.mass + 2 * sphere.mass)
+
+        inertia = dumbbell.inertia
+        self.assertAlmostEqual(inertia.lever[2], .5)
+        for i in (4, 6, 9):
+            self.assertLess(cylinder.inertia.toDynamicParameters()[i], inertia.toDynamicParameters()[i])
+            self.assertLess(sphere.inertia.toDynamicParameters()[i], inertia.toDynamicParameters()[i])
+
+        sphere._geometry_transformation = Transformation.from_translation([0, 0, 2])
+        o_cyl = Obstacle.Obstacle('cylinder', cylinder.collision)
+        o_sphere = Obstacle.Obstacle('sphere', sphere.collision)
+        o_composed = Obstacle.Obstacle('composed', dumbbell.collision)
+        self.assertTrue(o_composed.collides(o_cyl))
+        self.assertFalse(o_composed.collides(o_sphere))
+        o_sphere.collision.placement = Transformation.from_translation([0, 0, 1.2])
+        self.assertTrue(o_composed.collides(o_sphere))
+
+        dumbbell.connector_placements_valid = True  # Validate connector placements for freezing
+        self.assertIsInstance(Bodies.Body.from_json_data(dumbbell.to_json_data(), None), Bodies.Body)
+        self.assertIsInstance(dumbbell.freeze(), Bodies.Body)
+        pickle_body = pickle.loads(pickle.dumps(dumbbell))
+        self.assertIsInstance(pickle_body, ParameterizableMultiBody)
+        self.assertEqual(pickle_body.mass, dumbbell.mass)
+        self.assertEqual(pickle_body.inertia, dumbbell.inertia)
+
+
+if __name__ == '__main__':
+    unittest.main()

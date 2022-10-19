@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import abc
 from collections import Counter
 import copy
 from dataclasses import dataclass
@@ -19,7 +20,7 @@ import numpy as np
 import pinocchio as pin
 
 from timor import Robot
-from timor.Bodies import Body, BodySet, Connector, ConnectorSet, Gender
+from timor.Bodies import Body, BodyBase, BodySet, Connector, ConnectorSet, Gender
 from timor.Joints import Joint, JointSet, TimorJointType
 from timor.utilities import logging, spatial, write_urdf
 from timor.utilities.dtypes import SingleSet, TypedHeader, randomly
@@ -41,18 +42,16 @@ class ModuleHeader(TypedHeader):
     cost: float = 0.
 
 
-class AtomicModule:
-    """
-    Base class for any robot module. Submodules are not possible in AtomicModule, but are planned for future releases.
-    """
+class ModuleBase(abc.ABC):
+    """Base class for any robot module."""
 
     def __init__(self,
                  header: Union[Dict, ModuleHeader],
-                 bodies: Iterable[Body] = (),
+                 bodies: Iterable[BodyBase] = (),
                  joints: Iterable[Joint] = ()
                  ):
         """
-        One single module, an atomic building block of a modular robot.
+        A single module, the basic building block of a modular robot.
 
         :param header: The header of the module containing distinct meta-information
         :param bodies: The bodies contained in the module - defaults to none.
@@ -63,7 +62,7 @@ class AtomicModule:
             header['ID'] = str(header['ID'])  # Sensitive due to json parsing
             header = ModuleHeader(**header)
         self.header: ModuleHeader = header
-        self._bodies: BodySet[Body] = BodySet(bodies)
+        self._bodies: BodySet[BodyBase] = BodySet(bodies)
         for body in self._bodies:
             body.in_module = self
         for joint in joints:
@@ -80,86 +79,6 @@ class AtomicModule:
     def __str__(self):
         """String representation for the module."""
         return f"Module {self.name}, ID: {self.id}"
-
-    @classmethod
-    def from_concert_specification(cls, d: Dict, package_dir: Path) -> 'AtomicModule':  # pragma: no cover
-        """
-        Maps a concert-module description to an instance of this class.
-
-        This library was developed in the context of the EU sponsored CONCERT project.
-        For more information visit https://concertproject.eu/
-        The concert module definition closely follows the Timor one. However, in the concert project, we only deal with
-        "serial", "chain-like" robots and monodirectional modules. For the sake of simplicity (makes implementation for
-        partners easier), proximal (here: female) connectors are pointing INSIDE the module. To work in the more general
-        case this toolbox is dealing with, they have to be "turned to the outside".
-        Furthermore, CONCERT defines child geometries relative to joint frames, while we would define them relative to
-        their body frames (for CONCERT, the "body" frame always aligns with the connector frame). Therefore, geometry
-        placements after joints need to be offset.
-        :param package_dir: Package directory relative to which mesh file paths are defined
-        :param d: A dictionary with relevant meta-information
-        :return: An instantiated module
-        """
-        module = cls.from_json_data(d, package_dir)
-        for connector in module.available_connectors.values():
-            if connector.gender is Gender.female:
-                connector.body2connector = connector.body2connector @ spatial.rotX(np.pi)
-
-        # Concert defines child geometries relative to the joint frame
-        for joint in module.joints:
-            child = joint.child_body
-            offset = joint.child2joint
-            child.visual.placement = child.visual.placement @ offset
-            child.collision.placement = child.collision.placement @ offset
-        return module
-
-    @classmethod
-    def from_json_data(cls, d: Dict, package_dir: Path) -> 'AtomicModule':
-        """
-        Maps the a json module description to an instance of this class.
-
-        The dictionary will be modified in-place until empty (everything was parsed).
-
-        :param package_dir: Package directory relative to which mesh file paths are defined
-        :param d: A dictionary with relevant meta-information
-        :return: An instantiated module
-        """
-        header = d.pop('header')
-        header = ModuleHeader(**header)
-
-        if 'bodies' in d:
-            bodies = [Body.from_json_data(body_data, package_dir)
-                      for body_data in possibly_nest_as_list(d.pop('bodies'))]
-            body_name_to_instance = {b._id: b for b in bodies}
-            if 'joints' in d:
-                joints = [Joint.from_json_data(joint_data, body_name_to_instance)
-                          for joint_data in possibly_nest_as_list(d.pop('joints'))]
-            else:
-                joints = ()
-        else:
-            if 'joints' in d:
-                raise ValueError("Joints specified without any bodies!")
-            bodies = ()
-            joints = ()
-
-        if len(d) > 0:
-            raise ValueError("Unrecognized keys in module specification: " + str(d.keys()))
-
-        return cls(header, bodies, joints)
-
-    def to_json_data(self) -> Dict:
-        """
-        Write a json in that fully describes this module.
-
-        :return: Returns the module specification in a json-ready dictionary
-        """
-        header = self.header._asdict()
-        header['date'] = header['date'].strftime('%Y-%m-%d')
-
-        return {
-            'header': header,
-            'bodies': [body.to_json_data() for body in sorted(self.bodies, key=lambda b: b.id)],
-            'joints': [joint.to_json_data() for joint in sorted(self.joints, key=lambda j: j.id)]
-        }
 
     @property
     def connectors_by_own_id(self) -> Dict[str, Connector]:
@@ -205,7 +124,7 @@ class AtomicModule:
         return {c.id: c for c in itertools.chain.from_iterable(b.connectors for b in self.bodies)}
 
     @property
-    def bodies(self) -> BodySet[Body]:
+    def bodies(self) -> BodySet[BodyBase]:
         """Returns all bodies contained in this module."""
         return self._bodies
 
@@ -248,7 +167,7 @@ class AtomicModule:
         if max(counter.values()) > 1:
             raise err.UniqueValueError("A module cannot contain multiple connectors with the same id.")
 
-    def copy(self, suffix: str) -> 'AtomicModule':
+    def copy(self, suffix: str) -> ModuleBase:
         """
         Copies a module, but changes the id of the copy.
 
@@ -293,13 +212,107 @@ class AtomicModule:
 
         return tmp_ass.to_pin_robot(add_com_frames=show_com, base_placement=base_placement).visualize(viz, 'full')
 
-    def can_connect(self, other: 'AtomicModule') -> bool:
+    def can_connect(self, other: ModuleBase) -> bool:
         """Returns true if at least one of the connectors of this module matches at least one connector of other"""
         return any(this_con.connects(other_con) for this_con, other_con
                    in itertools.product(self.available_connectors.values(), other.available_connectors.values()))
 
+    def to_json_data(self) -> Dict:
+        """
+        Write a json in that fully describes this module.
 
-class ModulesDB(SingleSet[AtomicModule]):
+        :return: Returns the module specification in a json-ready dictionary
+        """
+        header = self.header._asdict()
+        header['date'] = header['date'].strftime('%Y-%m-%d')
+
+        return {
+            'header': header,
+            'bodies': [body.to_json_data() for body in sorted(self.bodies, key=lambda b: b.id)],
+            'joints': [joint.to_json_data() for joint in sorted(self.joints, key=lambda j: j.id)]
+        }
+
+
+class AtomicModule(ModuleBase):
+    """
+    Atomic Modules are the simplest module representation. They are static (immutable) and can be (de)serialized.
+    """
+
+    def __init__(self, header: Union[Dict, ModuleHeader], bodies: Iterable[Body] = (), joints: Iterable[Joint] = ()):
+        """Overwrites the default constructor for more precise type hints"""
+        super().__init__(header=header, bodies=bodies, joints=joints)
+
+    def __copy__(self):
+        """Deactivates the builtin copy method."""
+        super().__copy__()
+
+    @classmethod
+    def from_concert_specification(cls, d: Dict, package_dir: Path) -> 'ModuleBase':  # pragma: no cover
+        """
+        Maps a concert-module description to an instance of this class.
+
+        This library was developed in the context of the EU sponsored CONCERT project.
+        For more information visit https://concertproject.eu/
+        The concert module definition closely follows the Timor one. However, in the concert project, we only deal with
+        "serial", "chain-like" robots and monodirectional modules. For the sake of simplicity (makes implementation for
+        partners easier), proximal (here: female) connectors are pointing INSIDE the module. To work in the more general
+        case this toolbox is dealing with, they have to be "turned to the outside".
+        Furthermore, CONCERT defines child geometries relative to joint frames, while we would define them relative to
+        their body frames (for CONCERT, the "body" frame always aligns with the connector frame). Therefore, geometry
+        placements after joints need to be offset.
+        :param package_dir: Package directory relative to which mesh file paths are defined
+        :param d: A dictionary with relevant meta-information
+        :return: An instantiated module
+        """
+        module = cls.from_json_data(d, package_dir)
+        for connector in module.available_connectors.values():
+            if connector.gender is Gender.female:
+                connector.body2connector = connector.body2connector @ spatial.rotX(np.pi)
+
+        # Concert defines child geometries relative to the joint frame
+        for joint in module.joints:
+            child = joint.child_body
+            offset = joint.child2joint
+            child.visual.placement = child.visual.placement @ offset
+            child.collision.placement = child.collision.placement @ offset
+        return module
+
+    @classmethod
+    def from_json_data(cls, d: Dict, package_dir: Path) -> 'ModuleBase':
+        """
+        Maps the a json module description to an instance of this class.
+
+        The dictionary will be modified in-place until empty (everything was parsed).
+
+        :param package_dir: Package directory relative to which mesh file paths are defined
+        :param d: A dictionary with relevant meta-information
+        :return: An instantiated module
+        """
+        header = d.pop('header')
+        header = ModuleHeader(**header)
+
+        if 'bodies' in d:
+            bodies = [Body.from_json_data(body_data, package_dir)
+                      for body_data in possibly_nest_as_list(d.pop('bodies'))]
+            body_name_to_instance = {b._id: b for b in bodies}
+            if 'joints' in d:
+                joints = [Joint.from_json_data(joint_data, body_name_to_instance)
+                          for joint_data in possibly_nest_as_list(d.pop('joints'))]
+            else:
+                joints = ()
+        else:
+            if 'joints' in d:
+                raise ValueError("Joints specified without any bodies!")
+            bodies = ()
+            joints = ()
+
+        if len(d) > 0:
+            raise ValueError("Unrecognized keys in module specification: " + str(d.keys()))
+
+        return cls(header, bodies, joints)
+
+
+class ModulesDB(SingleSet[ModuleBase]):
     """
     A Database of Modules. The inheritance from SingleSet ensures no duplicates are within one DB.
 
@@ -310,9 +323,9 @@ class ModulesDB(SingleSet[AtomicModule]):
     after being instantiated!
     """
 
-    connection_type = Tuple[AtomicModule, Connector, AtomicModule, Connector]  # More specific than in Assembly!
+    connection_type = Tuple[ModuleBase, Connector, ModuleBase, Connector]  # More specific than in Assembly!
 
-    def __contains__(self, item: AtomicModule) -> bool:
+    def __contains__(self, item: ModuleBase) -> bool:
         """
         If a new module should be added to a Module DB, the following properties must be preserved:
 
@@ -403,7 +416,7 @@ class ModulesDB(SingleSet[AtomicModule]):
         return set(mod.id for mod in self)
 
     @property
-    def all_bodies(self) -> BodySet[Body]:
+    def all_bodies(self) -> BodySet[BodyBase]:
         """All bodies in all modules in the DB"""
         return BodySet(itertools.chain.from_iterable(mod.bodies for mod in self))
 
@@ -433,22 +446,22 @@ class ModulesDB(SingleSet[AtomicModule]):
         return {c.id: c for c in self.all_connectors}
 
     @property
-    def by_id(self) -> Dict[str, AtomicModule]:
+    def by_id(self) -> Dict[str, ModuleBase]:
         """Returns this DB as a dictionary, mapping the Module ID to the module"""
         return {mod.id: mod for mod in self}
 
     @property
-    def by_name(self) -> Dict[str, AtomicModule]:
+    def by_name(self) -> Dict[str, ModuleBase]:
         """Returns this DB as a dictionary, mapping the Module Name to the module"""
         return {mod.name: mod for mod in self}
 
     @property
-    def bases(self) -> ModulesDB[AtomicModule]:
+    def bases(self) -> ModulesDB[ModuleBase]:
         """Returns all modules containing at least one base connector"""
         return self.__class__(mod for mod in self if any(c.type == 'base' for c in mod.available_connectors.values()))
 
     @property
-    def end_effectors(self) -> ModulesDB[AtomicModule]:
+    def end_effectors(self) -> ModulesDB[ModuleBase]:
         """Returns all modules containing at least one eef connector"""
         return self.__class__(mod for mod in self if any(c.type == 'eef' for c in mod.available_connectors.values()))
 
@@ -539,8 +552,8 @@ class ModuleAssembly:
           type 'base' in the assembly. The base connector argument is expected to be of type [module_idx, connector._id]
         """
         self.db: ModulesDB = database
-        self.module_instances: List[AtomicModule] = []
-        self.connections: Set[Tuple[AtomicModule, Connector, AtomicModule, Connector]] = set()
+        self.module_instances: List[ModuleBase] = []
+        self.connections: Set[Tuple[ModuleBase, Connector, ModuleBase, Connector]] = set()
 
         self._module_copies: Dict[str, str] = dict()
         if isinstance(assembly_modules, str):
@@ -675,7 +688,7 @@ class ModuleAssembly:
         :param set_base: Needs to be set if the first module is added externally to an empty assembly.
         :return: Returns the module index (as in the internal module order)
         """
-        if isinstance(module_id, AtomicModule):  # Common error
+        if isinstance(module_id, ModuleBase):  # Common error
             raise ValueError("You provided a Module, but an ID was expected.")
         db_by_id = self.db.by_id
         previous_identical = module_id in self.internal_module_ids
@@ -802,7 +815,7 @@ class ModuleAssembly:
         return G_a
 
     def add(self,
-            new: AtomicModule,
+            new: ModuleBase,
             new_connector: str,
             to: int,
             to_connector: Union[str, Tuple[str, str, str]]) -> int:
@@ -831,7 +844,7 @@ class ModuleAssembly:
 
         return new_index
 
-    def add_random_from_db(self, db_filter: Callable[[AtomicModule], bool] = None) -> int:
+    def add_random_from_db(self, db_filter: Callable[[ModuleBase], bool] = None) -> int:
         """
         Adds a random module from the database to this assembly
 
@@ -921,7 +934,9 @@ class ModuleAssembly:
             for successor in successors:
                 transform = transforms[node.id] @ edges[node, successor]['transform'].homogeneous
                 transforms[successor.id] = transform
-                if isinstance(successor, Body):
+                if isinstance(successor, BodyBase):
+                    if not isinstance(successor, Body):
+                        successor = successor.freeze()
                     new_frame, new_geometries = robot._add_body(successor.as_pin_body(transform),
                                                                 parent_joints[node.id],
                                                                 frames[node.id])
@@ -1016,7 +1031,9 @@ class ModuleAssembly:
             for successor in successors:
                 transform = transforms[node.id] @ edges[node, successor]['transform'].homogeneous
                 transforms[successor.id] = transform
-                if isinstance(successor, Body):
+                if isinstance(successor, BodyBase):
+                    if not isinstance(successor, Body):
+                        successor = successor.freeze()
                     body_name = '.'.join(successor.id)
                     link = ET.Element('link', {'name': body_name})
                     link.append(write_urdf.from_pin_inertia(successor.inertia, transform))
