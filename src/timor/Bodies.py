@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 # Author: Jonathan Külz
 # Date: 17.02.22
+from __future__ import annotations
+
+import abc
 import copy
 from enum import Enum
 import itertools
 from pathlib import Path
 import re
-from typing import Dict, Iterable, Tuple, Union
+from typing import Dict, Iterable, Optional, Tuple, Union
 import warnings
 
 import numpy as np
@@ -66,7 +69,7 @@ class Connector:
     def __init__(self,
                  connector_id: str,
                  body2connector: TransformationLike = Transformation.neutral(),
-                 parent: 'Body' = None,
+                 parent: 'BodyBase' = None,
                  gender: Union[Gender, str] = Gender.hermaphroditic,
                  connector_type: str = '',
                  size: Union[int, float, np.ndarray] = tuple()  # size format depends on type
@@ -84,7 +87,7 @@ class Connector:
         """
         self._id: str = str(connector_id)
         self.body2connector: Transformation = Transformation(body2connector)
-        self.parent: 'Body' = parent
+        self.parent: 'BodyBase' = parent
         self.gender: Gender = gender if isinstance(gender, Gender) else Gender[gender]  # Enforce typing
         self._type: str = connector_type
         self.size: Union[int, float, np.ndarray] = size
@@ -174,7 +177,7 @@ class ConnectorSet(SingleSet[Connector]):
         return item.id in (con.id for con in self)
 
 
-class Body:
+class BodyBase(abc.ABC):
     """
     A body describes a rigid robot element with kinematic, dynamic, geometric, and connection properties.
 
@@ -182,13 +185,112 @@ class Body:
       attached to it.
     """
 
+    collision: Geometry  # The collision geometry of the body
+    connectors: ConnectorSet  # The connectors attached to this body
+    inertia: pin.Inertia  # The inertia of the body (containing mass, center of mass, and inertia matrix)
+    in_module: 'ModuleBase'  # The parent module of the body
+    _id: str  # The unique identifier of the body
+    _visual: Optional[Geometry] = None  # The visual geometry of the body - defaults to collision
+
+    @property
+    def id(self) -> Tuple[Union[None, str], str]:
+        """Composed ID: (module ID, body ID)"""
+        try:
+            return self.in_module.id, self._id
+        except AttributeError:
+            return None, self._id
+
+    @property
+    def mass(self) -> float:
+        """The mass of the body in [kg]"""
+        return self.inertia.mass
+
+    @property
+    def visual(self) -> Geometry:
+        """Defaults to collision if not explicitly specified"""
+        return self._visual if self._visual is not None else self.collision
+
+    def as_pin_body(self, placement: TransformationLike = Transformation.neutral()) -> Robot.PinBody:
+        """
+        Extracts the body properties that describe a body in a pinocchio robot.
+
+        Always places the body in the origin.
+
+        :param placement: Relative placement of the body to its parent joint
+        """
+        placement = Transformation(placement)
+        collision, visual = None, None
+        if not isinstance(self.collision, EmptyGeometry):
+            collision = [hppfcl_collision2pin_geometry(geo, t, '.'.join(self.id) + f'.c{i}', 0)
+                         for i, (t, geo) in enumerate(self.collision.collision_data)]
+        visual = [hppfcl_collision2pin_geometry(geo, t, '.'.join(self.id) + f'.v{i}', 0)
+                  for i, (t, geo) in enumerate(self.visual.collision_data)]
+
+        return Robot.PinBody(
+            inertia=self.inertia,
+            placement=pin.SE3(placement.homogeneous),
+            name='.'.join(self.id),
+            collision_geometries=collision,
+            visual_geometries=visual
+        )
+
+    def possible_connections_with(self, other: 'BodyBase') -> SingleSet[Tuple[Connector, Connector]]:
+        """
+        Returns a list of connectors that can connect this with other body.
+
+        This method does not check whether the connector IDs of the other body overlap with the connector IDs
+        of this body - this has to be achieved by e.g. putting both bodies in a module or in the same ModulesDB.
+
+        :param other: Another body
+        :return: A list of matching connector pairs like (this_body_connector, other_body_connector)
+        """
+        if other.id == self.id:
+            raise err.UniqueValueError("Two connectors with identical ID cannot be connected")
+        matches = SingleSet()
+        for own, foreign in itertools.product(self.connectors, other.connectors):
+            if own.connects(foreign):
+                matches.add((own, foreign))
+
+        return matches
+
+    def to_json_data(self) -> Dict[str, any]:
+        """
+        :return: Returns the body specification in a json-ready dictionary
+        """
+        geometry = {}
+        for geo in ('_visual', 'collision'):
+            if isinstance(self.__dict__.get(geo, None), EmptyGeometry) or self.__dict__.get(geo, None) is None:
+                continue
+            geometry[re.sub('_', '', geo)] = possibly_nest_as_list(self.__dict__[geo].serialized)
+        return {
+                   'ID': self._id,
+                   'mass': self.mass,
+                   'inertia': self.inertia.inertia.tolist(),
+                   'r_com': self.inertia.lever.tolist(),
+                   'connectors': [con.to_json_data() for con in
+                                  sorted(self.connectors, key=lambda con: con.id)]
+               } | geometry
+
+    @abc.abstractmethod
+    def __copy__(self):
+        """Returns a copy of the body"""
+        pass
+
+    def __str__(self) -> str:
+        """The string representation of a body"""
+        return f"Body: {self.id}"
+
+
+class Body(BodyBase):
+    """The default body class, represents a static/immutable rigid body."""
+
     def __init__(self,
                  body_id: str,
                  collision: Geometry,
                  visual: Geometry = None,
-                 connectors: Iterable[Connector] = None,
+                 connectors: Iterable[Connector] = (),
                  inertia: pin.Inertia = pin.Inertia(0, np.zeros(3), np.zeros((3, 3))),
-                 in_module: 'AtomicModule' = None
+                 in_module: 'ModuleBase' = None
                  ):
         """
         Construct a Body.
@@ -202,10 +304,8 @@ class Body:
           added to a module later on.
         """
         self._id: str = str(body_id)
-        self.in_module: 'AtomicModule' = in_module
-        self.connectors: ConnectorSet[Connector] = ConnectorSet(connectors) \
-            if connectors is not None \
-            else ConnectorSet()
+        self.in_module: 'ModuleBase' = in_module
+        self.connectors: ConnectorSet[Connector] = ConnectorSet(connectors)
         for connector in self.connectors:
             if connector.parent not in (None, self):
                 raise ValueError("Cannot set a new parent for a connector!")
@@ -217,24 +317,8 @@ class Body:
         self.collision: Geometry = collision
         self._visual: Geometry = visual
 
-    def __copy__(self) -> 'Body':
-        """Custom copy to allow differing connector parent references"""
-        new_connectors = [copy.copy(con) for con in self.connectors]
-        return self.__class__(
-            body_id=self._id,
-            connectors=new_connectors,
-            inertia=self.inertia,
-            collision=self.collision,
-            visual=self.visual,
-            in_module=self.in_module
-        )
-
-    def __str__(self) -> str:
-        """The string representation of a body"""
-        return f"Body: {self.id}"
-
     @classmethod
-    def from_json_data(cls, d: Dict, package_dir: Path = None) -> 'Body':
+    def from_json_data(cls, d: Dict, package_dir: Path = None) -> Body:
         """
         Maps the json-serialized body description to an instance of this class.
 
@@ -293,89 +377,22 @@ class Body:
 
         return cls(body_id, collision, visual, connectors, inertia)
 
-    def to_json_data(self) -> Dict[str, any]:
-        """
-        :return: Returns the body specification in a json-ready dictionary
-        """
-        geometry = {}
-        for geo in ('_visual', 'collision'):
-            if isinstance(self.__dict__[geo], EmptyGeometry) or self.__dict__[geo] is None:
-                continue
-            geometry[re.sub('_', '', geo)] = possibly_nest_as_list(self.__dict__[geo].serialized)
-        return {
-                   'ID': self._id,
-                   'mass': self.mass,
-                   'inertia': self.inertia.inertia.tolist(),
-                   'r_com': self.inertia.lever.tolist(),
-                   'connectors': [con.to_json_data() for con in
-                                  sorted(self.connectors, key=lambda con: con.id)]
-               } | geometry
-
-    @property
-    def id(self) -> Tuple[Union[None, str], str]:
-        """Composed ID: (module ID, body ID)"""
-        try:
-            return self.in_module.id, self._id
-        except AttributeError:
-            return None, self._id
-
-    @property
-    def mass(self) -> float:
-        """The mass of the body in [kg]"""
-        return self.inertia.mass
-
-    @property
-    def visual(self) -> Geometry:
-        """Defaults to collision if not explicitly specified"""
-        return self._visual if self._visual is not None else self.collision
-
-    def as_pin_body(self, placement: TransformationLike = Transformation.neutral()) -> Robot.PinBody:
-        """
-        Extracts the body properties that describe a body in a pinocchio robot.
-
-        Always places the body in the origin.
-
-        :param placement: Relative placement of the body to its parent joint
-        """
-        placement = Transformation(placement)
-        collision, visual = None, None
-        if not isinstance(self.collision, EmptyGeometry):
-            collision = [hppfcl_collision2pin_geometry(geo, t, '.'.join(self.id) + f'.c{i}', 0)
-                         for i, (t, geo) in enumerate(self.collision.collision_data)]
-        visual = [hppfcl_collision2pin_geometry(geo, t, '.'.join(self.id) + f'.v{i}', 0)
-                  for i, (t, geo) in enumerate(self.visual.collision_data)]
-
-        return Robot.PinBody(
+    def __copy__(self) -> BodyBase:
+        """Custom copy to allow differing connector parent references"""
+        new_connectors = [copy.copy(con) for con in self.connectors]
+        return self.__class__(
+            body_id=self._id,
+            connectors=new_connectors,
             inertia=self.inertia,
-            placement=pin.SE3(placement.homogeneous),
-            name='.'.join(self.id),
-            collision_geometries=collision,
-            visual_geometries=visual
+            collision=self.collision,
+            visual=self.visual,
+            in_module=self.in_module
         )
 
-    def possible_connections_with(self, other: 'Body') -> SingleSet[Tuple[Connector, Connector]]:
-        """
-        Returns a list of connectors that can connect this with other body.
 
-        This method does not check whether the connector IDs of the other body overlap with the connector IDs
-        of this body - this has to be achieved by e.g. putting both bodies in a module or in the same ModulesDB.
-
-        :param other: Another body
-        :return: A list of matching connector pairs like (this_body_connector, other_body_connector)
-        """
-        if other.id == self.id:
-            raise err.UniqueValueError("Two connectors with identical ID cannot be connected")
-        matches = SingleSet()
-        for own, foreign in itertools.product(self.connectors, other.connectors):
-            if own.connects(foreign):
-                matches.add((own, foreign))
-
-        return matches
-
-
-class BodySet(SingleSet[Body]):
+class BodySet(SingleSet[BodyBase]):
     """A set that raises an error if a duplicate body is added"""
 
-    def __contains__(self, item: Body):
+    def __contains__(self, item: BodyBase):
         """Custom duplicate check (unique ID)"""
         return item.id in (bod.id for bod in self)
