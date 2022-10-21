@@ -169,7 +169,7 @@ class Connector:
         return self.type == other.type and size and self.gender.connects(other.gender)
 
 
-class ConnectorSet(SingleSet[Connector]):
+class ConnectorSet(SingleSet):
     """A set that raises an error if a duplicate connector is added."""
 
     def __contains__(self, item: Connector):
@@ -234,7 +234,7 @@ class BodyBase(abc.ABC):
             visual_geometries=visual
         )
 
-    def possible_connections_with(self, other: 'BodyBase') -> SingleSet[Tuple[Connector, Connector]]:
+    def possible_connections_with(self, other: 'BodyBase') -> SingleSet:
         """
         Returns a list of connectors that can connect this with other body.
 
@@ -263,13 +263,14 @@ class BodyBase(abc.ABC):
                 continue
             geometry[re.sub('_', '', geo)] = possibly_nest_as_list(self.__dict__[geo].serialized)
         return {
-                   'ID': self._id,
-                   'mass': self.mass,
-                   'inertia': self.inertia.inertia.tolist(),
-                   'r_com': self.inertia.lever.tolist(),
-                   'connectors': [con.to_json_data() for con in
-                                  sorted(self.connectors, key=lambda con: con.id)]
-               } | geometry
+            'ID': self._id,
+            'mass': self.mass,
+            'inertia': self.inertia.inertia.tolist(),
+            'r_com': self.inertia.lever.tolist(),
+            'connectors': [con.to_json_data() for con in
+                           sorted(self.connectors, key=lambda con: con.id)],
+            **geometry
+        }
 
     @abc.abstractmethod
     def __copy__(self):
@@ -305,7 +306,7 @@ class Body(BodyBase):
         """
         self._id: str = str(body_id)
         self.in_module: 'ModuleBase' = in_module
-        self.connectors: ConnectorSet[Connector] = ConnectorSet(connectors)
+        self.connectors: ConnectorSet = ConnectorSet(connectors)
         for connector in self.connectors:
             if connector.parent not in (None, self):
                 raise ValueError("Cannot set a new parent for a connector!")
@@ -390,7 +391,7 @@ class Body(BodyBase):
         )
 
 
-class BodySet(SingleSet[BodyBase]):
+class BodySet(SingleSet):
     """A set that raises an error if a duplicate body is added"""
 
     def __contains__(self, item: BodyBase):

@@ -75,7 +75,7 @@ class ParameterizableBody(BodyBase, abc.ABC):
                              f" for geometry type {self.geometry_type}!")
 
         self.in_module: ModuleBase = in_module
-        self.connectors: ConnectorSet[Connector] = ConnectorSet(connectors)
+        self.connectors: ConnectorSet = ConnectorSet(connectors)
         for connector in self.connectors:
             if connector.parent not in (None, self):
                 raise ValueError("Cannot set a new parent for a connector!")

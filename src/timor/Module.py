@@ -62,14 +62,14 @@ class ModuleBase(abc.ABC):
             header['ID'] = str(header['ID'])  # Sensitive due to json parsing
             header = ModuleHeader(**header)
         self.header: ModuleHeader = header
-        self._bodies: BodySet[BodyBase] = BodySet(bodies)
+        self._bodies: BodySet = BodySet(bodies)
         for body in self._bodies:
             body.in_module = self
         for joint in joints:
             if not ((joint.parent_body in self.bodies) and (joint.child_body in self.bodies)):
                 raise ValueError("At least one of the joints parent/child bodies are missing in the module!")
             joint.in_module = self
-        self._joints: JointSet[Joint] = JointSet(joints)
+        self._joints: JointSet = JointSet(joints)
         self._check_unique_connectors()
 
     def __copy__(self):
@@ -124,7 +124,7 @@ class ModuleBase(abc.ABC):
         return {c.id: c for c in itertools.chain.from_iterable(b.connectors for b in self.bodies)}
 
     @property
-    def bodies(self) -> BodySet[BodyBase]:
+    def bodies(self) -> BodySet:
         """Returns all bodies contained in this module."""
         return self._bodies
 
@@ -134,7 +134,7 @@ class ModuleBase(abc.ABC):
         return self.header.ID
 
     @property
-    def joints(self) -> JointSet[Joint]:
+    def joints(self) -> JointSet:
         """Returns all joints contained in this module"""
         return self._joints
 
@@ -312,7 +312,7 @@ class AtomicModule(ModuleBase):
         return cls(header, bodies, joints)
 
 
-class ModulesDB(SingleSet[ModuleBase]):
+class ModulesDB(SingleSet):
     """
     A Database of Modules. The inheritance from SingleSet ensures no duplicates are within one DB.
 
@@ -416,12 +416,12 @@ class ModulesDB(SingleSet[ModuleBase]):
         return set(mod.id for mod in self)
 
     @property
-    def all_bodies(self) -> BodySet[BodyBase]:
+    def all_bodies(self) -> BodySet:
         """All bodies in all modules in the DB"""
         return BodySet(itertools.chain.from_iterable(mod.bodies for mod in self))
 
     @property
-    def all_joints(self) -> JointSet[int]:
+    def all_joints(self) -> JointSet:
         """All joints in all modules in the DB"""
         return JointSet(itertools.chain.from_iterable(mod.joints for mod in self))
 
@@ -1078,7 +1078,11 @@ class ModuleAssembly:
         for subtree in links + joints:
             urdf.append(subtree)
 
-        ET.indent(urdf, space='\t', level=0)
+        try:
+            ET.indent(urdf, space='\t', level=0)
+        except AttributeError:
+            # indent was introduced in Python 3.9 -- for previous versions, we just don't pretty-print
+            pass
         urdf_string = ET.tostring(urdf, 'unicode')
 
         if write_to is not None:
