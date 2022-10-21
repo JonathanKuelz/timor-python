@@ -127,8 +127,14 @@ class Joint:
             raise NotImplementedError("Passive joints not yet implemented")
 
         # Unpack items from the input dictionary - even if they have a slightly modified structure from the expected
-        aliases = {'velocity': 'velocity_limit', 'peakTorque': 'torque_limit', 'poseParent': 'parent2joint',
-                   'poseChild': 'joint2child'}  # Valid aliases we accept
+        aliases = {'velocity': 'velocity_limit',
+                   'peakTorque': 'torque_limit',
+                   'poseParent': 'parent2joint',
+                   'poseChild': 'joint2child',
+                   "gearRatio": 'gear_ratio',
+                   "motorInertia": 'motor_inertia',
+                   "frictionCoulomb": 'friction_coulomb',
+                   "frictionViscous": 'friction_viscous'}  # Valid aliases we accept
         # Get a list of all optional (=they have a default value) parameters that we could find
         optional_arguments = tuple(name for name, param in inspect.signature(cls.__init__).parameters.items() if
                                    param.default is not inspect._empty)
