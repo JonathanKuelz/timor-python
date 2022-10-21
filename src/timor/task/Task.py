@@ -205,7 +205,8 @@ class Task:
                   robots: Optional[robot_or_robots] = None,
                   show_obstacle: bool = True,
                   show_goals: bool = True,
-                  show_constraints: bool = True) -> pin.visualize.MeshcatVisualizer:
+                  show_constraints: bool = True
+                  ) -> pin.visualize.MeshcatVisualizer:
         """
         Plots the task in a Meshcat visualizer.
 

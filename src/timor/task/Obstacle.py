@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Dict, Optional, Union
 
 from hppfcl import hppfcl
+import meshcat.geometry
 import pinocchio as pin
 
 from timor import Geometry
@@ -16,6 +17,8 @@ class Obstacle:
     """
     A wrapper class to integrate hppfcl obstacles in custom Environments.
     """
+
+    mesh_material = meshcat.geometry.MeshLambertMaterial(color=0xECA19D, reflectivity=.8)
 
     def __init__(self,
                  ID: str,
@@ -115,16 +118,24 @@ class Obstacle:
             serialized['visual'] = self._visual.serialized
         return serialized
 
-    def visualize(self, viz: pin.visualize.MeshcatVisualizer):
-        """A custom visualization should be implemented by children."""
+    def visualize(self, viz: pin.visualize.MeshcatVisualizer,
+                  material: Optional[meshcat.geometry.Material] = None):
+        """
+        A custom visualization should be implemented by children.
+
+        :param viz: MeshcatVisualizer to add this obstacle to.
+        :param material: Material to use for this obstacle; default: light red
+        """
+        if material is None:
+            material = self.mesh_material
         if isinstance(self.visual, Geometry.ComposedGeometry):
             for i, geom in enumerate(self.visual.composing_geometries):
                 viz_geometry, transform = geom.viz_object
-                viz.viewer[self.display_name + f'_{i}'].set_object(viz_geometry)
+                viz.viewer[self.display_name + f'_{i}'].set_object(viz_geometry, material)
                 viz.viewer[self.display_name + f'_{i}'].set_transform(transform.homogeneous)
         else:
             viz_geometry, transform = self.visual.viz_object
-            viz.viewer[self.display_name].set_object(viz_geometry)
+            viz.viewer[self.display_name].set_object(viz_geometry, material)
             viz.viewer[self.display_name].set_transform(transform.homogeneous)
 
     @property
