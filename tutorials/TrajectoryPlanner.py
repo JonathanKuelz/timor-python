@@ -4,8 +4,8 @@ from typing import Optional, Tuple
 import numpy as np
 
 from timor.Robot import RobotBase
-from timor.scenario import Constraints, Goals
-from timor.scenario.Scenario import Scenario
+from timor.task import Constraints, Goals
+from timor.task.Task import Task
 from timor.utilities.dtypes import Trajectory
 import timor.utilities.logging as logging
 
@@ -14,13 +14,13 @@ class TrajectoryPlanner:
     Takes a task to solve and a robot and returns a motion trajectory.
     """
 
-    timeout: float  # Global timeout in seconds, maximum time spent for solving a scenario
+    timeout: float  # Global timeout in seconds, maximum time spent for solving a task
     maximum_speed: float  # For all joints in the trajectory
     trajectory_resolution: float  # Time step size in seconds
     trajectory_acceleration_time: float
 
     def __init__(self,
-                 scenario: Scenario,
+                 task: Task,
                  robot: Optional[RobotBase] = None,
                  trajectory_resolution: float = .01,
                  trajectory_acceleration_time: float = 2.5,
@@ -31,9 +31,9 @@ class TrajectoryPlanner:
         :param timeout: Maximum time for all goals
         :param time_limit_per_goal: time in seconds allowed to solve each goal
         """
-        self._scenario: Scenario = scenario
+        self._task: Task = task
         self._robot: Optional[RobotBase] = robot
-        self._evaluated: bool = False  # Indicator whether current scenario has been evaluated using current robot
+        self._evaluated: bool = False  # Indicator whether current task has been evaluated using current robot
         self.timeout: float = timeout
         self.trajectory_resolution = trajectory_resolution
         self.trajectory_acceleration_time = trajectory_acceleration_time
@@ -42,7 +42,7 @@ class TrajectoryPlanner:
     
     def solve(self, robot: RobotBase = None) -> Optional[Trajectory]:
         """
-        Compute a trajectory that solves the scenario with a given robot if possible.
+        Compute a trajectory that solves the task with a given robot if possible.
 
         :param robot: If given, sets the robot of the planner
         :return: A trajectory if found or None if not
@@ -55,16 +55,16 @@ class TrajectoryPlanner:
             raise ValueError("There is no robot assigned to this planner.")
 
         if self._evaluated:
-            raise ValueError(f"Scenario {self.scenario} has already been evaluated using robot {self.robot}.")
+            raise ValueError(f"Task {self.task} has already been evaluated using robot {self.robot}.")
         self._set_base()
         solution = self._solve()
         self._evaluated = True
         return solution
     
     @property
-    def scenario(self) -> Scenario:
-        """Keep the scenario private, as it should not be changed."""
-        return self._scenario
+    def task(self) -> Task:
+        """Keep the task private, as it should not be changed."""
+        return self._task
 
     @property
     def robot(self) -> Optional[RobotBase]:
@@ -81,32 +81,32 @@ class TrajectoryPlanner:
 
     def _set_base(self):
         """Don't optimize, but just take the center of the possible space the base can be placed into"""
-        if isinstance(self.scenario.base_constraint, Constraints.BasePlacement):  # No optimization at all
-            self.robot.set_base_placement(self.scenario.base_constraint.base_pose.nominal)
+        if isinstance(self.task.base_constraint, Constraints.BasePlacement):  # No optimization at all
+            self.robot.set_base_placement(self.task.base_constraint.base_pose.nominal)
 
     def _solve(self) -> Optional[Trajectory]:
         """
         Solves a task by solving the goals one by one.
 
-        :return: Trajectory that solves the scenario or None if it could not be found
+        :return: Trajectory that solves the task or None if it could not be found
         :raise ValueError: if IK solution / planner fails
         """
         t0 = time()
 
         goal_order: Tuple[str, ...]
-        goal_order_constraint = [x for x in self.scenario.constraints if isinstance(x, Constraints.GoalOrderConstraint)]
+        goal_order_constraint = [x for x in self.task.constraints if isinstance(x, Constraints.GoalOrderConstraint)]
         if len(goal_order_constraint) > 1:
             raise ValueError("Found multiple goal orders")
         if goal_order_constraint:
             goal_order = goal_order_constraint[0].order
         else:
-            goal_order = tuple(self.scenario.goals_by_id.keys())
+            goal_order = tuple(self.task.goals_by_id.keys())
 
         q_start = np.expand_dims(self.robot.q, 0)
         q_previous = q_start
         goal_traj = {-1: q_start}
         for goal_id in goal_order:  # Find places where goals are fulfilled
-            goal = self.scenario.goals_by_id[goal_id]
+            goal = self.task.goals_by_id[goal_id]
             if not isinstance(goal, Goals.At):
                 raise NotImplementedError(f"This planner cannot solve goal of type {type(goal)}")
             time_limit_per_goal = min(self.timeout - (time() - t0), self.time_limit_per_goal)
@@ -117,7 +117,7 @@ class TrajectoryPlanner:
 
         for goal_id in goal_order:
             q_previous = np.expand_dims(trajectory.q[-1], 0)
-            goal = self.scenario.goals_by_id[goal_id]
+            goal = self.task.goals_by_id[goal_id]
             if isinstance(goal, Goals.Pause):
                 trajectory = trajectory + self._solve_pause_goal(goal_id, q_previous)
                 continue
@@ -138,7 +138,7 @@ class TrajectoryPlanner:
                                               qd_max=self.maximum_speed,
                                               qdf=dq_end)
 
-            if type(self.scenario.goals_by_id[goal_id]) is Goals.Reach:
+            if type(self.task.goals_by_id[goal_id]) is Goals.Reach:
                 traj = traj + Trajectory.stationary(traj.q[-1, :], 0.1)
             traj.goals[goal_id] = traj.t[-1]
 
@@ -161,7 +161,7 @@ class TrajectoryPlanner:
         :param time_limit: custom time limit for this goal
         :return: path with n steps for each of robot.DoF's joints
         """
-        goal: Goals.At = self.scenario.goals_by_id[goal_id]
+        goal: Goals.At = self.task.goals_by_id[goal_id]
         if time_limit is None:
             time_limit = self.time_limit_per_goal
         t_start = time()
