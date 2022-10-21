@@ -246,7 +246,7 @@ class TestSolution(unittest.TestCase):
             robot.update_configuration(q0)
             task = Task.Task.from_json(description, self.asset_dir)
             robot.update_configuration(q1)
-            viz = task.visualize(robots=robot)
+            viz = task.visualize(robots=robot)  # Machine should be red
             robot.update_configuration(q2)
             self.assertIs(robot.data, viz.data)
 
