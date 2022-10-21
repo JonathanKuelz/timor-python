@@ -5,15 +5,15 @@ import unittest
 
 import jsonschema
 
-from timor.utilities.file_locations import get_module_db_files, get_test_tasks, schema_dir, robots, schemas
+from timor.utilities.file_locations import get_module_db_files, get_test_tasks, schema_dir, robots, schemata
 import timor.utilities.logging as logging
 from timor.utilities.schema import get_schema_validator
 
 
 class TestSchemas(unittest.TestCase):
     """Test everything related to solutions here: are they valid, can we correctly identify valid solutions, ..."""
-    def test_schemas_valid(self):
-        for s in schemas:
+    def test_schema_valid(self):
+        for s in schemata:
             with open(s) as f:
                 schema_def = json.load(f)
             try:

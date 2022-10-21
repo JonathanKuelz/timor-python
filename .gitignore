@@ -17,6 +17,9 @@ doc/source/autoapi/**
 # Personalized files
 timor.config
 
+# API-available schemata
+*/schemata
+
 # Jupyter
 .ipynb_checkpoints
 jupyterlab_git/labextension
