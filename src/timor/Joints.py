@@ -8,7 +8,7 @@ from typing import Dict, List, Tuple, Type, Union
 import numpy as np
 import pinocchio as pin
 
-from timor.Bodies import BodyBase, Connector, ConnectorSet
+from timor.Bodies import BodyBase, ConnectorSet
 from timor.utilities.dtypes import SingleSet, fuzzy_dict_key_matching
 import timor.utilities.errors as err
 from timor.utilities.transformation import Transformation, TransformationLike
@@ -184,7 +184,7 @@ class Joint:
         }
 
     @property
-    def all_connectors(self) -> ConnectorSet[Connector]:
+    def all_connectors(self) -> ConnectorSet:
         """All connectors in the bodies attached to this joint"""
         return ConnectorSet(self.parent_body.connectors.union(self.child_body.connectors))
 
@@ -240,7 +240,7 @@ class Joint:
             raise TypeError("Pinocchio does not have passive joints. They are represented as frames")
 
 
-class JointSet(SingleSet[Joint]):
+class JointSet(SingleSet):
     """A set that raises an error if a duplicate joint is added"""
 
     def __contains__(self, item: Joint) -> bool:

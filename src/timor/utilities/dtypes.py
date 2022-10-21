@@ -390,7 +390,7 @@ class Trajectory:
         t_new = np.hstack((self.t, other.t + offset_other))
         q_new = np.vstack((self.q, other.q))
         # Offset the second trajectories goals
-        goals_new = self.goals | {k: v + offset_other for k, v in other.goals.items()}
+        goals_new = {**self.goals, **{k: v + offset_other for k, v in other.goals.items()}}
 
         dq_new = np.vstack((self.dq, other.dq))
         ddq_new = np.vstack((self.ddq, other.ddq))

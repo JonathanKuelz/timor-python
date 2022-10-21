@@ -278,11 +278,13 @@ class ReturnTo(GoalBase):
 
     def to_json_data(self) -> Dict[str, any]:
         """Dumps the Return goal to a dictionary description."""
+        return_to_goal = {'returnToGoal': self.return_to_goal} if self.return_to_goal is not None else {}
         return {
             'ID': self.id,
             'type': 'returnTo',
             'constraints': self._constraints_serialized(),
-        } | ({'returnToGoal': self.return_to_goal} if self.return_to_goal is not None else {})
+            **return_to_goal
+        }
 
     def visualize(self, viz: MeshcatVisualizer, scale: float = .33) -> None:
         """Shows an error pointing towards the desired position"""

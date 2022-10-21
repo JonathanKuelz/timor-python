@@ -58,7 +58,7 @@ class ToleratedPose:
     @property
     def serialized(self) -> Dict[str, Union[List, str]]:
         """The json-compatible serialization of a placement with tolerance"""
-        return {'nominal': self.nominal.serialized} | self.tolerance.to_projection()
+        return {'nominal': self.nominal.serialized, **self.tolerance.to_projection()}
 
     @property
     def tolerance(self) -> Tolerance.ToleranceBase:

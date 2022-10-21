@@ -89,7 +89,7 @@ class Task:
         content = json.load(filepath.open('r'))
         header = TaskHeader(**{key: arg for key, arg in content.pop('header').items()})
         obstacles = [Obstacle.from_json_data(
-            specs | {'package_dir': package_dir}) for specs in content.pop('obstacles')]
+            {**specs, **{'package_dir': package_dir}}) for specs in content.pop('obstacles')]
         goals = [Goals.GoalBase.goal_from_json(goal) for goal in content.pop('goals', [])]
         constraints = list()
         if 'Constraints' in content:
