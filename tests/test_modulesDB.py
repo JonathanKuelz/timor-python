@@ -7,6 +7,7 @@ import networkx as nx
 import numpy as np
 import numpy.testing as np_test
 
+from timor import Joint
 from timor.Module import AtomicModule, ModuleAssembly, ModuleHeader, ModulesDB
 from timor.utilities import logging
 import timor.utilities.errors as err
@@ -148,6 +149,14 @@ class TestModulesDB(unittest.TestCase):
         # Visualize in a random configuration (meshcat visualizer, will be closed when tests are done)
         robot.update_configuration(np.random.random((robot.njoints,)))
         robot.visualize(coordinate_systems='joints')
+
+        # Ensure propagation of joint dynamics
+        joints = [j for j in assembly.assembly_graph.nodes if isinstance(j, Joint)]
+        for j in joints:
+            self.assertTrue(j.gear_ratio in robot.model.rotorGearRatio)
+            self.assertTrue(j.motor_inertia in robot.model.rotorInertia)
+            self.assertTrue(j.friction_viscous in robot.model.damping)
+            self.assertTrue(j.friction_coulomb in robot.model.friction)
 
 
 if __name__ == '__main__':
