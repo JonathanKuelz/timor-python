@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 import re
 from typing import Dict, List, Tuple, Union
+import urllib
 
 from timor.utilities import logging
 from timor.utilities.configurations import TIMOR_CONFIG
@@ -15,8 +16,23 @@ package = __utilities.parent  # Main directory of the package
 head = package.parent
 log_conf = TIMOR_CONFIG['FILE_LOCATIONS'] if TIMOR_CONFIG.has_section('FILE_LOCATIONS') else dict()
 test_data = Path(log_conf.get('test_data', head.parent.joinpath('tests/data')))
-schema_dir = Path(log_conf.get('schema_dir', test_data.joinpath("schemas")))
-schemas = tuple(f for f in schema_dir.iterdir() if f.suffix == ".json")
+schema_dir = Path(log_conf.get('schema_dir', head.joinpath("schemata")))
+if not schema_dir.exists():
+    schema_dir.mkdir()
+if len(tuple(schema_dir.iterdir())) < 4:
+    # --- Begin download schemata ---
+    tld = "https://cobra.cps.cit.tum.de/api/schemas/"
+    for schema in ('PoseSchema', 'TaskSchema', 'ModuleSchema', 'SolutionSchema'):
+        url = tld + schema + '.json'
+        logging.info(f"Downloading schema from {url}")
+        try:
+            with urllib.request.urlopen(url) as response:
+                with open(schema_dir.joinpath(schema + '.json'), 'wb') as f:
+                    f.write(response.read())
+        except Exception as e:
+            logging.warning(f"Could not download from {url}: {e}")
+    # --- End download schemata ---
+schemata = tuple(f for f in schema_dir.iterdir() if f.suffix == ".json")
 if 'robots' in log_conf:
     robots = dict()
     for __r in chain.from_iterable(Path(d).iterdir() for d in json.loads(log_conf['robots'])):
