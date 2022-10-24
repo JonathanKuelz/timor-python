@@ -36,7 +36,7 @@ With Timor you can:
 
 Installation
 ------------
-Timor-python is available on PyPI. It requires **Python version between 3.7 and 3.9**. For installation, use::
+Timor-python is available on PyPI. It requires **at least Python 3.7**. For installation, use::
 
    pip install timor-python
 
