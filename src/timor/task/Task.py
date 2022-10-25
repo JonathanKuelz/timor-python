@@ -34,7 +34,7 @@ class TaskHeader(TypedHeader):
     tags: List = field(default_factory=list)
     date: datetime.datetime = datetime.datetime(1970, 1, 1)
     timeStepSize: float = .01  # 10ms
-    gravity: np.ndarray = GRAVITY
+    gravity: np.ndarray = field(default_factory=GRAVITY.copy)
     author: List[str] = TypedHeader.string_list_factory()
     email: List[str] = TypedHeader.string_list_factory()
     affiliation: List[str] = TypedHeader.string_list_factory()
