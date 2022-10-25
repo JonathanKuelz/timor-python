@@ -36,7 +36,7 @@ With Timor you can:
 
 Installation
 ------------
-Timor-python is available on PyPI. It requires **at least Python 3.7**. For installation, use::
+Timor-python is available on PyPI. It requires **at least Python 3.7** (Python 3.11 is currently not supported by all timor-dependencies). For installation, use::
 
    pip install timor-python
 
@@ -54,7 +54,7 @@ Nagivate to the timor-python repository you cloned and enter::
 
    pip install -e .
    
-to install it in editeable mode. To install optional dependencies, proceed in the same manner as for PyPI installs.
+to install it in editeable mode. This requires :code:`setuptools>=61` (previous versions of setuptools require a :code:`setup.py`-file). To install optional dependencies, proceed in the same manner as for PyPI installs.
 
 
 Usage
