@@ -888,7 +888,7 @@ class PinRobot(RobotBase):
         try:
             return pin.randomConfiguration(self.model)
         except RuntimeError:
-            logging.info('Random configuration failed due to infinite joint limits - setting to (-2pi, 2pi)')
+            logging.debug('Random configuration failed due to infinite joint limits - setting to (-2pi, 2pi)')
             lower = np.maximum(self.joint_limits[0, :], -2 * np.pi)
             upper = np.minimum(self.joint_limits[1, :], 2 * np.pi)
             return (upper - lower) * np.random.rand(self.njoints) + lower

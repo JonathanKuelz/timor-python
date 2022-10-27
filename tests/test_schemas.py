@@ -35,7 +35,7 @@ class TestSchemas(unittest.TestCase):
                 obj = json.load(f)
             errors[str(file)] = tuple(validator.iter_errors(obj))  # Contains all validation errors for file
         for file, error in errors.items():
-            logging.info(f"Checking {file} conforms to schema")
+            logging.debug(f"Checking {file} conforms to schema")
             self.assertEqual(len(error), 0, f'Errors for {file}' + '\n'.join(str(e) for e in error))
 
     def test_task_schema(self):
@@ -51,9 +51,9 @@ class TestSchemas(unittest.TestCase):
             try:
                 new_set = get_module_db_files(module_set)[0]
             except FileNotFoundError:
-                logging.info(f"Skipping not found module set {module_set}")
+                logging.info(f"Skipping not found module set {module_set} for schema test")
                 continue
-            logging.info(f"Testing {module_set}")
+            logging.debug(f"Testing {module_set}")
             module_sets.append(new_set)
 
         self._test_files_with_schema(validator, module_sets)
