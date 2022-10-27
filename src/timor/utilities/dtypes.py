@@ -192,7 +192,7 @@ class TypedHeader:
         try:
             return cast_to_type(value)
         except TypeError:
-            logging.info("Could not cast {} to type {}. Returning original value.".format(value, cast_to_type))
+            logging.debug("Could not cast {} to type {}. Returning original value.".format(value, cast_to_type))
             return value
 
     @staticmethod

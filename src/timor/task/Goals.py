@@ -333,7 +333,7 @@ class Pause(GoalBase):
 
     def visualize(self, viz: MeshcatVisualizer, scale: float = .33) -> None:
         """Pause goals cannot be visualized, but the method is kept for consistency"""
-        logging.info("Not visualizing the pause goal - there is no meaningful visualization.")
+        logging.debug("Not visualizing a pause goal - there is no meaningful visualization.")
 
     @classmethod
     def from_json_data(cls, d: Dict[str, any]):
