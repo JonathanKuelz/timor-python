@@ -19,7 +19,7 @@ import networkx as nx
 import numpy as np
 import pinocchio as pin
 
-from timor import Robot
+from timor import Geometry, Robot
 from timor.Bodies import Body, BodyBase, BodySet, Connector, ConnectorSet, Gender
 from timor.Joints import Joint, JointSet, TimorJointType
 from timor.utilities import logging, spatial, write_urdf
@@ -1037,10 +1037,12 @@ class ModuleAssembly:
                     body_name = '.'.join(successor.id)
                     link = ET.Element('link', {'name': body_name})
                     link.append(write_urdf.from_pin_inertia(successor.inertia, transform))
-                    link.append(write_urdf.from_geometry(successor.visual, 'visual',
-                                                         name=body_name + '_visual', link_frame=transform))
-                    link.append(write_urdf.from_geometry(successor.collision, 'collision',
-                                                         name=body_name + '_visual', link_frame=transform))
+                    if not isinstance(successor.visual, Geometry.EmptyGeometry):
+                        link.append(write_urdf.from_geometry(successor.visual, 'visual',
+                                                             name=body_name + '_visual', link_frame=transform))
+                    if not isinstance(successor.collision, Geometry.EmptyGeometry):
+                        link.append(write_urdf.from_geometry(successor.collision, 'collision',
+                                                             name=body_name + '_visual', link_frame=transform))
                     links.append(link)
                 elif isinstance(successor, Joint) and successor.type is not TimorJointType.fixed:
                     joint = ET.Element('joint', {'name': '.'.join(successor.id),
