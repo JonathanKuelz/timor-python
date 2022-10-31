@@ -14,7 +14,7 @@ from timor.utilities.transformation import Transformation
 def from_geometry(geometry: Geometry.Geometry,
                   which: str,
                   name: str,
-                  link_frame: np.ndarray = Transformation.neutral().homogeneous):
+                  link_frame: np.ndarray = Transformation.neutral().homogeneous) -> ET.Element:
     """
     Takes a Geometry and turns it into a URDF geometry
 
@@ -26,6 +26,9 @@ def from_geometry(geometry: Geometry.Geometry,
     """
     if which not in ('visual', 'collision'):
         raise ValueError(f"Invalid Geometry tag {which}. Must be visual or collision.")
+
+    if isinstance(geometry, Geometry.EmptyGeometry):
+        raise ValueError("Cannot write empty geometries to URDF")
 
     def att2str(att: any) -> str:
         if isinstance(att, str):
@@ -43,9 +46,8 @@ def from_geometry(geometry: Geometry.Geometry,
     })
 
     geometry_element = ET.SubElement(urdf, 'geometry')
-    if not isinstance(geometry, Geometry.EmptyGeometry):
-        tag, attributes = geometry.urdf_properties
-        ET.SubElement(geometry_element, tag, {key: att2str(val) for key, val in attributes.items()})
+    tag, attributes = geometry.urdf_properties
+    ET.SubElement(geometry_element, tag, {key: att2str(val) for key, val in attributes.items()})
     return urdf
 
 
