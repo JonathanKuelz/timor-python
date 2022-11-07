@@ -22,7 +22,7 @@ from timor.utilities.visualization import MeshcatVisualizerWithAnimation, animat
 class SolutionHeader(TypedHeader):
     """The header every solution contains"""
 
-    taskID: str  # This is NOT the Solution ID, but identifies the task the solution was crafted for!
+    ID: str  # This is NOT the Solution ID, but identifies the task the solution was crafted for!
     version: str = "Py2022"
     author: List[str] = ''
     email: List[str] = ''
@@ -64,7 +64,7 @@ class SolutionBase(abc.ABC):
 
     def __str__(self):
         """String representation of the solution"""
-        return f"Solution for task {self.header.taskID}"
+        return f"Solution for task {self.header.ID}"
 
     @staticmethod
     def from_json(json_path: Path, package_dir: Path, tasks: Dict[str, 'Task.Task']) -> 'SolutionBase':
@@ -73,9 +73,9 @@ class SolutionBase(abc.ABC):
         _header = fuzzy_dict_key_matching(content, desired_only=SolutionHeader.fields())
         header = SolutionHeader(**_header)
         try:
-            sol_task = tasks[header.taskID]
+            sol_task = tasks[header.ID]
         except KeyError:
-            raise KeyError(f"Got solution for task {header.taskID}, but there is no such task.")
+            raise KeyError(f"Got solution for task {header.ID}, but there is no such task.")
 
         modules, package = get_module_db_files(content['moduleSet'])
         db = ModulesDB.from_file(modules, package)
