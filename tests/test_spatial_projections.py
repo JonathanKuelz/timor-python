@@ -85,8 +85,7 @@ class TestSpatialutilities(unittest.TestCase):
                              for f, angles in zip(
                 (spatial.rotX, spatial.rotY, spatial.rotZ),
                 ([alpha, -alpha], [beta, -beta], [gamma, -gamma])
-            )
-                             for angle in angles)
+            ) for angle in angles)
             for manipulation in rotations:
                 R = R @ manipulation[:3, :3]
 

@@ -13,7 +13,7 @@ import pinocchio as pin
 from timor import Geometry
 from timor import Robot
 from timor.Module import ModuleAssembly
-from timor.task import Constraints, Obstacle, Solution, Task, Tolerance
+from timor.task import Constraints, Obstacle, Task, Tolerance
 from timor.utilities import file_locations, prebuilt_robots, spatial
 from timor.utilities.tolerated_pose import ToleratedPose
 

@@ -7,7 +7,6 @@ import pinocchio as pin
 
 from timor import ModuleAssembly, ModulesDB, PinRobot
 from timor.Geometry import Sphere
-from timor.Robot import PinRobot
 from timor.task.Obstacle import Obstacle
 from timor.task.Task import Task, TaskHeader
 from timor.utilities import spatial

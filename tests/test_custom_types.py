@@ -1,13 +1,12 @@
 from dataclasses import dataclass
 import datetime
 import random
-import time
 import unittest
 
 import numpy as np
 import numpy.testing as np_test
 
-from timor.utilities.dtypes import EternalDict, Lazy, SingleSet, Trajectory, TypedHeader
+from timor.utilities.dtypes import EternalDict, SingleSet, Trajectory, TypedHeader
 import timor.utilities.errors as err
 
 
@@ -98,7 +97,7 @@ class CustomTypeUnitTests(unittest.TestCase):
         self.assertEqual(traj.q.size, traj.dq.size)
         self.assertEqual(traj.q.size, traj.ddq.size)
 
-        traj = Trajectory(1/1000, q.tolist(), goals)  # Not best practice, but giving a list should be possible
+        traj = Trajectory(1 / 1000, q.tolist(), goals)  # Not best practice, but giving a list should be possible
         self.assertEqual(traj.t.size, t.size)
         np_test.assert_array_equal(traj.t, t)
 

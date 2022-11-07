@@ -1,7 +1,7 @@
 import os
 import unittest
 
-from timor.utilities import file_locations, logging
+from timor.utilities import logging
 
 
 class TestLogger(unittest.TestCase):

@@ -55,8 +55,8 @@ class TestSolution(unittest.TestCase):
 
         steps = 100
         dt = .1
-        easy_trajectory = dtypes.Trajectory(dt, q=np.linspace(start_conf, end_conf, steps+1),
-                                            goals={at_goal.id: steps*dt})
+        easy_trajectory = dtypes.Trajectory(dt, q=np.linspace(start_conf, end_conf, steps + 1),
+                                            goals={at_goal.id: steps * dt})
         solution_header = Solution.SolutionHeader(task.id)
         cost_function = CostFunctions.CycleTime()
         solution = Solution.SolutionTrajectory(easy_trajectory, solution_header, task=task,
@@ -75,7 +75,7 @@ class TestSolution(unittest.TestCase):
         additional_joint_constraint.limits = previous_limits
 
         # Now hurt these local constraints, but outside the goal
-        addon_trajectory = dtypes.Trajectory(dt, q=np.linspace(end_conf, panda.joint_limits[1, :], steps+1))
+        addon_trajectory = dtypes.Trajectory(dt, q=np.linspace(end_conf, panda.joint_limits[1, :], steps + 1))
         solution.trajectory = solution.trajectory + addon_trajectory
         self.assertTrue(solution.valid)
         solution._valid.value = None  # Dirty but quick reset of solution
@@ -233,7 +233,7 @@ class TestSolution(unittest.TestCase):
             eval_composed_cost.append(random_solution.cost)
         random_solution._cost.value = None
         random_solution.cost_function = composed_cost
-        self.assertEqual((eval_composed_cost[0] + eval_composed_cost[1])*2/5,
+        self.assertEqual((eval_composed_cost[0] + eval_composed_cost[1]) * 2 / 5,
                          random_solution.cost)
 
     def test_task_visuals(self):
