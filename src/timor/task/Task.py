@@ -28,7 +28,7 @@ robot_or_robots = Union[PinRobot, Iterable[PinRobot]]
 class TaskHeader(TypedHeader):
     """The header every task contains"""
 
-    taskID: str
+    ID: str
     version: str = 'Py'
     taskName: str = ""
     tags: List = field(default_factory=list)
@@ -55,7 +55,7 @@ class Task:
                  ):
         """Create a Task:
 
-        :param header: The header contains meta informaton about the task. Must at least contain a taskID
+        :param header: The header contains meta informaton about the task. Must at least contain an ID.
         :param obstacles: Obstacles in the task/environment the robots should not collide with.
         :param goals: The complete set of goals that need to be achieved in order to solve the task
         :param constraints: "Global" constraint that must hold for the whole task.
@@ -175,7 +175,7 @@ class Task:
     @property
     def id(self) -> str:
         """The unique ID of the task"""
-        return self.header.taskID
+        return self.header.ID
 
     @property
     def name(self) -> str:

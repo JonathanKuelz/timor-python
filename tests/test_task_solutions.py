@@ -132,7 +132,7 @@ class TestSolution(unittest.TestCase):
             CostFunctions.CostFunctionBase.from_descriptor('not_a_cost')
 
     def test_goals(self):
-        task = Task.Task({'taskID': 'dummy'})
+        task = Task.Task({'ID': 'dummy'})
         cost_function = CostFunctions.GoalsFulfilled()
         robot = prebuilt_robots.get_six_axis_modrob()
 
@@ -159,9 +159,9 @@ class TestSolution(unittest.TestCase):
             bad_trajectory.goals = {pause_goal.id: t_end}
             good_trajectory.goals = {pause_goal.id: t_end}
 
-            valid = Solution.SolutionTrajectory(good_trajectory, {'taskID': task.id}, task=task,
+            valid = Solution.SolutionTrajectory(good_trajectory, {'ID': task.id}, task=task,
                                                 robot=robot, cost_function=cost_function)
-            invalid = Solution.SolutionTrajectory(bad_trajectory, {'taskID': task.id}, task=task,
+            invalid = Solution.SolutionTrajectory(bad_trajectory, {'ID': task.id}, task=task,
                                                   robot=robot, cost_function=cost_function)
 
             self.assertTrue(pause_goal.achieved(valid))
@@ -171,7 +171,7 @@ class TestSolution(unittest.TestCase):
 
             bad_trajectory_to_short = dtypes.Trajectory.stationary(np.zeros(q_array_shape), 0.9 * pause_goal.duration)
             bad_trajectory_to_short.goals = {pause_goal.id: bad_trajectory_to_short.t[-1]}
-            invalid_too_short = Solution.SolutionTrajectory(bad_trajectory_to_short, {'taskID': task.id},
+            invalid_too_short = Solution.SolutionTrajectory(bad_trajectory_to_short, {'ID': task.id},
                                                             task=task, robot=robot, cost_function=cost_function)
             self.assertFalse(pause_goal.achieved(invalid_too_short))
 
