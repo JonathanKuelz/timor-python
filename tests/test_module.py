@@ -182,12 +182,12 @@ class TestModule(unittest.TestCase):
             mod = AtomicModule(header_one, [generic_body, box_body_same_connectors])
         with self.assertRaises(err.UniqueValueError):
             mod = AtomicModule(header_one, [generic_body, box_body, jnt_fails.parent_body, jnt_fails.child_body],
-                                      [jnt, jnt_fails])
+                               [jnt, jnt_fails])
 
         new_joint = Joints.Joint('5', Joints.TimorJointType.revolute, parent_body=Bodies.Body('1000', collision=box),
                                  child_body=Bodies.Body('1001', collision=box))
         new = AtomicModule(header_two, [generic_body, box_body, new_joint.parent_body, new_joint.child_body],
-                                  [jnt, new_joint])
+                           [jnt, new_joint])
 
         self.assertEqual(Bodies.ConnectorSet(new.available_connectors.values()),
                          generic_body.connectors

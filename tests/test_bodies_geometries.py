@@ -5,8 +5,7 @@ import unittest
 import numpy as np
 
 from timor import Bodies, Geometry, Obstacle, Transformation
-from timor.parameterized import ParameterizableBody, ParameterizableBoxBody, ParameterizableCylinderBody, \
-    ParameterizableMultiBody, \
+from timor.parameterized import ParameterizableBody, ParameterizableCylinderBody, ParameterizableMultiBody, \
     ParameterizableSphereBody
 from timor.utilities import file_locations
 import timor.utilities.errors as err
