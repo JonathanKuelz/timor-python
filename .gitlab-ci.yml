@@ -49,7 +49,7 @@ flake8 linting:
     - python --version
     - pip --version
     - pip install flake8==5.0.4
-    - flake8 --max-line-length=120 --per-file-ignores="tests/*:F841 src/timor/Bodies.py:F821 src/timor/Joints.py:F821 src/timor/__init__.py:F401,F403" --count src/timor/
+    - flake8 --max-line-length=120 --per-file-ignores="src/timor/Bodies.py:F821 src/timor/Joints.py:F821 src/timor/__init__.py:F401,F403" --count src/timor/
     - flake8 --max-line-length=120 --ignore F841 --count tests/
     # Ignore F401 (unused import) and F403(imports with *) in __init__ file
     # Ignore F821 (undefined name) - in these files the undefined names are only used for type hinting and cannot be properly imported (circular imports)
