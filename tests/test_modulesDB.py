@@ -9,7 +9,7 @@ import numpy.testing as np_test
 
 from timor import Joint, ToleratedPose, Transformation
 from timor.Module import AtomicModule, ModuleAssembly, ModuleHeader, ModulesDB
-from timor.utilities import logging, spatial
+from timor.utilities import logging
 import timor.utilities.errors as err
 from timor.utilities.file_locations import get_module_db_files, robots
 
