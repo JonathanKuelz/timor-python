@@ -44,14 +44,6 @@ class TestSpatialutilities(unittest.TestCase):
             np_test.assert_array_almost_equal(angles, angles_dash)
 
     @staticmethod
-    def test_homogeneous():
-        inv = spatial.inv_homogeneous
-        for _ in range(100):
-            pose = spatial.random_homogeneous()
-            np_test.assert_array_almost_equal(pose, spatial.homogeneous(pose[:3, 3], pose[:3, :3]))
-            np_test.assert_array_almost_equal(pose, inv(inv(pose)))
-
-    @staticmethod
     def test_projections():
         cartesian = (
             [spatial.cartesian2spherical, spatial.spherical2cartesian],
@@ -60,7 +52,7 @@ class TestSpatialutilities(unittest.TestCase):
         rotation = ([spatial.rot_mat2axis_angle, spatial.axis_angle2rot_mat],)
 
         for _ in range(100):
-            T = spatial.random_homogeneous()
+            T = Transformation.random()
             translation = T[:3, 3]
             R = T[:3, :3]
             for _ in range(5):
@@ -72,6 +64,23 @@ class TestSpatialutilities(unittest.TestCase):
 
             np_test.assert_array_almost_equal(translation, T[:3, 3])
             np_test.assert_array_almost_equal(R, T[:3, :3])
+
+    def test_advanced_projections(self):
+        for _ in range(100):
+            T = Transformation.random()
+            axis_angles = T.projection.axis_angles
+            axis_angles3 = T.projection.axis_angles3
+            vec = T.projection.roto_translation_vector
+            np_test.assert_array_almost_equal(T.translation, vec[3:])
+            np_test.assert_array_almost_equal(axis_angles3, vec[:3])
+            np_test.assert_array_almost_equal(axis_angles3, axis_angles[:3] * axis_angles[3])
+
+            T_dash = Transformation.from_roto_translation_vector(vec)
+            self.assertEqual(T, T_dash)
+
+            rot = spatial.axis_angle2rot_mat(axis_angles)
+            T_dash = Transformation.from_roto_translation(rot, T.translation)
+            self.assertEqual(T, T_dash)
 
     @staticmethod
     def test_rotations():

@@ -30,7 +30,7 @@ class PinocchioRobotSetup(unittest.TestCase):
 
     def test_base_placement(self):
         np.random.seed(99)
-        new_placement = spatial.random_homogeneous()
+        new_placement = Transformation.random()
 
         # Check that moving the robot to a new placement works
         robot_one = PinRobot.from_urdf(self.urdf, self.package_dir)
@@ -40,7 +40,7 @@ class PinocchioRobotSetup(unittest.TestCase):
 
         for _ in range(5):
             robot_one = PinRobot.from_urdf(self.urdf, self.package_dir)
-            displacement = spatial.random_homogeneous()
+            displacement = Transformation.random()
             inverse = spatial.inv_homogeneous(displacement)
             original = robot_one.placement.homogeneous.copy()
             robot_one.move(displacement)
@@ -66,7 +66,7 @@ class PinocchioRobotSetup(unittest.TestCase):
         self.assertTrue(Tolerance.DEFAULT_SPATIAL.valid(T @ fk_eye4, robot.fk()))
 
         for i in range(100):
-            T = Transformation(spatial.random_homogeneous())
+            T = Transformation(Transformation.random())
             robot.set_base_placement(T)
             self.assertTrue(Tolerance.DEFAULT_SPATIAL.valid(T, robot._base_placement))
             self.assertTrue(Tolerance.DEFAULT_SPATIAL.valid(T @ fk_eye4, robot.fk()),

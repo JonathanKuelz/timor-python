@@ -14,7 +14,10 @@ class TestSpatialTransformations(unittest.TestCase):
 
     def setUp(self) -> None:
         np.random.seed(85748)
-        self.random_homogeneous = spatial.random_homogeneous()
+        rand = np.eye(4)
+        rand[:3, 3] = np.random.rand(3)
+        rand[:3, :3] = spatial.random_rotation()
+        self.random_homogeneous = rand
         self.random_transformation = Transformation(self.random_homogeneous)
 
     def test_magic_methods_and_properties(self):
@@ -23,7 +26,11 @@ class TestSpatialTransformations(unittest.TestCase):
         np_test.assert_array_equal(self.random_homogeneous, self.random_transformation.homogeneous)
         np_test.assert_array_equal(self.random_transformation[:4, :4],
                                    self.random_homogeneous[:4, :4])  # np-like indexing
-        self.assertTrue(self.random_transformation == self.random_transformation.inv.inv)  # equality operator
+
+        for _ in range(20):
+            # Equality operator and inverse
+            t = Transformation.random()
+            self.assertEqual(t, t.inv.inv)
 
     def test_multiplication(self):
         """Makes sure multiplication of homogeneous transformations work as expected"""
@@ -35,7 +42,7 @@ class TestSpatialTransformations(unittest.TestCase):
         self.assertEqual(roto_translation, self.random_transformation)
 
         # A Transformation can also be given as a sequence of transformations
-        sequence = [spatial.random_homogeneous() for _ in range(10)]
+        sequence = [Transformation.random() for _ in range(10)]
 
         final_transform = Transformation.neutral()
         for t in sequence:
@@ -51,8 +58,8 @@ class TestSpatialTransformations(unittest.TestCase):
         self.assertAlmostEqual(T.distance(Transformation.neutral()).rotation_angle, math.pi / 2)
 
         for _ in range(100):  # Test distance symmetry and unity
-            T1 = Transformation(spatial.random_homogeneous())
-            T2 = Transformation(spatial.random_homogeneous())
+            T1 = Transformation.random()
+            T2 = Transformation.random()
             dT = T1.inv @ T2
             self.assertAlmostEqual(T1.distance(T1).translation_euclidean, 0.)
             self.assertAlmostEqual(T1.distance(T1).rotation_angle, 0.)
@@ -77,8 +84,8 @@ class TestSpatialTransformations(unittest.TestCase):
             T = start.interpolate(end_trans @ end_rot, i)
 
         for _ in range(10):
-            start = Transformation(spatial.random_homogeneous())
-            end = Transformation(spatial.random_homogeneous())
+            start = Transformation.random()
+            end = Transformation.random()
             self.assertEqual(start.interpolate(end, 0), start)
             self.assertEqual(start.interpolate(end, 1), end)
 

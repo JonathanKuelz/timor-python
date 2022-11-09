@@ -84,13 +84,13 @@ class TestModule(unittest.TestCase):
         m = Bodies.Gender.male
         h = Bodies.Gender.hermaphroditic
 
-        first = Bodies.Connector('1', spatial.random_homogeneous(), gender=f, connector_type='test', size=80)
-        second = Bodies.Connector('2', spatial.random_homogeneous(), gender=m, connector_type='test', size=80)
-        third = Bodies.Connector('3', spatial.random_homogeneous(), gender=h, connector_type='test', size=80)
-        fourth = Bodies.Connector('4', spatial.random_homogeneous(), gender=h, connector_type='test', size=80)
+        first = Bodies.Connector('1', Transformation.random(), gender=f, connector_type='test', size=80)
+        second = Bodies.Connector('2', Transformation.random(), gender=m, connector_type='test', size=80)
+        third = Bodies.Connector('3', Transformation.random(), gender=h, connector_type='test', size=80)
+        fourth = Bodies.Connector('4', Transformation.random(), gender=h, connector_type='test', size=80)
         # The last two are designed to match no other, either due to size or type
-        fifth = Bodies.Connector('5', spatial.random_homogeneous(), gender=h, connector_type='test', size=120)
-        sixth = Bodies.Connector('6', spatial.random_homogeneous(), gender=h, connector_type='test_other', size=80)
+        fifth = Bodies.Connector('5', Transformation.random(), gender=h, connector_type='test', size=120)
+        sixth = Bodies.Connector('6', Transformation.random(), gender=h, connector_type='test_other', size=80)
         all_connectors = (first, second, third, fourth, fifth, sixth)
 
         # First, let's do a custom sanity checks
@@ -122,13 +122,13 @@ class TestModule(unittest.TestCase):
 
         Quite Vanilla, as the Joint class is not much more than a wrapper for joint data
         """
-        c = Bodies.Connector('1', spatial.random_homogeneous())
+        c = Bodies.Connector('1', Transformation.random())
         some_geometry = Geometry.EmptyGeometry({})
         parent = Bodies.Body('1', collision=some_geometry)
         child = Bodies.Body('2', collision=some_geometry)
         joint = Joints.Joint('1', Joints.TimorJointType.revolute, parent, child,
-                             parent2joint=spatial.random_homogeneous(),
-                             joint2child=spatial.random_homogeneous())
+                             parent2joint=Transformation.random(),
+                             joint2child=Transformation.random())
 
         self.assertEqual(joint.parent2joint, joint.joint2parent.inv)
         self.assertEqual(joint.child2joint, joint.joint2child.inv)
