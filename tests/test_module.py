@@ -347,7 +347,7 @@ class TestModule(unittest.TestCase):
         self.assert_(nx.is_weakly_connected(Ga))
 
         rob = assembly.to_pin_robot()
-        self.assertEqual(rob.mass, assembly.mass)
+        self.assertAlmostEqual(rob.mass, assembly.mass)
 
         fk = rob.fk()
         move_up = .3
