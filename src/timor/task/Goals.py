@@ -288,7 +288,7 @@ class ReturnTo(GoalBase):
 
     def visualize(self, viz: MeshcatVisualizer, scale: float = .33) -> None:
         """Shows an error pointing towards the desired position"""
-        logging.warning("ReturnTo cannot be visualized (yet)")
+        logging.info("ReturnTo Goals cannot be visualized (yet)")
 
     def _achieved(self, solution: 'task.Solution.SolutionBase') -> bool:
         """

@@ -22,7 +22,7 @@ from timor.utilities.visualization import MeshcatVisualizerWithAnimation, animat
 class SolutionHeader(TypedHeader):
     """The header every solution contains"""
 
-    ID: str  # This is NOT the Solution ID, but identifies the task the solution was crafted for!
+    taskID: str  # This is NOT the Solution ID, but identifies the task the solution was crafted for!
     version: str = "Py2022"
     author: List[str] = ''
     email: List[str] = ''
