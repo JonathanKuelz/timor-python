@@ -85,7 +85,7 @@ class AlwaysTrueConstraint(ConstraintBase):
 
     def to_json_data(self) -> Dict[str, any]:
         """Dumps this constraint to a dictionary"""
-        logging.warning("Always true constraint is skipped during serialization")
+        logging.info("Always true constraint is skipped during serialization")
         return {}
 
 
