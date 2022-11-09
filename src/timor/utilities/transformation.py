@@ -89,7 +89,7 @@ class Projection:
 
     @property
     def roto_translation_vector(self) -> np.ndarray:
-        """
+        r"""
         Stacks the translation and axis-angle-rotation parameters of a transformation in a (6,)-shaped vector.
 
         :returns: A vector $(n_x * \theta_R, n_y * \theta_R, n_z * \theta_R, x, y, z)$, where the first three elements
@@ -227,7 +227,7 @@ class Transformation:
 
     @classmethod
     def from_roto_translation_vector(cls, v: Collection[float]) -> Transformation:
-        """
+        r"""
         Create a transformation from a stacked roto-translation vector.
 
         :param v: A vector $(n_x * \theta_R, n_y * \theta_R, n_z * \theta_R, x, y, z)$, where last three elements are

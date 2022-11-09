@@ -14,7 +14,7 @@ from timor import Geometry, Transformation
 from timor import Robot
 from timor.Module import ModuleAssembly
 from timor.task import Constraints, Obstacle, Task, Tolerance
-from timor.utilities import file_locations, prebuilt_robots, spatial
+from timor.utilities import file_locations, prebuilt_robots
 from timor.utilities.tolerated_pose import ToleratedPose
 
 
