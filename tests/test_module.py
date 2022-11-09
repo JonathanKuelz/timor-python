@@ -171,8 +171,11 @@ class TestModule(unittest.TestCase):
                                   affiliation=['TUM'])
         header_two = dict(ID='2', name='Test module two', author=['Jonathan'],
                           email=['jonathan.kuelz@tum.de'], affiliation=['TUM'])
+
         # ----- Let's go -----
         module = AtomicModule(header_one, [generic_body, box_body, another_body], [jnt, jnt_works])
+
+        self.assertEqual(module.mass, generic_body.mass + box_body.mass + another_body.mass)
 
         with self.assertRaises(ValueError):
             # Joint body missing in module
@@ -225,14 +228,15 @@ class TestModule(unittest.TestCase):
         dz_initial = (bottom.connector2body @ top.body2connector).translation[2]
         self.assertEqual(abs(dz_initial), cylinder.length)
 
-        initial_mass = cylinder.link.mass
-        self.assertEqual(cylinder.link.mass, long_cylinder.link.mass / 2)
+        initial_mass = cylinder.mass
+        self.assertEqual(cylinder.mass, cylinder.link.mass)
+        self.assertEqual(cylinder.mass, long_cylinder.mass / 2)
         cylinder.resize((1, 1.5))
         dz_new = (bottom.connector2body @ top.body2connector).translation[2]
-        self.assertEqual(cylinder.link.mass, initial_mass * 1.5)
+        self.assertEqual(cylinder.mass, initial_mass * 1.5)
         self.assertEqual(dz_new, dz_initial * 1.5)
         cylinder.resize((1, 1))
-        self.assertEqual(cylinder.link.mass, initial_mass)
+        self.assertEqual(cylinder.mass, initial_mass)
         cylinder.resize((.33, 1.5))
         self.assertEqual(cylinder.radius, .33)
 
@@ -343,10 +347,10 @@ class TestModule(unittest.TestCase):
         self.assert_(nx.is_weakly_connected(Ga))
 
         rob = assembly.to_pin_robot()
+        self.assertEqual(rob.mass, assembly.mass)
+
         fk = rob.fk()
-
         move_up = .3
-
         rob.update_configuration(np.array((move_up, 0)))
         self.assertAlmostEqual(fk[2, 3], rob.fk()[2, 3] - move_up)
         self.assert_(np.all(fk[:2, 3] == rob.fk()[:2, 3]))

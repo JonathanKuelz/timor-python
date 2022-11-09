@@ -139,6 +139,11 @@ class ModuleBase(abc.ABC):
         return self._joints
 
     @property
+    def mass(self) -> float:
+        """Returns the total mass of the module."""
+        return sum(b.mass for b in self.bodies)
+
+    @property
     def num_bodies(self):
         """The number of bodies in this module."""
         return len(self._bodies)
@@ -774,6 +779,11 @@ class ModuleAssembly:
         for mod_a, con_a, mod_b, con_b in self.connections:
             G.add_edge(mod_a.id, mod_b.id, label=[con_a._id, con_b._id])
         return G
+
+    @property
+    def mass(self) -> float:
+        """The total mass of the assembly"""
+        return sum(mod.mass for mod in self.module_instances)
 
     @property
     def nJoints(self) -> int:
