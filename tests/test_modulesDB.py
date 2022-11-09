@@ -7,9 +7,9 @@ import networkx as nx
 import numpy as np
 import numpy.testing as np_test
 
-from timor import Joint
+from timor import Joint, ToleratedPose, Transformation
 from timor.Module import AtomicModule, ModuleAssembly, ModuleHeader, ModulesDB
-from timor.utilities import logging
+from timor.utilities import logging, spatial
 import timor.utilities.errors as err
 from timor.utilities.file_locations import get_module_db_files, robots
 
@@ -75,6 +75,20 @@ class TestModulesDB(unittest.TestCase):
                 continue  # Not a json DB file in there
             db = ModulesDB.from_file(*get_module_db_files(db_name))
             self.assertGreater(len(db), 0, msg=f"{db_name} is empty after loading")
+
+    def test_jointless_robot(self):
+        """Test the Assembly to Robot procedure for a robot without a joint"""
+        db = ModulesDB.from_file(*get_module_db_files('geometric_primitive_modules'))
+        assembly = ModuleAssembly.from_serial_modules(db, ['base'] + ['l_15'] * 5)
+        robot = assembly.to_pin_robot()
+        self.assertEqual(robot.njoints, 0)
+        self.assertGreater(robot.mass, 0)
+        self.assertIsInstance(robot.fk(), Transformation)
+        goal = ToleratedPose(nominal=Transformation.from_translation((9, 9, 9)))
+        q, success = robot.ik(goal)
+        self.assertIsInstance(q, np.ndarray)
+        self.assertEqual(q.size, robot.njoints)
+        self.assertFalse(success)
 
     def test_modules_assembly(self):
         module_ids = ['1', '21', '4', '21', '5', '23', '7', '12']
