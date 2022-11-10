@@ -151,9 +151,9 @@ class JsonSerializationTests(unittest.TestCase):
 
         # Set up some Obstacles
         random_homogeneous = Transformation.random()
-        box = Obstacle.Obstacle('Box', collision=Geometry.Box({'x': 1, 'y': 1, 'z': -1}, random_homogeneous))
+        box = Obstacle.Obstacle('Box', collision=Geometry.Box({'x': 1, 'y': 1, 'z': -1}, Transformation.random()))
         cylinder = Obstacle.Obstacle('Cylinder',
-                                     collision=Geometry.Cylinder({'r': 1, 'z': -1}, random_homogeneous))
+                                     collision=Geometry.Cylinder({'r': 1, 'z': -1}, Transformation.random()))
         composed = Obstacle.Obstacle('Composed', collision=Geometry.ComposedGeometry((box.collision,
                                                                                       cylinder.collision)))
         self.obstacles = [box, cylinder, composed]

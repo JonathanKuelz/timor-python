@@ -82,6 +82,17 @@ class TestSpatialutilities(unittest.TestCase):
             T_dash = Transformation.from_roto_translation(rot, T.translation)
             self.assertEqual(T, T_dash)
 
+        no_rotation = np.zeros((4,))
+        no_rotation3 = np.zeros((3,))
+        identity = Transformation.neutral()
+        should_be_identity = spatial.axis_angle2rot_mat(no_rotation)
+        np_test.assert_array_equal(should_be_identity, identity.rotation)
+        np_test.assert_array_equal(identity.projection.axis_angles3, no_rotation3)
+        np_test.assert_array_equal(identity.projection.axis_angles, no_rotation)
+
+        should_be_identity = Transformation.from_roto_translation_vector(np.zeros(6,))
+        self.assertEqual(should_be_identity, identity)
+
     @staticmethod
     def test_rotations():
         for _ in range(100):

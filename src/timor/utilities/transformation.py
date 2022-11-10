@@ -64,6 +64,7 @@ class Projection:
         r"""
         Returns the rotation part of the placement as (4,)-shaped axis angle representation.
 
+        :source: https://en.wikipedia.org/wiki/Axis%E2%80%93angle_representation
         :returns: Rotation representation $(n_x, n_y, n_z, \theta_R)$.
         """
         return spatial.rot_mat2axis_angle(self.transformation[:3, :3])
@@ -73,6 +74,7 @@ class Projection:
         r"""
         Returns the rotation part of the placement as (3,)-shaped axis angle representation.
 
+        :source: https://en.wikipedia.org/wiki/Axis%E2%80%93angle_representation
         :returns: Rotation representation $(n_x * \theta_R, n_y * \theta_R, n_z * \theta_R)$.
         """
         return self.axis_angles[:3] * self.axis_angles[3]
@@ -188,23 +190,19 @@ class Transformation:
     @classmethod
     def random(cls):
         r"""Returns a random transformation where the L1-Norm of the translation $\leq$ 3."""
-        rotation = Rotation.random().as_matrix()
+        rotation = spatial.random_rotation()
         translation = np.random.random((3,))
         return cls.from_roto_translation(rotation, translation)
 
     @classmethod
     def from_translation(cls, p: Collection[float]) -> Transformation:
         """Create a placement from a point with default orientation."""
-        T = np.eye(4, dtype=float)
-        T[:3, 3] = np.asarray(p, dtype=float)
-        return cls(T)
+        return cls.from_roto_translation(np.eye(3), p)
 
     @classmethod
     def from_rotation(cls, R: Collection[Collection[float]]):
         """Create a placement from a rotation/orientation in the origin."""
-        T = np.eye(4, dtype=float)
-        T[:3, :3] = np.asarray(R, dtype=float)
-        return cls(T)
+        return cls.from_roto_translation(R, (0, 0, 0))
 
     @classmethod
     def from_roto_translation(cls, R: Collection[Collection[float]], p: Collection[float]) -> Transformation:
