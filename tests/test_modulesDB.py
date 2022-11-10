@@ -90,6 +90,10 @@ class TestModulesDB(unittest.TestCase):
         self.assertEqual(q.size, robot.njoints)
         self.assertFalse(success)
 
+        q, success = robot.ik(ToleratedPose(robot.fk()))
+        self.assertTrue(success)
+        self.assertEqual(q.size, robot.njoints)
+
     def test_modules_assembly(self):
         module_ids = ['1', '21', '4', '21', '5', '23', '7', '12']
         connections = [
