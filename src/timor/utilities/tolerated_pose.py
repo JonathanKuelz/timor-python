@@ -73,7 +73,7 @@ class ToleratedPose:
         For detailed parameters refer to Transformation::visualize
         """
         self.nominal.visualize(viz, name, scale, text)
-        logging.warning("Tolerated placement does not visualize tolerance yet")
+        logging.debug("Tolerated placement does not visualize tolerance yet")
 
     def __set_tolerance(self, value: Tolerance.ToleranceBase):
         """Type checking before setting the tolerance."""
