@@ -16,7 +16,7 @@ classifiers = [
 keywords = ["Modular Reconfigurable Robots", "Robot Design", "Model Generation", "Simulation"]
 dependencies = [
     "jsonschema >= 4.10",
-    "pin >= 2.6.4",
+    "pin >= 2.6.4, <= 2.6.12",
     "matplotlib >= 3.5.1",
     "meshcat",
     "networkx >= 2.6.3",
