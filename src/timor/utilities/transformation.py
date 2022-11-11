@@ -61,8 +61,23 @@ class Projection:
 
     @property
     def axis_angles(self) -> np.ndarray:
-        """Returns the rotation part of the placement as axis angle representation [n_x, n_y, n_z, theta_R]."""
+        r"""
+        Returns the rotation part of the placement as (4,)-shaped axis angle representation.
+
+        :source: https://en.wikipedia.org/wiki/Axis%E2%80%93angle_representation
+        :returns: Rotation representation $(n_x, n_y, n_z, \theta_R)$.
+        """
         return spatial.rot_mat2axis_angle(self.transformation[:3, :3])
+
+    @property
+    def axis_angles3(self) -> np.ndarray:
+        r"""
+        Returns the rotation part of the placement as (3,)-shaped axis angle representation.
+
+        :source: https://en.wikipedia.org/wiki/Axis%E2%80%93angle_representation
+        :returns: Rotation representation $(n_x * \theta_R, n_y * \theta_R, n_z * \theta_R)$.
+        """
+        return self.axis_angles[:3] * self.axis_angles[3]
 
     @property
     def cartesian(self) -> np.ndarray:
@@ -73,6 +88,17 @@ class Projection:
     def cylindrical(self) -> np.ndarray:
         """Returns the position in cylindrical coordinates [r, phi, z]."""
         return spatial.cartesian2cylindrical(self.cartesian)
+
+    @property
+    def roto_translation_vector(self) -> np.ndarray:
+        r"""
+        Stacks the translation and axis-angle-rotation parameters of a transformation in a (6,)-shaped vector.
+
+        :returns: A vector $(n_x * \theta_R, n_y * \theta_R, n_z * \theta_R, x, y, z)$, where the first three elements
+        are the rotation (in axis angle representation) of the transformation and the last three elements are the
+        translation of the transformation.
+        """
+        return np.concatenate((self.axis_angles3, self.cartesian))
 
     @property
     def spherical(self) -> np.ndarray:
@@ -102,7 +128,13 @@ class Transformation:
             transformation = transformation.homogeneous
         elif isinstance(transformation, pin.SE3):
             transformation = transformation.homogeneous
-        transformation = np.asarray(transformation, dtype=float)
+        try:
+            transformation = np.asarray(transformation, dtype=float)
+        except ValueError:  # Multiple transformations cannot be packed in one np array
+            if isinstance(transformation, Iterable) and all(isinstance(t, Transformation) for t in transformation):
+                transformation = reduce(lambda x, y: x @ y, transformation).homogeneous
+            else:
+                raise
         if len(transformation.shape) == 3:
             # Unpack a sequence of transformations by multiplying them from left to right
             transformation = reduce(np.matmul, transformation)
@@ -156,18 +188,52 @@ class Transformation:
         return Transformation(other) @ self  # For transformations, this is implemented as __matmul__
 
     @classmethod
+    def random(cls):
+        r"""Returns a random transformation where the L1-Norm of the translation $\leq$ 3."""
+        rotation = spatial.random_rotation()
+        translation = np.random.random((3,))
+        return cls.from_roto_translation(rotation, translation)
+
+    @classmethod
     def from_translation(cls, p: Collection[float]) -> Transformation:
         """Create a placement from a point with default orientation."""
-        T = np.eye(4, dtype=float)
-        T[:3, 3] = np.asarray(p, dtype=float)
-        return cls(T)
+        return cls.from_roto_translation(np.eye(3), p)
 
     @classmethod
     def from_rotation(cls, R: Collection[Collection[float]]):
         """Create a placement from a rotation/orientation in the origin."""
+        return cls.from_roto_translation(R, (0, 0, 0))
+
+    @classmethod
+    def from_roto_translation(cls, R: Collection[Collection[float]], p: Collection[float]) -> Transformation:
+        """
+        Create a transformation from a rotation/orientation and a translation.
+
+        The resulting transformation:
+        ...represents a coordinate system transformation relative to the previous coordinate system s.t. any point x
+        expressed relative to the new coordinate system can be expressed in previous coordinates as
+        $x_{prev} = T * x_{rel} = R * x_{rel} + p$.
+        ...moves a coordinate system by p and rotates it by R (same as above).
+        Note that the rotation is not applied to the translation p!
+        :param R: A 3x3 rotation matrix.
+        :param p: A 3x1 translation vector.
+        """
         T = np.eye(4, dtype=float)
         T[:3, :3] = np.asarray(R, dtype=float)
+        T[:3, 3] = np.asarray(p, dtype=float)
         return cls(T)
+
+    @classmethod
+    def from_roto_translation_vector(cls, v: Collection[float]) -> Transformation:
+        r"""
+        Create a transformation from a stacked roto-translation vector.
+
+        :param v: A vector $(n_x * \theta_R, n_y * \theta_R, n_z * \theta_R, x, y, z)$, where last three elements are
+        the rotation (in axis angle representation) and the first three elements are the translation of the
+        transformation.
+        """
+        v = np.asarray(v, dtype=float)
+        return cls.from_roto_translation(Rotation.from_rotvec(v[:3]).as_matrix(), v[3:])
 
     @classmethod
     def neutral(cls) -> Transformation:

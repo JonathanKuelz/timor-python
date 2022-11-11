@@ -185,12 +185,6 @@ def random_rotation() -> np.ndarray:
     return Rotation.random().as_matrix()
 
 
-def random_homogeneous() -> np.ndarray:
-    """Returns a random 4x4 homogeneous transformation matrix."""
-    p = np.random.random((3,))
-    return homogeneous(translation=p, rotation=random_rotation())
-
-
 def rotation_in_bounds(rot: np.ndarray, bounds: np.ndarray) -> np.ndarray:
     """Maps angles to an interval 2pi-agnostically.
 

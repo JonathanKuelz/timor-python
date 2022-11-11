@@ -18,7 +18,7 @@ class TestTolerances(unittest.TestCase):
     def test_asymmetric_spatial_tolerances(self):
         xyz = Tolerance.CartesianXYZ([-.5, 0], [-1, .5], [-.35, 100])
         rot = Tolerance.RotationAxisAngle([-1, 1], [-1, 1], [0, 1], [0, np.pi])
-        desired = spatial.random_homogeneous()
+        desired = Transformation.random()
 
         valid_offsets = (
             spatial.homogeneous(translation=[-.4, 0, 0]),
@@ -102,7 +102,7 @@ class TestTolerances(unittest.TestCase):
             self.assertTrue(all(np.all(  # np.all accepts "True" even if it is not iterable
                 default.__dict__[key] == double_default.__dict__[key]) for key in default.__dict__))
 
-            placement = Transformation(spatial.random_homogeneous())
+            placement = Transformation.random()
 
             if isinstance(default, (Tolerance.Cartesian, Tolerance.Rotation)):
                 # Check that the valid random deviation is indeed valid

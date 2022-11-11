@@ -10,11 +10,11 @@ import numpy as np
 import numpy.testing as np_test
 import pinocchio as pin
 
-from timor import Geometry
+from timor import Geometry, Transformation
 from timor import Robot
 from timor.Module import ModuleAssembly
 from timor.task import Constraints, Obstacle, Task, Tolerance
-from timor.utilities import file_locations, prebuilt_robots, spatial
+from timor.utilities import file_locations, prebuilt_robots
 from timor.utilities.tolerated_pose import ToleratedPose
 
 
@@ -150,12 +150,10 @@ class JsonSerializationTests(unittest.TestCase):
         self.robot = Robot.PinRobot.from_urdf(panda_loc.joinpath('urdf').joinpath('panda.urdf'), panda_loc.parent)
 
         # Set up some Obstacles
-        random_homogeneous = spatial.random_homogeneous()
-        random_translation = random_homogeneous[:3, 3]
-        random_rotation = random_homogeneous[:3, :3]
-        box = Obstacle.Obstacle('Box', collision=Geometry.Box({'x': 1, 'y': 1, 'z': -1}, spatial.random_homogeneous()))
+        random_homogeneous = Transformation.random()
+        box = Obstacle.Obstacle('Box', collision=Geometry.Box({'x': 1, 'y': 1, 'z': -1}, Transformation.random()))
         cylinder = Obstacle.Obstacle('Cylinder',
-                                     collision=Geometry.Cylinder({'r': 1, 'z': -1}, spatial.random_homogeneous()))
+                                     collision=Geometry.Cylinder({'r': 1, 'z': -1}, Transformation.random()))
         composed = Obstacle.Obstacle('Composed', collision=Geometry.ComposedGeometry((box.collision,
                                                                                       cylinder.collision)))
         self.obstacles = [box, cylinder, composed]
