@@ -488,8 +488,14 @@ class PinRobot(RobotBase):
 
     @property
     def mass(self) -> float:
-        """Robot mass in kg."""
-        return pin.computeTotalMass(self.model)
+        """
+        Robot mass in kg, included the unactuated mass belonging to the base.
+
+        Pinocchio calculates the robot mass as the actuated mass only, omitting the mass attached to the "universe".
+        Opposed to this approach, we include the mass of the (static) base in the robot mass.
+        :source: https://github.com/stack-of-tasks/pinocchio/issues/1286
+        """
+        return pin.computeTotalMass(self.model) + self.model.inertias[0].mass
 
     @property
     def njoints(self) -> int:
@@ -975,8 +981,9 @@ class PinRobot(RobotBase):
         for obstacle in task.obstacles:
             for (robot_geometry, omg), (t, geometry) in \
                     itertools.product(zip(geometries, self.collision_data.oMg), obstacle.collision.collision_data):
+                omg3f = Transform3f(omg.homogeneous[:3, :3], omg.homogeneous[:3, 3])
                 t3f = Transform3f(t[:3, :3], t[:3, 3])
-                if collide(robot_geometry, omg, geometry, t3f, request, result):
+                if collide(robot_geometry, omg3f, geometry, t3f, request, result):
                     if return_at_first:
                         return True
                     collisions.append((self, obstacle))

@@ -17,6 +17,7 @@ from timor.utilities.transformation import Transformation
 
 class TestSolution(unittest.TestCase):
     """Test everything related to solutions here: are they valid, can we correctly identify valid solutions, ..."""
+
     def setUp(self) -> None:
         self.task_header = Task.TaskHeader('test_case', 'py', tags=['debug', 'test'])
         self.solution_header = Solution.SolutionHeader('test_case', author=['Jonathan'])
@@ -233,8 +234,8 @@ class TestSolution(unittest.TestCase):
             eval_composed_cost.append(random_solution.cost)
         random_solution._cost.value = None
         random_solution.cost_function = composed_cost
-        self.assertEqual((eval_composed_cost[0] + eval_composed_cost[1]) * 2 / 5,
-                         random_solution.cost)
+        self.assertAlmostEqual((eval_composed_cost[0] + eval_composed_cost[1]) * 2 / 5,
+                               random_solution.cost)
 
     def test_task_visuals(self):
         """Needs manual inspection for the plots"""

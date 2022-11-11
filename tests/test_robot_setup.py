@@ -53,6 +53,7 @@ class PinocchioRobotSetup(unittest.TestCase):
         wrapper = pin.RobotWrapper(pin.Model())
         robot = PinRobot(wrapper=wrapper)
         self.assertIsInstance(robot, RobotBase)
+        self.assertEqual(robot.mass, 0)
 
     def test_multiple_base_placement(self):
         robot = prebuilt_robots.get_six_axis_modrob()
