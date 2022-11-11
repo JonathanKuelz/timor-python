@@ -488,8 +488,14 @@ class PinRobot(RobotBase):
 
     @property
     def mass(self) -> float:
-        """Robot mass in kg."""
-        return pin.computeTotalMass(self.model)
+        """
+        Robot mass in kg, included the unactuated mass belonging to the base.
+
+        Pinocchio calculates the robot mass as the actuated mass only, omitting the mass attached to the "universe".
+        Opposed to this approach, we include the mass of the (static) base in the robot mass.
+        :source: https://github.com/stack-of-tasks/pinocchio/issues/1286
+        """
+        return pin.computeTotalMass(self.model) + self.model.inertias[0].mass
 
     @property
     def njoints(self) -> int:
