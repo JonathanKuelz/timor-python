@@ -1,4 +1,4 @@
-image: python:3.10
+image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/python:3.10
 
 variables:
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
@@ -57,7 +57,7 @@ flake8 linting:
 
 pip_py_37:
   stage: build
-  image: python:3.7
+  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/python:3.7
   script:
     - pip install .[full]
     - cd src
@@ -69,7 +69,7 @@ pip_py_37:
 
 pip_py_38:
   stage: build
-  image: python:3.8
+  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/python:3.8
   script:
     - pip install .[full]
     - cd src
@@ -81,7 +81,7 @@ pip_py_38:
 
 pip_py_39:
   stage: build
-  image: python:3.9
+  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/python:3.9
   script:
     - pip install .[full]
     - cd src
