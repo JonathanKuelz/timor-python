@@ -3,6 +3,7 @@ from __future__ import annotations
 from functools import reduce
 from typing import Collection, Iterable, List, Optional, Tuple, Union
 
+from hppfcl import Transform3f
 import numpy as np
 import pinocchio as pin
 from scipy.spatial.transform import Rotation
@@ -239,6 +240,10 @@ class Transformation:
     def neutral(cls) -> Transformation:
         """Returns a neutral placement."""
         return cls(np.eye(4))
+
+    def as_transform3f(self) -> Transform3f:
+        """Returns this transformation as a hppfcl Transform3f"""
+        return Transform3f(self.rotation, self.translation)
 
     @property
     def serialized(self) -> List[List[float]]:

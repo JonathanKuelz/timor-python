@@ -95,10 +95,9 @@ class Obstacle:
         request = hppfcl.CollisionRequest()
         result = hppfcl.CollisionResult()
 
-        for own_t, own_collision in self.collision.collision_data:
-            for other_t, other_collision in other.collision.collision_data:
-                own_t, other_t = map(lambda t: hppfcl.Transform3f(t[:3, :3], t[:3, 3]), [own_t, other_t])
-                hppfcl.collide(own_collision, own_t, other_collision, other_t, request, result)
+        for own_collision in self.collision.as_hppfcl_collision_object:
+            for other_collision in other.collision.as_hppfcl_collision_object:
+                hppfcl.collide(own_collision, other_collision, request, result)
                 if result.isCollision():
                     return True
         return False

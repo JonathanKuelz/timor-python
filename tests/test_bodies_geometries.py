@@ -2,13 +2,18 @@ from copy import copy
 import pickle
 import unittest
 
+from hppfcl import CollisionRequest, CollisionResult, collide
+import meshcat
 import numpy as np
 
 from timor import Bodies, Geometry, Obstacle, Transformation
-from timor.parameterized import ParameterizableBody, ParameterizableCylinderBody, ParameterizableMultiBody, \
+from timor.Geometry import Mesh
+from timor.parameterized import ParameterizableBody, ParameterizableBoxBody, ParameterizableCylinderBody, \
+    ParameterizableMultiBody, \
     ParameterizableSphereBody
 from timor.utilities import file_locations
 import timor.utilities.errors as err
+from timor.utilities.file_locations import robots
 
 
 class TestBodiesAndGeometries(unittest.TestCase):
@@ -148,6 +153,36 @@ class TestBodiesAndGeometries(unittest.TestCase):
         self.assertIsInstance(pickle_body, ParameterizableMultiBody)
         self.assertEqual(pickle_body.mass, dumbbell.mass)
         self.assertEqual(pickle_body.inertia, dumbbell.inertia)
+
+    def test_wrl(self):
+        mesh_wrl = Mesh({'file': str(robots['IMPROV'].joinpath('STLfiles').joinpath('convexDecompose/L1.stl.wrl')),
+                         'package_dir': str(robots['IMPROV'].joinpath('STLfiles/convexDecompose'))})
+        mesh_stl = Mesh({'file': robots['IMPROV'].joinpath('STLfiles').joinpath('L1.stl'),
+                         'package_dir': robots['IMPROV'].joinpath('STLfiles')})
+        test_cube = ParameterizableBoxBody("tmp_test_box", (1., 1., 1.),
+                                           geometry_placement=Transformation.from_translation((1., 0., 0.)))
+        request = CollisionRequest()
+        result = CollisionResult()
+
+        v = meshcat.visualizer.Visualizer()
+        v["test_wrl"].set_object(mesh_wrl.viz_object[0])
+        v["test_stl"].set_object(mesh_stl.viz_object[0])
+        v["test_cube"].set_object(test_cube.visual.viz_object[0])
+        v["test_cube"].set_transform(test_cube.visual.viz_object[1].homogeneous)
+
+        # mesh_wrl should be (slight) over-approximation -> similar collision properties
+        for x in np.arange(0., 1., 0.1):
+            mesh_wrl.placement = Transformation.from_translation((x, 0, 0))
+            mesh_stl.placement = Transformation.from_translation((x, 0, 0))
+
+            v["test_wrl"].set_transform(mesh_wrl.viz_object[1].homogeneous)
+            v["test_stl"].set_transform(mesh_stl.viz_object[1].homogeneous)
+
+            if collide(test_cube.collision.as_hppfcl_collision_object[0], mesh_stl.as_hppfcl_collision_object[0],
+                       request, result):
+                self.assertTrue(collide(test_cube.collision.as_hppfcl_collision_object[0],
+                                        mesh_wrl.as_hppfcl_collision_object[0], request, result),
+                                f"Overapprox. wrl did not collide @ x = {x}")
 
 
 if __name__ == '__main__':

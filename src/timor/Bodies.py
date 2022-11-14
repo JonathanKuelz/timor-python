@@ -10,7 +10,6 @@ import itertools
 from pathlib import Path
 import re
 from typing import Dict, Iterable, Optional, Tuple, Union
-import warnings
 
 import numpy as np
 import pinocchio as pin
@@ -336,7 +335,6 @@ class Body(BodyBase):
                               np.array(d.pop('r_com'), dtype=float),
                               np.asarray(d.pop('inertia'), dtype=float))
         geometries = [None, None]
-        has_wrl = False
         for i, geometry_type in enumerate(('collision', 'visual')):
             try:
                 specs = d.pop(geometry_type)
@@ -351,15 +349,7 @@ class Body(BodyBase):
 
             singular_geometries = list()
             for geo in possibly_nest_as_list(specs):  # There can be multiple geometries
-                try:
-                    singular_geometries.append(Geometry.from_json_data(geo, package_dir=package_dir))
-                except ValueError as verr:
-                    if geo['type'] == 'mesh' and geo['parameters']['file'].endswith('.wrl'):
-                        geometries[i] = EmptyGeometry({})
-                        warnings.warn("Cannot load wrl files")
-                        has_wrl = True
-                    else:
-                        raise verr
+                singular_geometries.append(Geometry.from_json_data(geo, package_dir=package_dir))
 
             if len(singular_geometries) > 1:
                 geometries[i] = ComposedGeometry(singular_geometries)
@@ -369,9 +359,6 @@ class Body(BodyBase):
                 geometries[i] = EmptyGeometry({})
 
         collision, visual = geometries
-        if isinstance(collision, EmptyGeometry) and has_wrl and not isinstance(visual, EmptyGeometry):
-            # TODO: Implement wrl geometries
-            collision = visual
 
         if len(d) > 0:
             raise ValueError(f"Unknown keys in body description: {d}")
