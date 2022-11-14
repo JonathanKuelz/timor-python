@@ -10,6 +10,7 @@ import json
 import math
 from pathlib import Path
 import random
+import re
 from typing import Callable, Collection, Dict, Iterable, List, Optional, Set, Tuple, Union
 import uuid
 import xml.etree.ElementTree as ET
@@ -1009,8 +1010,14 @@ class ModuleAssembly:
 
         return robot
 
-    def to_urdf(self, name: str = None, write_to: Optional[Path] = None) -> str:
-        """Creates a URDF file from the assembly"""
+    def to_urdf(self, name: str = None, write_to: Optional[Path] = None, replace_wrl: bool = False) -> str:
+        """
+        Creates a URDF file from the assembly.
+
+        :param name: name to be given to robot inside URDF
+        :param write_to: output URDF file
+        :param replace_wrl: Whether to replace wrl geometries with visual geometry (if available).
+        """
         G = self.assembly_graph
         edges = self.assembly_graph.edges
         if name is None:
@@ -1037,12 +1044,28 @@ class ModuleAssembly:
                     body_name = '.'.join(successor.id)
                     link = ET.Element('link', {'name': body_name})
                     link.append(write_urdf.from_pin_inertia(successor.inertia, transform))
+
+                    visual_geom = None
                     if not isinstance(successor.visual, Geometry.EmptyGeometry):
-                        link.append(write_urdf.from_geometry(successor.visual, 'visual',
-                                                             name=body_name + '_visual', link_frame=transform))
+                        visual_geom = write_urdf.from_geometry(successor.visual, 'visual',
+                                                               name=body_name + '_visual', link_frame=transform)
+                        link.append(visual_geom)
+
                     if not isinstance(successor.collision, Geometry.EmptyGeometry):
-                        link.append(write_urdf.from_geometry(successor.collision, 'collision',
-                                                             name=body_name + '_visual', link_frame=transform))
+                        coll_geom = write_urdf.from_geometry(successor.collision, 'collision',
+                                                             name=body_name + '_collision', link_frame=transform)
+                        if replace_wrl:
+                            # Find all wrl references and replace with geometry found in visual description
+                            if visual_geom is None:
+                                raise ValueError("Cannot replace wrl if there is no visual geometry to replace with.")
+                            for m in coll_geom.findall('geometry/mesh'):
+                                if re.search(r"\.wrl$", m.get("filename")) is not None:
+                                    coll_geom = ET.Element("collision", {"name": coll_geom.get("name")})
+                                    for child in visual_geom:
+                                        coll_geom.append(child)
+                                    logging.info(f"Replaced geometry with wrl file by visual geom: {m.get('filename')}")
+                        link.append(coll_geom)
+
                     links.append(link)
                 elif isinstance(successor, Joint) and successor.type is not TimorJointType.fixed:
                     joint = ET.Element('joint', {'name': '.'.join(successor.id),

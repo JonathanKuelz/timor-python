@@ -3,6 +3,7 @@ from __future__ import annotations
 import abc
 from enum import Enum, EnumMeta
 from inspect import isclass
+import io
 import itertools
 from pathlib import Path
 import re
@@ -159,6 +160,13 @@ class Geometry(abc.ABC):
             raise NotImplementedError("from_hppfcl not implemented for class {}".format(cls))
 
         return _geometry_type2class(GeometryType[type(fcl)]).from_hppfcl(fcl)
+
+    @property
+    def as_hppfcl_collision_object(self) -> Tuple[hppfcl.CollisionObject, ...]:
+        """Creates hppfcl CollisionObject(s) at the current pose of self."""
+        if self.collision_geometry:
+            return hppfcl.CollisionObject(self.collision_geometry, self.placement.as_transform3f()),
+        return ()
 
     @property
     def collision_data(self) -> Tuple[Tuple[np.ndarray, hppfcl.CollisionGeometry], ...]:
@@ -384,10 +392,52 @@ class Mesh(Geometry):
         """Wraps a hppfcl Mesh in a Mesh instance."""
         return cls({'file': 0}, fcl, fcl.getTransform())  # TODO: File from hppfcl!
 
+    @staticmethod
+    def read_wrl(file: Path) -> Tuple[Tuple[np.ndarray, ...], Tuple[np.ndarray, ...]]:
+        """
+        Reads each sub-mesh from a wrl file into separate vertex and face arrays.
+
+        The WRL format describes triangulated meshes and can contain multiple sub meshes that are parsed separately.
+        We use these to store simplified convex decompositions of collision meshes.
+        They are created with https://github.com/gaschler/bounding-mesh
+
+        Based on example here: https://en.wikipedia.org/wiki/VRML
+        """
+        with open(file, "r") as f:
+            buffer = f.read()
+        if not buffer.startswith("#VRML V2.0 utf8"):
+            raise ValueError("wrl format not as expected")
+
+        shapes = re.findall(r'(?<=Shape {)[\n\t\w {.}\[\],-]*?(?=}\s*Shape|}\s*$)', buffer)
+        faces = tuple(re.findall(r'(?<=coordIndex \[)[0-9\s,-]*?(?=,?\s*])', s) for s in shapes)
+        vertices = tuple(re.findall(r'(?<=point \[)[e0-9.\s,-]*?(?=,?\s*])', s) for s in shapes)
+        if not all(len(f) == len(v) == 1 for f, v in zip(faces, vertices)):
+            raise ValueError("Every shape should have one face and vertex array.")
+
+        faces = tuple(np.genfromtxt(io.BytesIO(f.strip().replace("\t", "").replace(",\n", "\n").encode()),
+                                    dtype=int, delimiter=",")[:, :3] for f in itertools.chain(*faces))
+        vertices = tuple(np.genfromtxt(io.BytesIO(v.strip().replace("\t", "").replace(", \n", "\n").encode()),
+                                       dtype=float, delimiter=" ") for v in itertools.chain(*vertices))
+
+        if not all(np.all(f <= v.shape[0]) for f, v in zip(faces, vertices)):
+            raise ValueError("Faces should be valid indices in vertex")
+        return vertices, faces
+
     def _make_collision_geometry(self) -> hppfcl.CollisionGeometry:
-        """A hppfcl box is centered in the symmetry axes of the box defined by width, height, depth"""
-        mesh_loader = hppfcl.MeshLoader()
-        return mesh_loader.load(str(self.abs_filepath), self.scale)
+        """This method generates the hppfcl-based collision geometry for this mesh used for collision detection."""
+        if self.abs_filepath.suffix == ".wrl":
+            vertices, faces = self.read_wrl(self.abs_filepath)
+            geom = hppfcl.BVHModelOBBRSS()
+            num_tris = sum(f.shape[0] for f in faces)
+            geom.beginModel(num_tris, 3*num_tris)
+            for vs, fs in zip(vertices, faces):
+                for f in fs:
+                    geom.addTriangle(vs[f[0], :], vs[f[1], :], vs[f[2], :])
+            geom.endModel()
+            return geom
+        else:
+            mesh_loader = hppfcl.MeshLoader()
+            return mesh_loader.load(str(self.abs_filepath), self.scale)
 
     @property
     def abs_filepath(self) -> Path:
@@ -472,6 +522,11 @@ class ComposedGeometry(Geometry):
     def _make_collision_geometry(self):
         """This method is usually only called in the init, which is overwritten for this class."""
         raise NotImplementedError("ComposedGeometries collision objects are the sum of the internal geometries ones.")
+
+    @property
+    def as_hppfcl_collision_object(self) -> Tuple[hppfcl.CollisionObject, ...]:
+        """Creates hppfcl CollisionObjects at the current placement of self."""
+        return tuple(h for g in self.composing_geometries for h in g.as_hppfcl_collision_object)
 
     @property
     def collision_data(self) -> Tuple[Tuple[np.ndarray, hppfcl.CollisionGeometry], ...]:

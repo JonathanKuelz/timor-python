@@ -14,7 +14,7 @@ from timor import Geometry, Transformation
 from timor import Robot
 from timor.Module import ModuleAssembly
 from timor.task import Constraints, Obstacle, Task, Tolerance
-from timor.utilities import file_locations, prebuilt_robots
+from timor.utilities import file_locations, prebuilt_robots, logging
 from timor.utilities.tolerated_pose import ToleratedPose
 
 
@@ -22,8 +22,8 @@ class DummyTask:
     """A dummy class that implements everything that's needed to instantiate a solution without loading a functioning
     real task it is tailored for first."""
 
-    def __init__(self, ID: str):
-        self.id = ID
+    def __init__(self, task_id: str):
+        self.id = task_id
 
 
 def allclose(x: np.ndarray, y: np.ndarray) -> bool:
@@ -119,7 +119,7 @@ def _pin_geometry_objects_functionally_equal(o1: pin.GeometryObject, o2: pin.Geo
     return all(checks)
 
 
-def pin_geometry_models_functionally_equal(m1: pin.GeometryModel, m2: pin.GeometryModel) -> bool:
+def pin_geometry_models_structurally_equal(m1: pin.GeometryModel, m2: pin.GeometryModel) -> bool:
     """
     Evaluates whether two pinocchio GeometryModels are equal with regard to their collision and visual properties,
     allowing different frames and numercial deviations to exist.
@@ -134,6 +134,17 @@ def pin_geometry_models_functionally_equal(m1: pin.GeometryModel, m2: pin.Geomet
         tuple(m1.collisionPairs) == tuple(m2.collisionPairs)
     )
     return all(checks)
+
+
+def pin_geometry_models_functionally_equal(r1: Robot.RobotBase, r2: Robot.RobotBase,
+                                           iterations: int = 100) -> float:
+    """Tests if (collision) geometry models of two robots are functionally equal - find the same self-collisions."""
+    difference = 0
+    for i in range(iterations):
+        q = r1.random_configuration()
+        if r1.has_self_collision(q) != r2.has_self_collision(q):
+            logging.warn(f"Self-collision differ for {q}")
+    return difference / iterations
 
 
 class JsonSerializationTests(unittest.TestCase):
@@ -174,16 +185,18 @@ class JsonSerializationTests(unittest.TestCase):
         db_loc, db_assets = file_locations.get_module_db_files('IMPROV')
         for _ in range(5):
             assembly = prebuilt_robots.random_assembly(n_joints=6, modules_file=db_loc, package=db_assets)
+            logging.info(f"Testing assembly {assembly.internal_module_ids}")
 
             r1 = assembly.to_pin_robot()
             r1._remove_home_collisions()  # This is done per default when loading from URDF
             with tempfile.NamedTemporaryFile() as tmp_urdf:
-                urdf = assembly.to_urdf('test_robot', Path(tmp_urdf.name))
+                urdf = assembly.to_urdf('test_robot', Path(tmp_urdf.name), replace_wrl=True)
                 tmp_urdf.flush()
                 r2 = Robot.PinRobot.from_urdf(Path(tmp_urdf.name), db_assets)
                 self.assertTrue(pin_models_functionally_equal(r1.model, r2.model))
-                self.assertTrue(pin_geometry_models_functionally_equal(r1.collision, r2.collision))
-                self.assertTrue(pin_geometry_models_functionally_equal(r1.visual, r2.visual))
+                self.assertLess(pin_geometry_models_functionally_equal(r1, r2), 0.1,
+                                msg=f"Varying self-collisions for assembly {assembly}")
+                self.assertTrue(pin_geometry_models_structurally_equal(r1.visual, r2.visual))
 
     def test_constraints_to_json(self):
         for constraint in self.constraints:
@@ -209,6 +222,13 @@ class JsonSerializationTests(unittest.TestCase):
                 self.assertEqual(set(g.id for g in task.goals), set(g.id for g in another_copy.goals))
                 self.assertEqual(set(type(c) for c in task.constraints),
                                  set(type(c) for c in another_copy.constraints))
+
+    def test_cost_function_to_json(self):
+        pass
+
+    def test_solution_to_json(self):
+        # TODO Read sample solutions and make sure mostly same if dumped again
+        pass
 
     def test_pickle_robot(self):
         """Tests whether the kinematic model remains when pickling - geometry cannot be preserved at the moment"""
