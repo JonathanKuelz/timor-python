@@ -5,6 +5,7 @@ from enum import Enum, EnumMeta
 from inspect import isclass
 import io
 import itertools
+import json
 from pathlib import Path
 import re
 from typing import Dict, Iterable, List, Optional, Tuple, Type, Union
@@ -117,6 +118,10 @@ class Geometry(abc.ABC):
         else:
             self.collision_geometry = hppfcl_representation
 
+    def to_json_string(self) -> str:
+        """Returns a json string representation of this geometry."""
+        return json.dumps(self.serialized, indent=2)
+
     @classmethod
     def from_json_data(cls, description: Union[List, Dict[str, any]],
                        package_dir: Optional[Path] = None) -> Geometry:
@@ -147,6 +152,16 @@ class Geometry(abc.ABC):
                 raise ValueError("Mesh file {} does not exist".format(desc['parameters']['file']))
 
         return class_ref(**desc)
+
+    @classmethod
+    def from_json_string(cls, description: str, package_dir: Optional[Path] = None) -> Geometry:
+        """
+        Takes a serialized geometry specification and returns the according Geometry instance.
+
+        :param description: A serialized geometry
+        :param package_dir: The top directory to which the mesh file paths are relative to. Necessary for meshes (only).
+        """
+        return cls.from_json_data(json.loads(description), package_dir)
 
     @classmethod
     def from_hppfcl(cls, fcl: hppfcl.CollisionObject) -> Geometry:

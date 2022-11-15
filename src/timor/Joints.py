@@ -3,6 +3,7 @@
 # Date: 17.02.22
 from enum import Enum
 import inspect
+import json
 from typing import Dict, List, Tuple, Type, Union
 
 import numpy as np
@@ -156,6 +157,17 @@ class Joint:
             **optional_kwargs
         )
 
+    @classmethod
+    def from_json_string(cls, s: str, body_id_to_instance: Dict = None) -> 'Joint':
+        """
+        Maps the serialized json description to an instance of this class.
+
+        :param s: A string with relevant meta-information
+        :param body_id_to_instance: A mapping from body IDs to the python instance of this body
+        :return: An instantiated joint
+        """
+        return cls.from_json_data(json.loads(s), body_id_to_instance)
+
     def to_json_data(self) -> Dict[str, any]:
         """
         :return: Returns the join specification in a json-ready dictionary
@@ -182,6 +194,12 @@ class Joint:
             'frictionCoulomb': self.friction_coulomb,
             'frictionViscous': self.friction_viscous
         }
+
+    def to_json_string(self) -> str:
+        """
+        :return: Returns the join specification in a json-ready dictionary
+        """
+        return json.dumps(self.to_json_data(), indent=2)
 
     @property
     def all_connectors(self) -> ConnectorSet:

@@ -203,19 +203,22 @@ class JsonSerializationTests(unittest.TestCase):
             as_json = json.dumps(constraint.to_json_data())
             from_json = json.loads(as_json)
             new = Constraints.ConstraintBase.from_json_data(from_json)
+            from_string = Constraints.ConstraintBase.from_json_string(constraint.to_json_string())
             self.assertIs(type(new), type(constraint))
+            self.assertIs(type(from_string), type(constraint))
             for key in constraint.__dict__:
                 self.assertEqual(constraint.__dict__[key], new.__dict__[key])
+                self.assertEqual(constraint.__dict__[key], from_string.__dict__[key])
 
     def test_load_then_dump_task(self):
         for task_file in self.task_files:
-            task = Task.Task.from_json(task_file, self.assets)
+            task = Task.Task.from_json_file(task_file, self.assets)
             task_json = json.dumps(task.to_json_data(), indent=4)
 
             with tempfile.NamedTemporaryFile() as tmp_json_dump:
                 tmp_json_dump.write(task_json.encode('utf-8'))
                 tmp_json_dump.flush()  # Necessary to certainly write to tempfile!
-                another_copy = Task.Task.from_json(Path(tmp_json_dump.name), self.assets)
+                another_copy = Task.Task.from_json_file(Path(tmp_json_dump.name), self.assets)
                 # This does not test 100% for equality but should cover the most central sanity checks
                 self.assertEqual(task.header, another_copy.header)
                 self.assertEqual(set(o.id for o in task.obstacles), set(o.id for o in another_copy.obstacles))
@@ -246,13 +249,17 @@ class JsonSerializationTests(unittest.TestCase):
                 package_dir=package_dir,
                 ID=from_json['ID'],
                 name=from_json['name']))
+            new_from_string = Obstacle.Obstacle.from_json_string(obstacle.to_json_string())
             self.assertIs(type(new), type(obstacle))
+            self.assertIs(type(new_from_string), type(obstacle))
             new_dict = new.__dict__.copy()
+            newfs_dict = new_from_string.__dict__.copy()
             comp_dict = obstacle.__dict__.copy()
             for key in comp_dict:
                 if key in ('_children', 'collision'):
                     continue
                 np_test.assert_array_equal(new_dict[key], comp_dict[key])
+                np_test.assert_array_equal(newfs_dict[key], comp_dict[key])
 
     def test_serial_module_assembly(self):
         db_loc, db_assets = file_locations.get_module_db_files('IMPROV')

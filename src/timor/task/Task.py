@@ -14,6 +14,7 @@ from hppfcl import hppfcl
 import numpy as np
 import pinocchio as pin
 
+from timor import compress_json_vectors
 from timor.Robot import PinRobot, RobotBase
 from timor.task import Constraints, Goals
 from timor.task.Obstacle import Obstacle
@@ -79,18 +80,19 @@ class Task:
         return cpy
 
     @classmethod
-    def from_json(cls, filepath: Path, package_dir: Path):
+    def from_json_file(cls, filepath: Union[Path, str], package_dir: Union[Path, str]):
         """
         Loads a task from a json file.
 
         :param filepath: The path to the json file
         :param package_dir: The path to the package directory, to which the mesh file paths are relative to.
         """
+        filepath, package_dir = map(Path, (filepath, package_dir))
         content = json.load(filepath.open('r'))
         header = TaskHeader(**{key: arg for key, arg in content.pop('header').items()})
         obstacles = [Obstacle.from_json_data(
             {**specs, **{'package_dir': package_dir}}) for specs in content.pop('obstacles')]
-        goals = [Goals.GoalBase.goal_from_json(goal) for goal in content.pop('goals', [])]
+        goals = [Goals.GoalBase.goal_from_json_data(goal) for goal in content.pop('goals', [])]
         constraints = list()
         if 'Constraints' in content:
             logging.error("Constraints is written in upper case but should be lower case!")
@@ -108,7 +110,7 @@ class Task:
         return cls(header, obstacles, goals=goals, constraints=constraints)
 
     @staticmethod
-    def from_srf(filepath: Path):
+    def from_srf_file(filepath: Path):
         """Future Work"""
         raise NotImplementedError()  # TODO
 
@@ -153,13 +155,19 @@ class Task:
         content['goals'] = [goal.to_json_data() for goal in self.goals]
         return content
 
-    def to_json(self, filepath: Path):
+    def to_json_file(self, filepath: Path):
         """
         Write a task to a json file.
 
         :param filepath: The path to the file to write the json to
         """
-        json.dump(self.to_json_data(), filepath.open('w'))
+        content = compress_json_vectors(json.dumps(self.to_json_data(), indent=2))
+        with filepath.open('w') as f:
+            f.write(content)
+
+    def to_json_string(self) -> str:
+        """Returns the task as a json string"""
+        return json.dumps(self.to_json_data())
 
     @property
     def collision_objects(self) -> Tuple[hppfcl.CollisionObject, ...]:

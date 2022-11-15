@@ -238,6 +238,14 @@ class ModuleBase(abc.ABC):
             'joints': [joint.to_json_data() for joint in sorted(self.joints, key=lambda j: j.id)]
         }
 
+    def to_json_string(self) -> str:
+        """
+        Write a json in that fully describes this module.
+
+        :return: Returns the module specification in a json-ready dictionary
+        """
+        return json.dumps(self.to_json_data(), indent=2)
+
 
 class AtomicModule(ModuleBase):
     """
@@ -284,9 +292,9 @@ class AtomicModule(ModuleBase):
         return module
 
     @classmethod
-    def from_json_data(cls, d: Dict, package_dir: Path) -> 'ModuleBase':
+    def from_json_data(cls, d: Dict, package_dir: Path) -> AtomicModule:
         """
-        Maps the a json module description to an instance of this class.
+        Maps the json module description to an instance of this class.
 
         The dictionary will be modified in-place until empty (everything was parsed).
 
@@ -316,6 +324,17 @@ class AtomicModule(ModuleBase):
             raise ValueError("Unrecognized keys in module specification: " + str(d.keys()))
 
         return cls(header, bodies, joints)
+
+    @classmethod
+    def from_json_string(cls, s: str, package_dir: Path) -> AtomicModule:
+        """
+        Maps the json module string to an instance of this class.
+
+        :param package_dir: Package directory relative to which mesh file paths are defined
+        :param s: A json string with relevant meta-information
+        :return: An instantiated module
+        """
+        return cls.from_json_data(json.loads(s), package_dir)
 
 
 class ModulesDB(SingleSet):
@@ -368,7 +387,7 @@ class ModulesDB(SingleSet):
         super().add(element)
 
     @classmethod
-    def from_file(cls, filepath: Path, package_dir: Path) -> 'ModulesDB':
+    def from_file(cls, filepath: Union[Path, str], package_dir: Union[Path, str]) -> ModulesDB:
         """
         Loads a modules Database from a json file.
 
@@ -376,40 +395,44 @@ class ModulesDB(SingleSet):
         :param package_dir: Package directory relative to which mesh file paths are defined
         :return: A ModulesDB
         """
+        filepath, package_dir = map(Path, (filepath, package_dir))
         with filepath.open('r') as json_file:
-            content = json.load(json_file)
-        return cls.from_json(content, package_dir)
+            content = json_file.read()
+        return cls.from_json_string(content, package_dir)
 
     @classmethod
-    def from_json(cls, json_content: Dict, package_dir: Path) -> 'ModulesDB':
+    def from_json_string(cls, json_string: str, package_dir: Path) -> ModulesDB:
         """
-        Loads a modules Database from a json file.
+        Loads a modules Database from a json string.
 
-        :param json_content: Json content of the modulesDB definition.
+        :param json_string: Json string of the modulesDB definition.
         :param package_dir: Package directory relative to which mesh file paths are defined
         :return: A ModulesDB
         """
         db = cls()
 
-        for module_data in json_content:
+        for module_data in json.loads(json_string):
             db.add(AtomicModule.from_json_data(module_data, package_dir))
         return db
 
-    def to_json(self, save_at: Path = None) -> str:
+    def to_json_file(self, save_at: Union[Path, str]):
         """
         Writes the ModulesDB to a json file.
 
-        :param save_at: If given, the file will be written to that path.
+        :param save_at: File location to write the DB to. Should be the "name" of the DB.
+        """
+        save_at = Path(save_at)
+        content = compress_json_vectors(self.to_json_string())
+        with Path(save_at).open('w') as savefile:
+            savefile.write(content)
+
+    def to_json_string(self) -> str:
+        """
+        Writes the ModulesDB to a json string.
+
         :return: The json string
         """
-        content = json.dumps([mod.to_json_data() for mod in sorted(self, key=lambda mod: mod.id)], indent=2)
-
-        content = compress_json_vectors(content)
-
-        if save_at is not None:
-            with save_at.open('w') as savefile:
-                savefile.write(content)
-        return content
+        return json.dumps([mod.to_json_data() for mod in sorted(self, key=lambda mod: mod.id)], indent=2)
 
     @property
     def all_module_names(self) -> Set[str]:
