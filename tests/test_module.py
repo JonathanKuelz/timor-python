@@ -288,7 +288,7 @@ class TestModule(unittest.TestCase):
         self.assertEqual(orthogonal.joint.type, TimorJointType.revolute)
 
         Gs = straight.module_graph
-        self.assert_(nx.is_weakly_connected(Gs))
+        self.assertTrue(nx.is_weakly_connected(Gs))
         nodes = {n._id: n for n in Gs.nodes}
         path = nx.shortest_paths.shortest_path(Gs, nodes['proximal'], nodes['distal'])
         end2end = Transformation.neutral()
@@ -297,7 +297,7 @@ class TestModule(unittest.TestCase):
         self.assertEqual(abs(end2end.translation[2]), straight.length)
 
         Go = orthogonal.module_graph
-        self.assert_(nx.is_weakly_connected(Go))
+        self.assertTrue(nx.is_weakly_connected(Go))
         nodes = {n._id: n for n in Go.nodes}
         path = nx.shortest_paths.shortest_path(Go, nodes['proximal'], nodes['distal'])
         end2end = Transformation.neutral()
@@ -342,9 +342,9 @@ class TestModule(unittest.TestCase):
 
         assembly = ModuleAssembly.from_serial_modules(db, ('B', 'cylinder', 'J1', 'L', 'J2'))
         Gmod = assembly.graph_of_modules
-        self.assert_(nx.is_connected(Gmod))
+        self.assertTrue(nx.is_connected(Gmod))
         Ga = assembly.assembly_graph
-        self.assert_(nx.is_weakly_connected(Ga))
+        self.assertTrue(nx.is_weakly_connected(Ga))
 
         rob = assembly.to_pin_robot()
         self.assertAlmostEqual(rob.mass, assembly.mass)
@@ -353,8 +353,8 @@ class TestModule(unittest.TestCase):
         move_up = .3
         rob.update_configuration(np.array((move_up, 0)))
         self.assertAlmostEqual(fk[2, 3], rob.fk()[2, 3] - move_up)
-        self.assert_(np.all(fk[:2, 3] == rob.fk()[:2, 3]))
-        self.assert_(np.all(fk[:3, :3] == rob.fk()[:3, :3]))
+        self.assertTrue(np.all(fk[:2, 3] == rob.fk()[:2, 3]))
+        self.assertTrue(np.all(fk[:3, :3] == rob.fk()[:3, :3]))
 
         rob.update_configuration(np.array((0, np.pi)))
         self.assertAlmostEqual(fk[0, 3], rob.fk()[0, 3])

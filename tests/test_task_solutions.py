@@ -146,7 +146,7 @@ class TestSolution(unittest.TestCase):
         Solution.SolutionBase.t_resolution = float('inf')  # Monkey patch to being able testing invalid solutions
         for _ in range(10):
             bad_trajectory = dtypes.Trajectory(t=dt, q=np.random.random(q_array_shape))
-            t_start = random.choice(bad_trajectory.t[bad_trajectory.t < max(bad_trajectory.t) - pause_duration])
+            t_start = random.choice(tuple(bad_trajectory.t[bad_trajectory.t < max(bad_trajectory.t) - pause_duration]))
             t_end = t_start + pause_duration
             q_good = bad_trajectory.q.copy()
 

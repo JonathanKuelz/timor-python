@@ -78,7 +78,7 @@ class TestBodiesAndGeometries(unittest.TestCase):
                 cls(str(i), np.random.rand(num + 1))
 
         for body in bodies:
-            self.assert_(all(body.inertia.lever == np.zeros(3)))
+            self.assertTrue(all(body.inertia.lever == np.zeros(3)))
 
         for b1, b2 in zip(bodies, offset_bodies):
             self.assertEqual(b1.mass, b2.mass)
@@ -94,8 +94,8 @@ class TestBodiesAndGeometries(unittest.TestCase):
         for b1, b2 in zip(bodies, heavy_bodies):
             self.assertGreater(b2.mass, b1.mass)
             self.assertEqual(b2.mass, b1.mass * 10)
-            self.assert_(np.all(b2.inertia.inertia >= b1.inertia.inertia))
-            self.assert_(all(b2.inertia.lever == b1.inertia.lever))
+            self.assertTrue(np.all(b2.inertia.inertia >= b1.inertia.inertia))
+            self.assertTrue(all(b2.inertia.lever == b1.inertia.lever))
 
         for body, parameters in zip(bodies, parameters):
             body.connector_placements_valid = True  # Has to be done for freezing
