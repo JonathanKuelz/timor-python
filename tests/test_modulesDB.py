@@ -82,7 +82,7 @@ class TestModulesDB(unittest.TestCase):
         assembly = ModuleAssembly.from_serial_modules(db, ['base'] + ['l_15'] * 5)
         robot = assembly.to_pin_robot()
         self.assertEqual(robot.njoints, 0)
-        self.assertGreater(robot.mass, 0)
+        self.assertAlmostEqual(robot.mass, assembly.mass)
         self.assertIsInstance(robot.fk(), Transformation)
         goal = ToleratedPose(nominal=Transformation.from_translation((9, 9, 9)))
         q, success = robot.ik(goal)
@@ -163,6 +163,8 @@ class TestModulesDB(unittest.TestCase):
             assembly.add_random_from_db(lambda x: x not in self.db.end_effectors)
 
         robot = assembly.to_pin_robot()  # This is the crucial part
+
+        self.assertAlmostEqual(assembly.mass, robot.mass)
 
         # Visualize in a random configuration (meshcat visualizer, will be closed when tests are done)
         robot.update_configuration(np.random.random((robot.njoints,)))
