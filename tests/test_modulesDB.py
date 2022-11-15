@@ -1,4 +1,3 @@
-import json
 from pathlib import Path
 import random
 import unittest
@@ -27,10 +26,9 @@ class TestModulesDB(unittest.TestCase):
     def test_dump_json(self):
         """Tests loading and dumping from and to json."""
         db = ModulesDB.from_file(self.json_file, package_dir=self.package_dir)
-        json_string = db.to_json()
-        parsed = json.loads(json_string)
-        db_two = ModulesDB.from_json(parsed, self.package_dir)
-        json_again = db_two.to_json()
+        json_string = db.to_json_string()
+        db_two = ModulesDB.from_json_string(json_string, self.package_dir)
+        json_again = db_two.to_json_string()
 
         self.assertEqual(json_string, json_again)
         self.assertEqual(db.all_module_ids, db_two.all_module_ids)

@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+import json
 from typing import Dict, Iterable, List, Tuple, Union
 from warnings import warn
 
@@ -43,6 +44,15 @@ class ConstraintBase(ABC):
 
         raise NotImplementedError(f"Unknown constraint of type {constraint_type}!")
 
+    @classmethod
+    def from_json_string(cls, description: str) -> Union[List['ConstraintBase'], 'ConstraintBase']:
+        """
+        Converts a description (string, parsed from json) to a constraint
+
+        :param description: A description, mapping a constraint name to one or more constraint specifications
+        """
+        return cls.from_json_data(json.loads(description))
+
     @abstractmethod
     def is_valid_at(self, solution: 'Solution.SolutionBase', t: float) -> bool:
         """Should be implemented to check for a constraint on a subset of a solution only"""
@@ -56,6 +66,10 @@ class ConstraintBase(ABC):
     @abstractmethod
     def to_json_data(self) -> Dict[str, any]:
         """Should be implemented to convert the constraint to a json-serializable dictionary"""
+
+    def to_json_string(self) -> str:
+        """Returns a json-serialized string of the constraint"""
+        return json.dumps(self.to_json_data(), indent=2)
 
     def visualize(self, viz: pinocchio.visualize.MeshcatVisualizer, scale: float = 1.) -> None:
         """Visualize the constraint in an existing meshcat window.

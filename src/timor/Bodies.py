@@ -7,6 +7,7 @@ import abc
 import copy
 from enum import Enum
 import itertools
+import json
 from pathlib import Path
 import re
 from typing import Dict, Iterable, Optional, Tuple, Union
@@ -91,16 +92,18 @@ class Connector:
         self._type: str = connector_type
         self.size: Union[int, float, np.ndarray] = size
 
-    def __copy__(self):
-        """Custom copy behavior: Remove the reference to the parent body."""
-        return self.__class__(self._id, self.body2connector, None, self.gender, self._type, self.size)
+    @classmethod
+    def from_json_string(cls, s: str) -> Connector:
+        """
+        Maps the serialized connector json string to an instance of this class.
 
-    def __str__(self) -> str:
-        """The string representation of the connector"""
-        return f"Connector: {self.id}"
+        :param s: The json string
+        :return: An instantiated connector
+        """
+        return cls.from_json_data(json.loads(s))
 
     @classmethod
-    def from_json_data(cls, d: Dict) -> 'Connector':
+    def from_json_data(cls, d: Dict) -> Connector:
         """
         Maps the serialized connector description to an instance of this class.
 
@@ -114,9 +117,27 @@ class Connector:
             connector_type=d.get('type', ''),
             size=d.get('size', None))
 
+    def connects(self, other: 'Connector') -> bool:
+        """
+        Checks if this connector can be connected with "other".
+
+        :param other: Another connector
+        :return: True if connection is possible. False else.
+        """
+        size = self.size == other.size
+        if not isinstance(size, bool):  # Which is the case when size is an array
+            size = all(size)
+        return self.type == other.type and size and self.gender.connects(other.gender)
+
+    def to_json_string(self) -> str:
+        """
+        :return: Returns the connector specification in a json-ready string
+        """
+        return json.dumps(self.to_json_data(), indent=2)
+
     def to_json_data(self) -> Dict[str, any]:
         """
-        :return: Returns the body specification in a json-ready dictionary
+        :return: Returns the connector specification in a json-ready dictionary
         """
         if isinstance(self.size, np.ndarray):
             size = self.size.tolist()
@@ -155,17 +176,13 @@ class Connector:
         """Wrapped as _type attribute to not be confused with python-native type(). Also, is kind of static anyway"""
         return self._type
 
-    def connects(self, other: 'Connector') -> bool:
-        """
-        Checks if this connector can be connected with "other".
+    def __copy__(self):
+        """Custom copy behavior: Remove the reference to the parent body."""
+        return self.__class__(self._id, self.body2connector, None, self.gender, self._type, self.size)
 
-        :param other: Another connector
-        :return: True if connection is possible. False else.
-        """
-        size = self.size == other.size
-        if not isinstance(size, bool):  # Which is the case when size is an array
-            size = all(size)
-        return self.type == other.type and size and self.gender.connects(other.gender)
+    def __str__(self) -> str:
+        """The string representation of the connector"""
+        return f"Connector: {self.id}"
 
 
 class ConnectorSet(SingleSet):
@@ -271,6 +288,12 @@ class BodyBase(abc.ABC):
             **geometry
         }
 
+    def to_json_string(self) -> str:
+        """
+        :return: Returns the body specification in a json string
+        """
+        return json.dumps(self.to_json_data(), indent=2)
+
     @abc.abstractmethod
     def __copy__(self):
         """Returns a copy of the body"""
@@ -364,6 +387,17 @@ class Body(BodyBase):
             raise ValueError(f"Unknown keys in body description: {d}")
 
         return cls(body_id, collision, visual, connectors, inertia)
+
+    @classmethod
+    def from_json_string(cls, s: str, package_dir: Path = None) -> Body:
+        """
+        Maps the json-serialized body description to an instance of this class.
+
+        :param s: A json string with relevant meta-information
+        :param package_dir: If a mesh is given, it is given relative to a package directory that must be specified
+        :return: An instantiated body
+        """
+        return cls.from_json_data(json.loads(s), package_dir=package_dir)
 
     def __copy__(self) -> BodyBase:
         """Custom copy to allow differing connector parent references"""

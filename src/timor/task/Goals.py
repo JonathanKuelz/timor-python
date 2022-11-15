@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 import inspect
+import json
 from typing import Dict, List, Optional, Tuple, Union
 
 import meshcat.geometry
@@ -34,7 +35,7 @@ class GoalBase(ABC):
         self._assert_constraints_local()
 
     @staticmethod
-    def goal_from_json(description: Dict[str, any]):
+    def goal_from_json_data(description: Dict[str, any]):
         """Maps a json description to a goal instance"""
         type2class = {
             'At': At,
@@ -71,12 +72,21 @@ class GoalBase(ABC):
     def from_json_data(cls, d: Dict[str, any]):
         """Deserializes a goal from a dictionary"""
 
+    @classmethod
+    def from_json_string(cls, s: str):
+        """Deserializes a goal from a string"""
+        return cls.from_json_data(json.loads(s))
+
     @abstractmethod
     def to_json_data(self) -> Dict[str, any]:
         """
         Returns a json-compatible dictionary representation of the goal.
         """
         pass
+
+    def to_json_string(self) -> str:
+        """Serializes the goal to a json string"""
+        return json.dumps(self.to_json_data(), indent=2)
 
     @abstractmethod
     def visualize(self, viz: MeshcatVisualizer, scale: float = .33) -> None:

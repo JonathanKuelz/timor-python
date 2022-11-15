@@ -245,7 +245,7 @@ class TestSolution(unittest.TestCase):
         q2 = pin.randomConfiguration(robot.model)
         for description in self.task_files:
             robot.update_configuration(q0)
-            task = Task.Task.from_json(description, self.asset_dir)
+            task = Task.Task.from_json_file(description, self.asset_dir)
             robot.update_configuration(q1)
             viz = task.visualize(robots=robot)  # Machine should be red
             robot.update_configuration(q2)

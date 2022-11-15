@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from typing import Dict, List, Optional, Union
 
 from pinocchio.visualize import MeshcatVisualizer
@@ -55,6 +56,15 @@ class ToleratedPose:
                                         for p, v in zip(projections, tolerance_values)])
         return cls(nominal, tolerance)
 
+    @classmethod
+    def from_json_string(cls, description: str) -> ToleratedPose:
+        """Create a ToleratedPose from a json string.
+
+        :param description: A json string as defined in the task documentation.
+        :return: A ToleratedPose.
+        """
+        return cls.from_json_data(json.loads(description))
+
     @property
     def serialized(self) -> Dict[str, Union[List, str]]:
         """The json-compatible serialization of a placement with tolerance"""
@@ -64,6 +74,10 @@ class ToleratedPose:
     def tolerance(self) -> Tolerance.ToleranceBase:
         """The tolerances of the placement."""
         return self._tolerance
+
+    def to_json_string(self) -> str:
+        """Returns the json string representation of this placement."""
+        return json.dumps(self.serialized, indent=2)
 
     def visualize(self, viz: MeshcatVisualizer, name: str,
                   scale: float = 1., text: Optional[str] = None):

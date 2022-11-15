@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import abc
 from dataclasses import dataclass
 import datetime
@@ -67,8 +69,9 @@ class SolutionBase(abc.ABC):
         return f"Solution for task {self.header.ID}"
 
     @staticmethod
-    def from_json(json_path: Path, package_dir: Path, tasks: Dict[str, 'Task.Task']) -> 'SolutionBase':
+    def from_json_file(json_path: Union[Path, str], package_dir: Path, tasks: Dict[str, 'Task.Task']) -> SolutionBase:
         """Factory method to load a class instance from a json file."""
+        json_path = Path(json_path)
         content = json.load(json_path.open('r'))
         _header = fuzzy_dict_key_matching(content, desired_only=SolutionHeader.fields())
         header = SolutionHeader(**_header)
@@ -102,9 +105,13 @@ class SolutionBase(abc.ABC):
         else:
             raise NotImplementedError("Only trajectory from json so far ")
 
+    @abc.abstractmethod
     def to_json_data(self) -> Dict[str, any]:
         """Should be implemented by children to dump a solution"""
-        raise NotImplementedError
+
+    def to_json_string(self) -> str:
+        """Convert the solution to a json string"""
+        return json.dumps(self.to_json_data(), indent=2)
 
     @property
     def cost(self) -> float:
