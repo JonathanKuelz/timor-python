@@ -73,7 +73,7 @@ class SolutionBase(abc.ABC):
         _header = fuzzy_dict_key_matching(content, desired_only=SolutionHeader.fields())
         header = SolutionHeader(**_header)
         try:
-            sol_task = tasks[header.ID]
+            sol_task = tasks[header.taskID]
         except KeyError:
             raise KeyError(f"Got solution for task {header.ID}, but there is no such task.")
 
