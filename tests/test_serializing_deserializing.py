@@ -79,9 +79,9 @@ def pin_models_functionally_equal(m1: pin.Model, m2: pin.Model) -> bool:
 
 def _pin_geometry_objects_functionally_equal(o1: pin.GeometryObject, o2: pin.GeometryObject) -> bool:
     """
-    Evaluates whether two collision Geometries are equal with regard to their collision/visual properties,
-    allowing:
-      - different names of collision objects
+    Evaluates whether two collision Geometries are equal with regard to their collision/visual properties.
+
+    Allows different names of collision objects.
     Closely following original equality implementation:
     https://github.com/stack-of-tasks/pinocchio/blob/master/src/multibody/fcl.hxx
     """

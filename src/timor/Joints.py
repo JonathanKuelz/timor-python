@@ -73,7 +73,7 @@ class Joint:
         :param acceleration_limit: Maximum angular acceleration in rad/s**2
         :param torque_limit: Maximum joint torque in Nm
         :param parent2joint: The homogeneous transformation from parent body coordinate system to
-          joint coordinate system
+            joint coordinate system
         :param joint2child: The homogeneous transformation from joint coordinate system to child body coordinate system
         :param gear_ratio: The gear ratio of a implicit gear in the joint, defined as w_in / w_out
         :param motor_inertia: The inertia of a motor sitting in this joint

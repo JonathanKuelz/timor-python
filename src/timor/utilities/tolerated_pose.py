@@ -23,7 +23,7 @@ class ToleratedPose:
 
         :param nominal: The nominal placement (placement-like, so a 4x4 transform).
         :param tolerance: The tolerance around the nominal placement. Can be any cartesian or rotation tolerance.
-          Defaults to a narrow spatial tolerance.
+            Defaults to a narrow spatial tolerance.
         """
         self.nominal = Transformation(nominal)
         if tolerance is None:

@@ -96,8 +96,8 @@ class Projection:
         Stacks the translation and axis-angle-rotation parameters of a transformation in a (6,)-shaped vector.
 
         :returns: A vector :math:`(n_x * \theta_R, n_y * \theta_R, n_z * \theta_R, x, y, z)`, where the first three
-        elements are the rotation (in axis angle representation) of the transformation and the last three elements are
-        the translation of the transformation.
+            elements are the rotation (in axis angle representation) of the transformation and the last three elements
+            are the translation of the transformation.
         """
         return np.concatenate((self.axis_angles3, self.cartesian))
 
@@ -118,11 +118,11 @@ class Transformation:
         """Initialize a spatial transform with a 4x4 matrix which must be a homogeneous transformation.
 
         :param transformation: A 4x4 homogeneous matrix representing the transformation. Can also be a sequence of
-          (4x4) transformations, in which this parameter will be interpreted as the resulting transformation when
-          performing all of them after one another.
+            (4x4) transformations, in which this parameter will be interpreted as the resulting transformation when
+            performing all of them after one another.
         :param set_safe: If true, a safety check will be performed to ensure the transformation is homogeneous. If that
-          is not the case, tries to auto-correct. Defaults to false as the check is expensive and should not be done
-          for every transformation to avoid performance issues.
+            is not the case, tries to auto-correct. Defaults to false as the check is expensive and should not be done
+            for every transformation to avoid performance issues.
         """
         if isinstance(transformation, Transformation):
             # The __init__ basically becomes a shallow copy
@@ -158,8 +158,9 @@ class Transformation:
         with this problem: The returned object itself has multiple properties, each one according to one possible
         norm (translational, rotational or a combination) of the transformation representing the relative difference
         between self and other.
+
         :param other: A Transformation-Like object representing a placement and orientation in space to which the
-        distance shall be measured.
+            distance shall be measured.
         """
         return (self.inv@Transformation(other)).norm
 
@@ -183,6 +184,7 @@ class Transformation:
         Multiplication (matmul) from the right side with a numpy array is easy, as it can be done with this @ other.
         However, other @ this fails due to numpys matmul implementation which cannot be overridden. Use this method
         to multiply from left with a numpy array.
+
         :param other: A numpy array to multiply.
         :return: A new placement.
         """
@@ -216,6 +218,7 @@ class Transformation:
         :math:`x_{prev} = T * x_{rel} = R * x_{rel} + p`.
         ...moves a coordinate system by p and rotates it by R (same as above).
         Note that the rotation is not applied to the translation p!
+
         :param R: A 3x3 rotation matrix.
         :param p: A 3x1 translation vector.
         """
@@ -230,8 +233,8 @@ class Transformation:
         Create a transformation from a stacked roto-translation vector.
 
         :param v: A vector :math:`(n_x * \theta_R, n_y * \theta_R, n_z * \theta_R, x, y, z)`, where last three elements
-        are the rotation (in axis angle representation) and the first three elements are the translation of the
-        transformation.
+            are the rotation (in axis angle representation) and the first three elements are the translation of the
+            transformation.
         """
         v = np.asarray(v, dtype=float)
         return cls.from_roto_translation(Rotation.from_rotvec(v[:3]).as_matrix(), v[3:])

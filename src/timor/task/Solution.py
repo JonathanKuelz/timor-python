@@ -49,7 +49,7 @@ class SolutionBase(abc.ABC):
         Build a solution that shows how to solve a Task.
 
         :param header: The header of the solution, containing information about the task it was crafted for and
-          some more distinctive meta-information.
+            some more distinctive meta-information.
         :param task: The task the solution was crafted for
         :param robot: The robot that solves the task
         :param cost_function: The cost function used to evaluate the solution (usually the lower, the better)
@@ -216,7 +216,7 @@ class SolutionBase(abc.ABC):
         Returns the placement of the tool center point at time t
 
         :param t: The time in the solution at which the tcp position should be given. Must be one of the time steps in
-          the provided (trajectory | torques).
+            the provided (trajectory | torques).
         """
         q = self.q[self.get_time_id(t)]
         return self.robot.fk(q, kind='tcp')
@@ -226,7 +226,7 @@ class SolutionBase(abc.ABC):
         Returns the velocity of the tool center point at time t
 
         :param t: The time in the solution at which the tcp velocity should be given. Must be one of the time steps in
-          the provided (trajectory | torques).
+            the provided (trajectory | torques).
         :return: Velocity [m/s]
         """
         q = self.q[self.get_time_id(t)]
@@ -239,7 +239,7 @@ class SolutionBase(abc.ABC):
         Returns the velocity of the tool center point at time t
 
         :param t: The time in the solution at which the tcp acceleration should be given.
-          Must be one of the time steps in the provided (trajectory | torques).
+            Must be one of the time steps in the provided (trajectory | torques).
         :return: Acceleration [m / s**2]
         """
         q = self.q[self.get_time_id(t)]

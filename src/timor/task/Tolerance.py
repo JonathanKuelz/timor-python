@@ -31,8 +31,7 @@ class ToleranceBase(abc.ABC):
         Creates a tolerance from a projection descriptor and an absolute tolerance value.
 
         :param projection: The projection descriptor. Valid values: {"x", "y", "z", "r_cyl", "r_sph", "theta", "phi",
-                                "R", "P", "Y", "Alpha", "Beta", "Gamma", "N_x", "N_y", "N_z", "Theta_R",
-                                "A", "B", "C", "D"}
+            "R", "P", "Y", "Alpha", "Beta", "Gamma", "N_x", "N_y", "N_z", "Theta_R", "A", "B", "C", "D"}
         :param values: The lower and upper bound for the tolerance
         :return: The tolerance class instance
         """
@@ -252,8 +251,9 @@ class Spatial(ToleranceBase, abc.ABC):
         A dictionary that can be used to specify this tolerance as a tolerated pose projection.
 
         Format: Dictionary with
-            - projection: (proj_0, ..., proj_n) <<Tuple of strings>>,
-            - tolerance: (tol_0, ..., tol_n) <<Tuple of 2-tuples of tolerances>>
+
+            * projection: (proj_0, ..., proj_n) <<Tuple of strings>>,
+            * tolerance: (tol_0, ..., tol_n) <<Tuple of 2-tuples of tolerances>>
         """
         ret = self._pose_projection_data
         assert ret['tolerance'].shape == (len(ret['toleranceProjection']), 2)
@@ -566,9 +566,9 @@ class RotationAxisAngle(Rotation):
         :param n_y: Lower and upper tolerance for the y-part of the unit rotation axis.
         :param n_z: Lower and upper tolerance for the z-part of the unit rotation axis.
         :param theta_r: Lower and upper tolerance for the total rotation in the interval [-pi, pi]. Having theta in the
-          interval [0, pi] is sufficient to define every single rotation - however, enforcing it makes it hard to
-          define tolerances around theta=0, so we allow negative thetas which leaves us with multiple possible solutions
-          to define a desired rotation tolerance.
+            interval [0, pi] is sufficient to define every single rotation - however, enforcing it makes it hard to
+            define tolerances around theta=0, so we allow negative thetas which leaves us with multiple possible
+            solutions to define a desired rotation tolerance.
         """
         n_x, n_y, n_z, theta_r = map(np.asarray, (n_x, n_y, n_z, theta_r))
         mask = abs(theta_r) != np.pi
@@ -727,7 +727,6 @@ class VectorDistance(ToleranceBase):
         Two Vector distances are equal if they use the same norm and acceptable tolerance
 
         :param other: The other Tolerance to compare to
-        :return:
         """
         if not isinstance(other, VectorDistance):
             raise NotImplementedError(f"Cannot compare to other of type {type(other)}")

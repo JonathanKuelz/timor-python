@@ -44,6 +44,7 @@ class ParameterizableBody(BodyBase, abc.ABC):
         parameters that define the expansion of the geometry in the respective direction. For example, a sphere
         has a single parameter that defines the radius, a cylinder has two parameters that define the radius and
         the length, and a box has three parameters that define the expansion in x, y, and z direction.
+
         :param body_id: The unique ID of the body
         :param parameters: The number of parameters depends on the geometry type. Their (positive) value defines the
             expansion of the geometry in the respective direction. For a sphere, this is the radius, for a cylinder,
@@ -58,7 +59,7 @@ class ParameterizableBody(BodyBase, abc.ABC):
             relative geometry placement to the origin in order to combine multiple parameterized bodies in a module.
             This parameter defines the relative transformation between geometry origin and body frame.
         :param in_module: The module this body is part of. Will be automatically assigned if the body is defined and
-          added to a module later on.
+            added to a module later on.
         """
         self._id: str = str(body_id)
         self.mass_density = mass_density
@@ -314,6 +315,7 @@ class ParameterizableMultiBody(ParameterizableBody):
         A ParameterizableMultiBody can contain an arbitrary number of geometries that are allowed for a
         ParameterizableBody. Each one of them has a placement transformation relative to the origin of the origin. The
         inertia, mass and volume of the body are calculated as the sum of the corresponding values of the geometries.
+
         :param body_id: The id of the body
         :param geometry_types: The types of the geometries composing this body.
         :param parameters: The parameters of the geometries, flattened and in the order the geometries are given
@@ -493,6 +495,7 @@ class ParameterizedCylinderLink(ParameterizableModule):
 
         The link has a varying length and radius. Connectors are placed at x=0, y=0 and z chosen s.t. they are aligned
         with the cylinder's flat surfaces. The body coordinate system is placed in the center of the cylinder.
+
         :param header: The module header for the generated link module
         :param length: The length of the cylinder
         :param radius: The radius of the cylinder
@@ -575,6 +578,7 @@ class ParameterizedOrthogonalLink(ParameterizableModule):
 
         The link has a varying lengths and radius. Connectors are placed at the flat surfaces of the cylinders. The body
         coordinate systems share origins with the connectors -- body coordinate systems are pointing inwards though.
+
         :param header: The module header for the generated link module
         :param lengths: The lengths of the cylinders
         :param radius: The radius of the cylinder
@@ -702,6 +706,7 @@ class ParameterizedStraightJoint(ParameterizableModule):
 
         The module has a varying length and radius. Connectors are placed at the flat surfaces of the cylinders that are
         not attached to the joint.
+
         :param header: The module header for the generated module
         :param length: The overall length of the module. Will be divided equally between the two bodies.
         :param radius: The radius of the cylinders
@@ -825,6 +830,7 @@ class ParameterizedOrthogonalJoint(ParameterizableModule):
         of the second cylinder is aligned with the y-axis of the first cylinder for q_joint=0. Both have varying length
         and the same, varying radius. At their connection is a joint, which can be revolute or prismatic. For q_joint=0,
         the surface of the second cylinder is aligned with z=0. The joint axis is the initial z-Axis.
+
         :param header: The module header for the generated module
         :param lengths: (l1, l2) for the two bodies in this module
         :param radius: The radius of the cylinders

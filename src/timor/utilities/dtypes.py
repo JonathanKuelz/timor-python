@@ -137,7 +137,7 @@ class SingleSet(set):
         Convenience function to avoid set comparison over and over again
 
         :param func: A filter function that takes an element of this set and evaluates to true if
-          the element should be kept
+            the element should be kept
         :return: A new set of elements fulfilling the filter criterion
         """
         return self.__class__(element for element in self if func(element))
@@ -416,8 +416,9 @@ def deep_iter_dict(d: Dict[any, any], max_depth=10, _prev=None) -> Generator[Tup
     :param max_depth: The max recursion depth to dive into the dictionary
     :param _prev: Previously seen keys. Usually would not be set by the user.
     :return: Yields a generator that returns a tuple of:
-        - The keys leading to this values in a list like: [key_lvl_1, key_lvl_2, ..., key_lvl_n]
-        - The value if it is not yet another dictionary
+
+        * The keys leading to this values in a list like: [key_lvl_1, key_lvl_2, ..., key_lvl_n]
+        * The value if it is not yet another dictionary
     """
     if _prev is None:
         _prev = []
@@ -461,7 +462,7 @@ def fuzzy_dict_key_matching(dict_in: Dict[str, any],
     :param dict_in: An input dictionary that shall be "fuzzy-matched". The keys must be strings.
     :param aliases: A mapping from "valid alias key in dict_in" -> "valid real key"
     :param desired_only: If given, the returned dictionary will only contain this subset of keys.
-      Useful for discarding aliases after matching
+        Useful for discarding aliases after matching
     :param ignore_casing: If true, keys will be matched case-insensitive to aliases AND TO KEYS FROM DESIRED ONLY
     :return: The resulting dictionary containing all or only the desired mappings, taking aliases into account
     """
