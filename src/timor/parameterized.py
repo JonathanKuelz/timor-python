@@ -707,7 +707,7 @@ class ParameterizedStraightJoint(ParameterizableModule):
         :param radius: The radius of the cylinders
         :param mass_density: The mass density of the bodies' material (kg/m^3) -- assumed to be uniform
         :param limits: Optional lower and upper bounds on the link's length and radius
-        :param joint_type: The type of joint to use $\in$ (revolute, prismatic)
+        :param joint_type: The type of joint to use :math:`\in` (revolute, prismatic)
         :param joint_parameters: Additional arguments for timor.Joint such as limits or gear ratio
         :param connector_arguments: Mapping from keyword to 2-tuples of values
         """
@@ -830,7 +830,7 @@ class ParameterizedOrthogonalJoint(ParameterizableModule):
         :param radius: The radius of the cylinders
         :param mass_density: The mass density of the bodies' material (kg/m^3) -- assumed to be uniform
         :param limits: Optional lower and upper bounds on the link's length and radius (r, l1, l2)
-        :param joint_type: The type of joint to use $\in$ (revolute, prismatic)
+        :param joint_type: The type of joint to use :math:`\in` (revolute, prismatic)
         :param joint_parameters: Additional arguments for timor.Joint such as limits or gear ratio
         :param connector_arguments: Mapping from keyword to 2-tuples of values
         """

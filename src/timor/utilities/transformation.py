@@ -66,7 +66,7 @@ class Projection:
         Returns the rotation part of the placement as (4,)-shaped axis angle representation.
 
         :source: https://en.wikipedia.org/wiki/Axis%E2%80%93angle_representation
-        :returns: Rotation representation $(n_x, n_y, n_z, \theta_R)$.
+        :returns: Rotation representation :math:`(n_x, n_y, n_z, \theta_R)`.
         """
         return spatial.rot_mat2axis_angle(self.transformation[:3, :3])
 
@@ -76,7 +76,7 @@ class Projection:
         Returns the rotation part of the placement as (3,)-shaped axis angle representation.
 
         :source: https://en.wikipedia.org/wiki/Axis%E2%80%93angle_representation
-        :returns: Rotation representation $(n_x * \theta_R, n_y * \theta_R, n_z * \theta_R)$.
+        :returns: Rotation representation :math:`(n_x * \theta_R, n_y * \theta_R, n_z * \theta_R)`.
         """
         return self.axis_angles[:3] * self.axis_angles[3]
 
@@ -95,9 +95,9 @@ class Projection:
         r"""
         Stacks the translation and axis-angle-rotation parameters of a transformation in a (6,)-shaped vector.
 
-        :returns: A vector $(n_x * \theta_R, n_y * \theta_R, n_z * \theta_R, x, y, z)$, where the first three elements
-        are the rotation (in axis angle representation) of the transformation and the last three elements are the
-        translation of the transformation.
+        :returns: A vector :math:`(n_x * \theta_R, n_y * \theta_R, n_z * \theta_R, x, y, z)`, where the first three
+        elements are the rotation (in axis angle representation) of the transformation and the last three elements are
+        the translation of the transformation.
         """
         return np.concatenate((self.axis_angles3, self.cartesian))
 
@@ -190,7 +190,7 @@ class Transformation:
 
     @classmethod
     def random(cls):
-        r"""Returns a random transformation where the L1-Norm of the translation $\leq$ 3."""
+        r"""Returns a random transformation where the L1-Norm of the translation :math:`\leq` 3."""
         rotation = spatial.random_rotation()
         translation = np.random.random((3,))
         return cls.from_roto_translation(rotation, translation)
@@ -213,7 +213,7 @@ class Transformation:
         The resulting transformation:
         ...represents a coordinate system transformation relative to the previous coordinate system s.t. any point x
         expressed relative to the new coordinate system can be expressed in previous coordinates as
-        $x_{prev} = T * x_{rel} = R * x_{rel} + p$.
+        :math:`x_{prev} = T * x_{rel} = R * x_{rel} + p`.
         ...moves a coordinate system by p and rotates it by R (same as above).
         Note that the rotation is not applied to the translation p!
         :param R: A 3x3 rotation matrix.
@@ -229,8 +229,8 @@ class Transformation:
         r"""
         Create a transformation from a stacked roto-translation vector.
 
-        :param v: A vector $(n_x * \theta_R, n_y * \theta_R, n_z * \theta_R, x, y, z)$, where last three elements are
-        the rotation (in axis angle representation) and the first three elements are the translation of the
+        :param v: A vector :math:`(n_x * \theta_R, n_y * \theta_R, n_z * \theta_R, x, y, z)`, where last three elements
+        are the rotation (in axis angle representation) and the first three elements are the translation of the
         transformation.
         """
         v = np.asarray(v, dtype=float)
