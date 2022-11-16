@@ -77,9 +77,9 @@ autoapi_dirs = [os.path.abspath('../../src')]
 autoapi_ignore = []
 autoapi_options = ['members',
                    'undoc-members',
-                   'show-inheritance',
+                   'inherited-members',
+                   'show-inheritance-diagram',
                    'show-module-summary',
-                   'special-members',
-                   'imported-members']
+                   'special-members']
 autoapi_keep_files = True
-autoapi_python_class_content = 'both'  # Ensure that __init__'s parameters are completely shown
+autoapi_python_class_content = 'both'  # Use the concatenation of the class docstring and the __init__ docstring
