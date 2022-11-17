@@ -80,7 +80,7 @@ class Connector:
         :param connector_id: Unique "own" ID of the connector
         :param body2connector: The transformation from the body cos to connector coordinates
         :param parent: The body this connector is attached to. Will be set automatically when the connector is defined
-          before the body and added later on. Every instance can have at most one parent.
+            before the body and added later on. Every instance can have at most one parent.
         :param gender: Connector gender. Male and Female connect, Hermaphroditic and Hermaphroditic connect.
         :param connector_type: Can be a custom string to define the type of the connector.
         :param size: Can be an integer, float or array describing the size of the connector.
@@ -324,7 +324,7 @@ class Body(BodyBase):
         :param connectors: The connectors of the body, defining possible interfaces to other bodies
         :param inertia: The inertia of the body, as pin.Inertia
         :param in_module: The module this body is part of. Will be automatically assigned if the body is defined and
-          added to a module later on.
+            added to a module later on.
         """
         self._id: str = str(body_id)
         self.in_module: 'ModuleBase' = in_module

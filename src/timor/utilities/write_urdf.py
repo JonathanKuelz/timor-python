@@ -22,7 +22,7 @@ def from_geometry(geometry: Geometry.Geometry,
     :param which: Either <visual> or <collision>, decides which tag is used
     :param name: The name of the robot geometry
     :param link_frame: The relative position of the body frame regarding the previous joint. URDF does not know the
-      concept of a distinct body/link frame, so we have to change the positioning accordingly.
+        concept of a distinct body/link frame, so we have to change the positioning accordingly.
     """
     if which not in ('visual', 'collision'):
         raise ValueError(f"Invalid Geometry tag {which}. Must be visual or collision.")
@@ -57,7 +57,7 @@ def from_pin_inertia(i: pin.Inertia, link_frame: np.ndarray = Transformation.neu
 
     :param i: The original inertia data from a body
     :param link_frame: The relative position of the body frame regarding the previous joint. URDF does not know the
-      concept of a distinct body/link frame, so we have to change the positioning accordingly.
+        concept of a distinct body/link frame, so we have to change the positioning accordingly.
     """
     inertial = ET.Element('inertial')
     origin = link_frame @ homogeneous(translation=i.lever)

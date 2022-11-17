@@ -42,13 +42,14 @@ class Science2019Iterator(Iterator):
     reduction, Stefan Liu.
 
     The following constraints reduce the search space of possible assemblies:
-      - The robot is a serial chain of modules. Every module has a proximal (=female) and a distal (=male) connector.
-      - A maximum number of degrees of freedom (default: 6)
-      - There are never two joints mounted directly after one another
-      - There is a maximum of three static links in between two joints
-      - The first module must be a joint module (this is not explicitly mentioned in the paper but can be derived from
+
+      * The robot is a serial chain of modules. Every module has a proximal (=female) and a distal (=male) connector.
+      * A maximum number of degrees of freedom (default: 6)
+      * There are never two joints mounted directly after one another
+      * There is a maximum of three static links in between two joints
+      * The first module must be a joint module (this is not explicitly mentioned in the paper but can be derived from
         the modules they used)
-      - The last module before the end-effector must be a joint. This can theoretically be relaxed in the future.
+      * The last module before the end-effector must be a joint. This can theoretically be relaxed in the future.
     """
 
     min_dof: int  # The minimum number of degrees of freedom for any assembly
@@ -80,12 +81,12 @@ class Science2019Iterator(Iterator):
         This implementation of the LiuIterator allows for a bit more flexibility than the one mentioned in the paper:
 
         :param db: The database to build the assembly from. To work properly, every module in the db should clearly
-          belong to one of the four categories {base, joint module, link module, end-effector}. Sane behavior for
-          databases with multi-joint or other complex modules is not guaranteed
+            belong to one of the four categories {base, joint module, link module, end-effector}. Sane behavior for
+            databases with multi-joint or other complex modules is not guaranteed.
         :param min_dof: The minimum number of joints in the robot.
         :param max_dof: The maximum number of joints in the robot. The end-effector is not counted as a degree of
-          freedom. Changing the default from 6 to another value would mean to differ from the paper. Other than the
-          method from the referenced paper, min_dof is not implicitly equal to max_dof.
+            freedom. Changing the default from 6 to another value would mean to differ from the paper. Other than the
+            method from the referenced paper, min_dof is not implicitly equal to max_dof.
         :param max_in_between_link_modules: The maximum number of links between two joints. Default 3 is from Liu paper.
         """
         if min_dof > max_dof:
@@ -121,9 +122,9 @@ class Science2019Iterator(Iterator):
         """
         Iterate over:
 
-          - Bases
-          - Joints+Links
-          - End-Effectors
+          * Bases
+          * Joints+Links
+          * End-Effectors
 
         in a depth first manner.
         Really rough estimation: 0.2ms per call on 1 processor
@@ -188,11 +189,12 @@ class Science2019Iterator(Iterator):
         """Performs some sanity checks on the given db to validate made assumptions on its structure.
 
         Those are:
-        - There's at least one base, joint link and end-effector [crucial]
-        - All modules are connectable [not necessary, but instantiating two iterators would be preferred if not]
-        - Every link and joint module has a distal/male and a proximal/female part [crucial]
-        - All bases connect to adjacent modules using the same connector/interface [rp]
-        - All end effectors connect to adjacent modules using the same connector/interface [rp]
+
+        * There's at least one base, joint link and end-effector [crucial]
+        * All modules are connectable [not necessary, but instantiating two iterators would be preferred if not]
+        * Every link and joint module has a distal/male and a proximal/female part [crucial]
+        * All bases connect to adjacent modules using the same connector/interface [rp]
+        * All end effectors connect to adjacent modules using the same connector/interface [rp]
           rp = "relaxation possible but adaption of class methods necessary"
         """
         if not all(len(sub_db) > 0 for sub_db in (self.bases, self.links, self.joints, self.end_effectors)):

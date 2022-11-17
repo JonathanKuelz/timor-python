@@ -4,7 +4,7 @@ Welcome to the Timor documentation!
 Version: |version|
 
 Introduction
------------
+------------
 Welcome to the documentation of Timor Python - a toolbox for model generation and simulation of modular robots.
 
 .. toctree::

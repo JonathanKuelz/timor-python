@@ -57,7 +57,7 @@ class ModuleBase(abc.ABC):
         :param header: The header of the module containing distinct meta-information
         :param bodies: The bodies contained in the module - defaults to none.
         :param joints: The joints contained in the module - defaults to none. The parent and child bodies must be
-          provided for each joint.
+            provided for each joint.
         """
         if isinstance(header, dict):
             header['ID'] = str(header['ID'])  # Sensitive due to json parsing
@@ -274,6 +274,7 @@ class AtomicModule(ModuleBase):
         Furthermore, CONCERT defines child geometries relative to joint frames, while we would define them relative to
         their body frames (for CONCERT, the "body" frame always aligns with the connector frame). Therefore, geometry
         placements after joints need to be offset.
+
         :param package_dir: Package directory relative to which mesh file paths are defined
         :param d: A dictionary with relevant meta-information
         :return: An instantiated module
@@ -357,11 +358,11 @@ class ModulesDB(SingleSet):
         (All of the below holds for modules and their sub-modules and their sub-sub-modules, and...
         to keep it short, all of those are just described as "modules")
 
-          - All module IDs in the DB are unique
-          - All module names in the DB are unique
-          - All JointIDs in the DB are unique
-          - All BodyIDs in the DB are unique
-          - All ConnectorIDs in the DB are unique
+          * All module IDs in the DB are unique
+          * All module names in the DB are unique
+          * All JointIDs in the DB are unique
+          * All BodyIDs in the DB are unique
+          * All ConnectorIDs in the DB are unique
 
         :param item: A module
         :return: Boolean indicator whether the module OR ANY OF THE INHERENT IDs are already in the DB
@@ -940,9 +941,9 @@ class ModuleAssembly:
         :param base_placement: placement for the (single) base connector as 4x4 hom. transformation
         :param add_com_frames: Add frames for the center of mass of each Body
         :param collisions_between_neighboring_bodies: If True, any two bodies in the resulting robot can collide as long
-          as they are not rigidly connected. If false, bodies connected only by a joint are not checked for collisions.
-          The latter one allows defining overlapping geometries, but in that case collision-safety must be provided by
-          joint limits.
+            as they are not rigidly connected. If false, bodies connected only by a joint are not checked for
+            collisions. The latter one allows defining overlapping geometries, but in that case collision-safety must be
+            provided by joint limits.
         :return: pinocchio robot for this assembly
         """
         if len(self.module_instances) == 0:

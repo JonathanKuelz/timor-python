@@ -37,16 +37,16 @@ release = version
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
-extensions = ['sphinx.ext.autodoc', 'autoapi.extension', 'sphinx.ext.intersphinx', 'sphinx_git']
+extensions = ['sphinx.ext.autodoc', 'autoapi.extension', 'sphinx.ext.intersphinx', 'sphinx_git', 'sphinx.ext.mathjax', 'sphinx_rtd_theme']
 
 # Add any paths that contain templates here, relative to this directory.
+autoapi_template_dir = '_autoapi_templates'
 templates_path = ['_templates']
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = ['*tests']
-
 
 # -- Options for HTML output -------------------------------------------------
 
@@ -77,9 +77,11 @@ autoapi_dirs = [os.path.abspath('../../src')]
 autoapi_ignore = []
 autoapi_options = ['members',
                    'undoc-members',
-                   'show-inheritance',
+                   'inherited-members',
+                   'show-inheritance-diagram',
                    'show-module-summary',
-                   'special-members',
-                   'imported-members']
+                   'private-members',
+                   'special-members']
 autoapi_keep_files = True
-autoapi_python_class_content = 'both'  # Ensure that __init__'s parameters are completely shown
+autoapi_member_order = 'alphabetical'
+autoapi_python_class_content = 'both'  # Use the concatenation of the class docstring and the __init__ docstring

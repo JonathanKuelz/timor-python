@@ -105,10 +105,10 @@ class Geometry(abc.ABC):
         The geometry class is the default way to describe a volume in space.
 
         :param parameters: Class-specific parameters defining the volume of the geometry. Will be unpacked in child
-          classes
+            classes
         :param pose: Transformation in world coordinates of this geometry
         :param hppfcl_representation: A hppfcl collision geometry representing this geometry in collision checks. If
-          not provided, will be created. If provided, there will be no checks whether it fits the given parameters!
+            not provided, will be created. If provided, there will be no checks whether it fits the given parameters!
         """
         assert self.type is not None, "Class {} needs to define a GeometryType".format(self.__class__)
         self.parameters = parameters

@@ -28,7 +28,7 @@ class GoalBase(ABC):
 
         :param ID: The id of the goal. This is used to identify the goal in the solution.
         :param constraints: A list of constraints that need to be satisfied for the goal to be achieved - but only here.
-          (Which separates them from task goals which must hold for a whole task)
+            (Which separates them from task goals which must hold for a whole task)
         """
         self._id = str(ID)
         self.constraints = constraints if constraints is not None else list()
@@ -95,7 +95,7 @@ class GoalBase(ABC):
 
         :param viz: A meshcat visualizer as defined in pinocchio
         :param scale: The visualization method assumes the robot size is ~1-2m maximum reach. Use the scale factor
-          to adapt for significantly different sizes of robots and/or obstacles.
+            to adapt for significantly different sizes of robots and/or obstacles.
         """
         pass
 
@@ -269,7 +269,7 @@ class ReturnTo(GoalBase):
 
         :param ID: The id of the goal. This is used to identify the goal in the solution.
         :param returnToGoal: ID of other goal which should be matched again; can be left out to denote the start of the
-          solution trajectory.
+            solution trajectory.
         :param epsilon: Allowed L2 distance between joint states at this goal and the the other goal.
         """
         super().__init__(ID, constraints)

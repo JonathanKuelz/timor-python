@@ -304,7 +304,7 @@ class RobotBase(abc.ABC):
 
         :param eef_pose: The desired 4x4 placement of the end effector
         :param q_init: The joint configuration to start with. If not given, will start the iterative optimization at the
-          current configuration
+            current configuration
         :return: A tuple of (q_solution, success [boolean])
         """
         return self.ik_scipy(eef_pose, q_init, **kwargs)
@@ -325,9 +325,9 @@ class RobotBase(abc.ABC):
         :param eef_pose: Desired end effector pose with tolerances.
         :param q_init: Initial joint angles to start searching from. If not given, uses current configuration
         :param max_iter: Maximum number of iterations before the algorithm gives up. If max_n_tries is larger than 1,
-          max_iter is counted over all n tries.
+            max_iter is counted over all n tries.
         :param restore_config: If True, the current robot configuration will be kept. If false, the found solution for
-          the inverse kinematics will be kept
+            the inverse kinematics will be kept
         :param max_n_tries: Maximum number of runs with a new random init configuration before the algorithm gives up
         :return: A tuple of q_solution [np.ndarray], success [boolean]
         """
@@ -690,7 +690,7 @@ class PinRobot(RobotBase):
         :param friction: Whether to consider friction compensating torques
         :param eef_wrench: [f_x, f_y, f_z, tau_x, tau_y, tau_z] acting on the end-effector
         :param eef_wrench_frame: Frame the eef_wrench is described in (still acting on eef position!);
-          for now only "world" accepted. TODO : Extend with future frame definitions
+            for now only "world" accepted. TODO : Extend with future frame definitions
         """
         q = self.configuration if q is None else q
         dq = self.velocities if dq is None else dq
@@ -734,7 +734,7 @@ class PinRobot(RobotBase):
 
         :param eef_pose: The desired 4x4 placement of the end effector
         :param q_init: The joint configuration to start with. If not given, will start the iterative optimization at the
-          current configuration
+            current configuration.
         :return: A tuple of (q_solution, success [boolean])
         """
         if self.njoints < 6:
@@ -758,17 +758,17 @@ class PinRobot(RobotBase):
 
         :param eef_pose: The desired 4x4 placement of the end effector
         :param q_init: The joint configuration to start with. If not given, will start the iterative optimization at the
-          current configuration
+            current configuration.
         :param gain: Gain Matrix K for closed "control" of q. Higher K leads to faster, but instable solutions.
         :param damp: Damping for the damped least squares pseudoinverse method
         :param max_iter: The maximum number of iterations before the algorithm fails.
-          (The default value 1000 is very conservative and can often be reduced by orders of magnitude;
-          run with logging set to debug to see how often ik fails due to hitting max iter for your problem)
+            (The default value 1000 is very conservative and can often be reduced by orders of magnitude;
+            run with logging set to debug to see how often ik fails due to hitting max iter for your problem)
         :param kind: One of "transpose", "pseudo_inverse", "damped_ls_inverse". The according variant of the Jacobian
-          will be used to solve the ik problem. While the transpose is the fastest one to calculate, for complicated
-          problems it is too inaccurate to converge (quickly) to a solution. Pseudo inverse and damped least squares
-          pseudo-inverse are pretty similar, the latter one introduces a "punishment" for the norm of the joint
-          velocities and is therefore more resistant against singularities.
+            will be used to solve the ik problem. While the transpose is the fastest one to calculate, for complicated
+            problems it is too inaccurate to converge (quickly) to a solution. Pseudo inverse and damped least squares
+            pseudo-inverse are pretty similar, the latter one introduces a "punishment" for the norm of the joint
+            velocities and is therefore more resistant against singularities.
         :return: A tuple of q_solution [np.ndarray], success [boolean]
         """
         # Custom errors to make sure no more deprecated arguments are used for the IK solver
@@ -965,7 +965,7 @@ class PinRobot(RobotBase):
 
         :param task: The task to check for collisions
         :param return_at_first: If true, this function behaves like a "has_collision". If false, it behaves like a
-          "get_all_collisions" function,
+            "get_all_collisions" function.
         :return: Bool if return_at_first is true, otherwise a list of all colliding pairs.
         """
         collisions: List[Tuple[RobotBase, Union[RobotBase, Obstacle]]] = list()
@@ -1073,7 +1073,7 @@ class PinRobot(RobotBase):
 
         :param visualizer: A meshcat visualizer instance. If none, a new will be created
         :param coordinate_systems: Can be None, 'tcp', 'joints' or 'full' - the specified coordinates will be drawn
-          (full means all frames, as in fk)
+            (full means all frames, as in fk).
         :return: The meshcat visualizer instance used for plotting the robot
         """
         if coordinate_systems not in (None, 'joints', 'full', 'tcp'):
@@ -1224,23 +1224,24 @@ class PinRobot(RobotBase):
         :param parent: Either the index or the name of the parent joint to which the new one shall be appended
         :param bodies: All bodies attached to the joint. To add N bodies, there need to be N-1 fixed joints.
         :param fixed_joints: Fixed joints attached to the joint. Assumes bodies and fixed joints are added in the order
-          b1-fj1-b2-fx2-...-bn
+            b1-fj1-b2-fx2-...-bn
         :param inertia: The inertia attached to the joint. If not provided, will be auto-calculated by the bodies added.
         :param update_kinematics: If False, the datas will not be re-calculated, meaning the changes to not have
-          an immediate effect on the results of kinematic/dynamic methods. Is useful when adding multiple joints,
-          so just after the last change the data needs to be updated.
+            an immediate effect on the results of kinematic/dynamic methods. Is useful when adding multiple joints,
+            so just after the last change the data needs to be updated.
         :param update_home_collisions: If False, the visual and collision geometries will not be updated,
-          meaning this joint will neither be plotted nor considered for collision checking until done so.
-          Useful for either building models that don't need either of these features or when adding multiple joints,
-          so this can be done after the last only.
+            meaning this joint will neither be plotted nor considered for collision checking until done so.
+            Useful for either building models that don't need either of these features or when adding multiple joints,
+            so this can be done after the last only.
         :param kwargs: All key-word-arguments supported by pin.Model.addJoint:
-            - joint_placement: [SE3] -> Placement of the joint inside its parent joint.
-            - joint_name: [str] -> If empty, name will be random
-            - max_effort: [float] -> Maximal Joint Torque
-            - max_velocity: [float] -> Maximal Joint Velocity
-            - min_config and max_config: [float] -> Joint configuration limits
-            - friction: [float] -> Joint friction parameters
-            - damping: [float] -> Joint damping parameters
+
+            * joint_placement: [SE3] -> Placement of the joint inside its parent joint.
+            * joint_name: [str] -> If empty, name will be random
+            * max_effort: [float] -> Maximal Joint Torque
+            * max_velocity: [float] -> Maximal Joint Velocity
+            * min_config and max_config: [float] -> Joint configuration limits
+            * friction: [float] -> Joint friction parameters
+            * damping: [float] -> Joint damping parameters
         :return: Index of the new joint
         """
         if len(fixed_joints) > 0:

@@ -79,7 +79,7 @@ class ConstraintBase(ABC):
 
         :param viz: A meshcat visualizer as defined in pinocchio
         :param scale: The visualization method assumes the robot size is ~1-2m maximum reach. Use the scale factor
-          to adapt for significantly different sizes of robots and/or obstacles.
+            to adapt for significantly different sizes of robots and/or obstacles.
         """
         pass
 

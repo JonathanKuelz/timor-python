@@ -119,7 +119,7 @@ class Task:
         Adds an obstacle to the existing task.
 
         :param obstacle: Any obstacle derived from the Obstacle class.
-          This can contain a single geometry or compositions of such.
+            This can contain a single geometry or compositions of such.
         """
         if obstacle.id in self.obstacle_names:
             raise ValueError("An obstacle with the ID {} already exists in the Task.".format(obstacle.id))

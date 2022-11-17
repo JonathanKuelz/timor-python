@@ -24,6 +24,7 @@ def possibly_nest_as_list(value: any, tuple_ok: bool = True):
 
     Useful for loading jsons where arrays sometimes get unpacked if they contain only one element - which silently
     causes errors later in the pipeline.
+
     :param value: Basically any python variable
     :param tuple_ok: If true, tuples will not be packed as a list as their behavior in python is very similar.
     :return: [value] if value was not a list (or possibly a tuple) before, else value

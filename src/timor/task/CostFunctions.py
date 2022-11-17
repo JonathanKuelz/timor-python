@@ -20,6 +20,7 @@ class CostFunctionBase(abc.ABC):
 
         The default weight should be chosen in a way that higher cost means worse outcome.
         In case of rewards (e.g. cost proportional to goals achieved), the weight should default to a negative value.
+
         :param weight: Can be any number, positive or negative.
         """
         self.weight = weight
@@ -74,6 +75,7 @@ class CostFunctionBase(abc.ABC):
         """Build the cost from a string:
 
         Takes a description string for a cost function and returns the corresponding instance
+
         :param descriptor: Abbreviation for the cost function. Format <name> or <name_weight>
         :return: instance of the cost function
         """

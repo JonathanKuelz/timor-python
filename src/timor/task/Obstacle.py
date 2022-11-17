@@ -45,11 +45,12 @@ class Obstacle:
         Takes a json geometry specification and returns the according Obstacle.
 
         :param d: The serialized obstacle information, containing:
-            - ID: The obstacle unique ID
-            - collision: A Geometry used for collision detection
-            - visual: A Geometry for visualization of this Obstacle - defaults to collision if not given
-            - package_dir: If a mesh is given, it is given relative to a package directory that must be specified
-            - name: The obstacle display name
+
+            * ID: The obstacle unique ID
+            * collision: A Geometry used for collision detection
+            * visual: A Geometry for visualization of this Obstacle - defaults to collision if not given
+            * package_dir: If a mesh is given, it is given relative to a package directory that must be specified
+            * name: The obstacle display name
         :return: The obstacle class instance that matches the specification
         """
         ID = d['ID']
@@ -100,6 +101,7 @@ class Obstacle:
 
         Be careful, this is probably slow due to the initialisation of a new request/result pair and should only be used
         for debugging. Use the collision checking of the environment / robot instead.
+
         :param other: The other obstacle
         :return: True if the obstacles collide, False otherwise
         """

@@ -193,7 +193,7 @@ def rotation_in_bounds(rot: np.ndarray, bounds: np.ndarray) -> np.ndarray:
 
     :param rot: A 1xn array of rotations, given in radian.
     :param bounds: A 2xn array of limits, lower limits in first, upper limits in second row of the array. Every column
-      in bounds corresponds to a column in rot.
+        in bounds corresponds to a column in rot.
     :returns: A variant of rot, offset by multiples of 2pi to fit within bounds. If that is not possible, returns rot.
     """
     if not bounds.shape == (2, rot.size):
