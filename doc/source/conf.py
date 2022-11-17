@@ -40,13 +40,13 @@ release = version
 extensions = ['sphinx.ext.autodoc', 'autoapi.extension', 'sphinx.ext.intersphinx', 'sphinx_git', 'sphinx.ext.mathjax', 'sphinx_rtd_theme']
 
 # Add any paths that contain templates here, relative to this directory.
+autoapi_template_dir = '_autoapi_templates'
 templates_path = ['_templates']
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = ['*tests']
-
 
 # -- Options for HTML output -------------------------------------------------
 
@@ -80,6 +80,8 @@ autoapi_options = ['members',
                    'inherited-members',
                    'show-inheritance-diagram',
                    'show-module-summary',
+                   'private-members',
                    'special-members']
 autoapi_keep_files = True
+autoapi_member_order = 'alphabetical'
 autoapi_python_class_content = 'both'  # Use the concatenation of the class docstring and the __init__ docstring
