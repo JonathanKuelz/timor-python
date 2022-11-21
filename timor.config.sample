@@ -1,6 +1,7 @@
 # Using a custom configuration file like this one, you can set filepaths for various timor functionalities.
 # This is a yaml file, for details on how it is parsed, see timor.utilities.configuration
- 
+# To check which configuration file is loaded for Timor, you can run the following command in your terminal:
+# python -c "from timor.utilities import configurations; print(configurations.CONFIG_FILE)"
 
 # You can specify multiple options that declar how you want to perform logging.
 # All arguments declared here will be passed to timor.utilities.logging.basicConfig
