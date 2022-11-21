@@ -1,8 +1,20 @@
-[LOGGING]
-filemode = a
-level = INFO
-filename = /tmp/timor.log
+# Using a custom configuration file like this one, you can set filepaths for various timor functionalities.
+# This is a yaml file, for details on how it is parsed, see timor.utilities.configuration
+# To check which configuration file is loaded for Timor, you can run the following command in your terminal:
+# python -c "from timor.utilities import configurations; print(configurations.CONFIG_FILE)"
 
+# You can specify multiple options that declar how you want to perform logging.
+# All arguments declared here will be passed to timor.utilities.logging.basicConfig
+[LOGGING]
+filemode = a  # Append. This can also be 'w' to overwrite previous logs
+level = INFO
+filename = /tmp/timor.log  # If you do not provide a filename, stdout will be the logging destination
+
+
+# Timor works with files of robots, schemata, and more. Here, you can declare where to look for them
+# Declare "robots" to tell timor where your module libraries are stored (if you do so, you have to explicitly include the sample robots provided with Timor to use them)
+# Declare "test_data" to use an alternative directory for unittest data, e.g. for debugging
+# Declare a "schema_dir" to define where timor stores schemata to validate JSON files for tasks, modules, and more
 [FILE_LOCATIONS]
 robots = ["/home/<username>/timor-python/src/timor_sample_robots", "/home/<username>/my_robots"]
 

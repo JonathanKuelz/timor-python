@@ -9,11 +9,12 @@ from typing import Dict, List, Tuple, Union
 import urllib
 
 from timor.utilities import logging
-from timor.utilities.configurations import TIMOR_CONFIG
+from timor.utilities.configurations import CONFIG_FILE, TIMOR_CONFIG
 
 __utilities = Path(__file__).parent.absolute()
 package = __utilities.parent  # Main directory of the package
 head = package.parent
+logging.info("Loading custom configurations from {}".format(CONFIG_FILE))
 log_conf = TIMOR_CONFIG['FILE_LOCATIONS'] if TIMOR_CONFIG.has_section('FILE_LOCATIONS') else dict()
 test_data = Path(log_conf.get('test_data', head.parent.joinpath('tests/data')))
 schema_dir = Path(log_conf.get('schema_dir', head.joinpath("schemata")))
