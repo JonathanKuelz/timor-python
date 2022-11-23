@@ -96,6 +96,11 @@ def rot_mat2axis_angle(rot_mat: np.ndarray) -> np.ndarray:
         return np.zeros(4, float)
     axis_angle_4d = np.concatenate((axis_angle / np.linalg.norm(axis_angle),
                                     np.array([(np.pi + np.linalg.norm(axis_angle)) % (2 * np.pi) - np.pi])))
+    if axis_angle_4d[3] < 0:
+        theta = axis_angle_4d[3]
+        if abs(theta + np.pi) > 1e9:
+            raise ValueError("Unexpected axis angle: {}".format(axis_angle_4d))
+        axis_angle_4d[3] = np.pi
     return axis_angle_4d
 
 

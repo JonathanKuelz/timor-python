@@ -68,6 +68,11 @@ class TestSpatialTransformations(unittest.TestCase):
             self.assertAlmostEqual(T1.distance(T2).translation_euclidean, dT.norm.translation_euclidean)
             self.assertAlmostEqual(T1.distance(T2).rotation_angle, dT.norm.rotation_angle)
 
+        # Test 180° rotation
+        T1 = Transformation(spatial.rotX(math.pi)[:3, :3])
+        T2 = Transformation.neutral()
+        self.assertAlmostEqual(T1.distance(T2).rotation_angle, math.pi)
+
     def test_transformation_interpolate(self):
         """Test interpolation between transformations."""
         start = Transformation.neutral()
