@@ -363,7 +363,7 @@ class ModulesDB(SingleSet):
 
         :source: Details on CoBRA API: https://cobra.cps.cit.tum.de/robots
         """
-        super().__init__(modules)
+        super().__init__(*modules)
         self._name = name
         self._package_dir = package_dir
 
