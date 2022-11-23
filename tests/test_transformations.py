@@ -69,7 +69,7 @@ class TestSpatialTransformations(unittest.TestCase):
             self.assertAlmostEqual(T1.distance(T2).rotation_angle, dT.norm.rotation_angle)
 
         # Test 180° rotation
-        T1 = Transformation(spatial.rotX(math.pi)[:3, :3])
+        T1 = Transformation.from_rotation(spatial.rotX(math.pi)[:3, :3])
         T2 = Transformation.neutral()
         self.assertAlmostEqual(T1.distance(T2).rotation_angle, math.pi)
 
