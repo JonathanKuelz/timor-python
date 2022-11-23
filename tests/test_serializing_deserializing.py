@@ -213,10 +213,9 @@ class JsonSerializationTests(unittest.TestCase):
     def test_load_then_dump_task(self):
         for task_file in self.task_files:
             task = Task.Task.from_json_file(task_file, self.assets)
-            task_json = json.dumps(task.to_json_data(), indent=4)
 
             with tempfile.NamedTemporaryFile() as tmp_json_dump:
-                tmp_json_dump.write(task_json.encode('utf-8'))
+                task.to_json_file(Path(tmp_json_dump.name))
                 tmp_json_dump.flush()  # Necessary to certainly write to tempfile!
                 another_copy = Task.Task.from_json_file(Path(tmp_json_dump.name), self.assets)
                 # This does not test 100% for equality but should cover the most central sanity checks

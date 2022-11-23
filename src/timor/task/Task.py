@@ -48,6 +48,8 @@ class Task:
     Global constraints, e.g. valid base placements or the order of goals can be defined on the task-level.
     """
 
+    _package_dir: Optional[Path]  # If a task was loaded from disk, this variable stored the path to package directory
+
     def __init__(self,
                  header: Union[TaskHeader, Dict],
                  obstacles: Collection[Obstacle] = None,
@@ -72,6 +74,8 @@ class Task:
             for obstacle in obstacles:
                 self.add_obstacle(obstacle)
 
+        self._package_dir: Optional[Path] = None
+
     def __deepcopy__(self, memodict={}):
         """Custom deepcopy for a scneario class. Experimental!"""
         cpy = self.__class__(header=deepcopy(self.header))
@@ -80,15 +84,14 @@ class Task:
         return cpy
 
     @classmethod
-    def from_json_file(cls, filepath: Union[Path, str], package_dir: Union[Path, str]):
+    def from_json_data(cls, data: Dict[str, any], package_dir: Union[Path, str]):
         """
-        Loads a task from a json file.
+        Loads a task from a parsed json (=dictionary).
 
-        :param filepath: The path to the json file
-        :param package_dir: The path to the package directory, to which the mesh file paths are relative to.
+        :param data: The parsed json data
+        :param package_dir: The path to the package directory of contained mesh files.
         """
-        filepath, package_dir = map(Path, (filepath, package_dir))
-        content = json.load(filepath.open('r'))
+        content = deepcopy(data)  # Make sure we don't modify the original data while popping items
         header = TaskHeader(**{key: arg for key, arg in content.pop('header').items()})
         obstacles = [Obstacle.from_json_data(
             {**specs, **{'package_dir': package_dir}}) for specs in content.pop('obstacles')]
@@ -107,7 +110,21 @@ class Task:
                 constraints.extend([con for con in c if not isinstance(con, Constraints.AlwaysTrueConstraint)])
         if len(content) > 0:
             raise ValueError("Unresolved keys: {}".format(', '.join(content)))
-        return cls(header, obstacles, goals=goals, constraints=constraints)
+        task = cls(header, obstacles, goals=goals, constraints=constraints)
+        task._package_dir = package_dir
+        return task
+
+    @classmethod
+    def from_json_file(cls, filepath: Union[Path, str], package_dir: Union[Path, str]):
+        """
+        Loads a task from a json file.
+
+        :param filepath: The path to the json file
+        :param package_dir: The path to the package directory, to which the mesh file paths are relative to.
+        """
+        filepath, package_dir = map(Path, (filepath, package_dir))
+        content = json.load(filepath.open('r'))
+        return cls.from_json_data(content, package_dir)
 
     @staticmethod
     def from_srf_file(filepath: Path):
@@ -162,6 +179,8 @@ class Task:
         :param filepath: The path to the file to write the json to
         """
         content = compress_json_vectors(json.dumps(self.to_json_data(), indent=2))
+        if (self._package_dir is not None) and (not str(filepath).startswith(str(self._package_dir))):
+            logging.info("Writing task to file outside of the package directory it was loaded from.")
         with filepath.open('w') as f:
             f.write(content)
 
