@@ -54,7 +54,7 @@ Nagivate to the timor-python repository you cloned and enter::
 
    pip install -e .
    
-to install it in editeable mode. This requires :code:`setuptools>=61` (previous versions of setuptools require a :code:`setup.py`-file). To install optional dependencies, proceed in the same manner as for PyPI installs.
+to install it in editeable mode. This requires :code:`setuptools>=61` and :code:`pip>=21.3` (previous versions of setuptools require a :code:`setup.py`-file). To install optional dependencies, proceed in the same manner as for PyPI installs.
 
 
 Usage
