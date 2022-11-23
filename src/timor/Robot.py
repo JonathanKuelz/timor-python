@@ -804,7 +804,7 @@ class PinRobot(RobotBase):
             joint_current = self.data.oMi[joint_idx_pin]
             diff = joint_current.actInv(joint_desired)
             error_twist = pin.log(diff).vector
-            abs_distance = diff.translation.norm()
+            abs_distance = np.linalg.norm(diff.translation)
             if (abs_distance > best_q.distance) and self.q_in_joint_limits(q) and not self.has_self_collision(q):
                 best_q = IntermediateIkResult(q, abs_distance)
             try:
