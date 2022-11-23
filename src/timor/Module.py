@@ -403,6 +403,18 @@ class ModulesDB(SingleSet):
         #     raise err.UniqueValueError("There cannot be two connectors with identical IDs in a module")
         super().add(element)
 
+    def filter(self, func: Callable[[AtomicModule], bool]) -> ModulesDB:
+        """
+        Apply a custom filter to this DB to get a new DB with only the modules that pass the filter.
+
+        :param func: A function that takes a module and returns a boolean
+        :return: A new DB with only the modules that pass the filter. The package_dir is preserved, the name is
+            intentionally discarded to avoid confusion.
+        """
+        new_db = super().filter(func)
+        new_db._package_dir = self._package_dir
+        return new_db
+
     @classmethod
     def from_file(cls, filepath: Union[Path, str], package_dir: Union[Path, str]) -> ModulesDB:
         """
@@ -512,12 +524,14 @@ class ModulesDB(SingleSet):
     @property
     def bases(self) -> ModulesDB[ModuleBase]:
         """Returns all modules containing at least one base connector"""
-        return self.__class__(mod for mod in self if any(c.type == 'base' for c in mod.available_connectors.values()))
+        return self.__class__((mod for mod in self if any(c.type == 'base' for c in mod.available_connectors.values())),
+                              package_dir=self._package_dir)
 
     @property
     def end_effectors(self) -> ModulesDB[ModuleBase]:
         """Returns all modules containing at least one eef connector"""
-        return self.__class__(mod for mod in self if any(c.type == 'eef' for c in mod.available_connectors.values()))
+        return self.__class__((mod for mod in self if any(c.type == 'eef' for c in mod.available_connectors.values())),
+                              package_dir=self._package_dir)
 
     @property
     def possible_connections(self) -> Set[connection_type]:

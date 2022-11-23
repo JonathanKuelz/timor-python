@@ -132,7 +132,7 @@ class SingleSet(set):
         """Custom copy should also return a SingleSet"""
         return self.__class__(super().copy())
 
-    def filter(self, func: Callable[[any], bool]):
+    def filter(self, func: Callable[[any], bool]) -> SingleSet:
         """
         Convenience function to avoid set comparison over and over again
 
