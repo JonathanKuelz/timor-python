@@ -149,8 +149,10 @@ class AlwaysValidTolerance(ToleranceBase):
 class Composed(ToleranceBase):
     """Holds any number of different tolerances and evaluates to true iff all internal tolerances do"""
 
-    def __new__(cls, tolerances: Collection[ToleranceBase], *args, **kwargs):
+    def __new__(cls, tolerances: Collection[ToleranceBase] = None, *args, **kwargs):
         """Custom new method to allow returning the element in tolerances if it only contains one."""
+        if tolerances is None:  # tolerances None has to be possible to allow unpickling a Tolerance using __getstate__
+            return super().__new__(cls)
         tolerances = tuple(tolerances)  # Make sure not to exhaust a generator and have a __len__ method
         if len(tolerances) == 1:
             return tolerances[0]
