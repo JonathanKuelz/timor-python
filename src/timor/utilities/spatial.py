@@ -85,11 +85,12 @@ def spherical2cartesian(spher: np.ndarray) -> np.ndarray:
 
 
 def rot_mat2axis_angle(rot_mat: np.ndarray) -> np.ndarray:
-    """
+    r"""
     Takes a rotation matrix and returns the corresponding axis-angle representation
 
     :param rot_mat: 3x3 rotation matrix
-    :return: 4x1 array of axis-angle representation (n_x, n_y, n_z, theta_R), where n_x, n_y, n_z ~ unit vector
+    :return: 4x1 array of axis-angle representation (n_x, n_y, n_z, theta_R), where n_x, n_y, n_z ~ unit vector and
+        :math:`\theta_R` ~ rotation angle :math:`\in [0, \pi]`
     """
     axis_angle = Rotation.from_matrix(rot_mat.copy()).as_rotvec()
     if all(axis_angle == 0.):
@@ -97,8 +98,10 @@ def rot_mat2axis_angle(rot_mat: np.ndarray) -> np.ndarray:
     axis_angle_4d = np.concatenate((axis_angle / np.linalg.norm(axis_angle),
                                     np.array([(np.pi + np.linalg.norm(axis_angle)) % (2 * np.pi) - np.pi])))
     if axis_angle_4d[3] < 0:
+        # This can happen due to numerical inaccuracies, but only if the angle is almost equal to pi.
         theta = axis_angle_4d[3]
-        if abs(theta + np.pi) > 1e9:
+        if abs(theta + np.pi) > 1e-9:
+            # This should never happen, thata is smaller zero but the "true" value is not pi.
             raise ValueError("Unexpected axis angle: {}".format(axis_angle_4d))
         axis_angle_4d[3] = np.pi
     return axis_angle_4d
