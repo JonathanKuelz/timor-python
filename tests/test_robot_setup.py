@@ -138,6 +138,7 @@ class PinocchioRobotSetup(unittest.TestCase):
         n = 0
         scipy_tolerance = Tolerance.CartesianXYZ.default()
         jacobian_tolerance = Tolerance.DEFAULT_SPATIAL
+        fails = []
         for _ in range(N):
             # Using a random example for which we know, there's at least one goal configuration
             conf = pin.randomConfiguration(robot.model)
@@ -163,6 +164,7 @@ class PinocchioRobotSetup(unittest.TestCase):
                 self.assertFalse(robot.has_self_collision(conf))
             else:
                 error_count['jacobian'] += 1
+                fails.append((goal, conf))
 
         for k, v in error_count.items():
             self.assertLess(v, 0.05 * n, f"ik should be able to resolve almost any fk; "
@@ -172,6 +174,13 @@ class PinocchioRobotSetup(unittest.TestCase):
             logging.warning('IK test failed {} times for scipy, {} times for jacobian.'.format(
                 error_count['scipy'], error_count['jacobian']
             ))
+
+        for goal, conf in fails:
+            # Make sure the configuration found by jacobian is at least close to the goal
+            for _ in range(10):
+                result_distance = robot.fk(conf).distance(goal).translation_euclidean
+                random_distance = robot.fk(robot.random_configuration()).distance(goal).translation_euclidean
+                self.assertLessEqual(result_distance, random_distance)
 
     def test_robot_move_base(self):
         """Creates two robots, one with the base moved to another origin and then checks whether

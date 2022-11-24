@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import namedtuple
 from dataclasses import asdict, dataclass, field, fields
 import datetime
 import logging
@@ -15,6 +16,9 @@ from roboticstoolbox.tools.trajectory import mstraj
 
 import timor.utilities.errors as err
 from timor.utilities.transformation import Transformation, TransformationLike
+
+
+IntermediateIkResult = namedtuple("IntermediateIkResult", ["q", "distance"])
 
 
 class EternalDict(dict):
