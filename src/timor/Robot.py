@@ -754,6 +754,9 @@ class PinRobot(RobotBase):
         """
         Implements numerics inverse kinematics solvers based on the jacobian.
 
+        If no solution is found, returns success=False and the configuration q with the lowest euclidean distance to the
+        desired pose (ignoring orientation offset) that was found during max_iter iterations.
+
         Reference: Robotics, Siciliano et al. [2009], Chapter 3.7
 
         :param eef_pose: The desired 4x4 placement of the end effector
@@ -799,20 +802,22 @@ class PinRobot(RobotBase):
 
         i = 0
         success = True
-        best_q = kwargs.get('current_best', IntermediateIkResult(q, -np.inf))
+        closest_translation_q = kwargs.get('closest_translation_q', IntermediateIkResult(q, -np.inf))
         while not eef_pose.valid(self.fk(q)):
             joint_current = self.data.oMi[joint_idx_pin]
             diff = joint_current.actInv(joint_desired)
             error_twist = pin.log(diff).vector
-            abs_distance = np.linalg.norm(diff.translation)
-            if (abs_distance > best_q.distance) and self.q_in_joint_limits(q) and not self.has_self_collision(q):
-                best_q = IntermediateIkResult(q, abs_distance)
+            abs_translational_distance = np.linalg.norm(diff.translation)
+            if (abs_translational_distance > closest_translation_q.distance) and self.q_in_joint_limits(q) and \
+                    not self.has_self_collision(q):
+                closest_translation_q = IntermediateIkResult(q, abs_translational_distance)
             try:
                 J = pin.computeJointJacobian(self.model, self.data, q, joint_idx_pin)
                 J_inv = inv(J)  # Analytical Jacobian "pseudo inverse" (or transpose)
             except np.linalg.LinAlgError:
-                logging.debug(f"Jacobian ik break due to singularity after {i} iter for q={q}. Returning best result.")
-                return best_q.q, False
+                logging.debug(f"Jacobian ik break due to singularity after {i} iter for q={q}. Trying again.")
+                kwargs['closest_translation_q'] = closest_translation_q
+                return self.ik_jacobian(eef_pose, self.random_configuration(), gain, damp, max_iter - i, kind, **kwargs)
             q_dot = J_inv.dot(gain).dot(error_twist)
             q = pin.integrate(self.model, q, q_dot)
             # Python modolo defaults to positive values, but we want to preserve q sign
@@ -822,12 +827,13 @@ class PinRobot(RobotBase):
             q[rot_join_mask] = q[rot_join_mask] % (2 * np.pi) - sign_preserve[rot_join_mask]
 
             if np.inf in q:
-                logging.debug(f"Jacobian ik break due to q approaching inf after {i} iter. Returning best result.")
-                return best_q.q, False
+                logging.debug(f"Jacobian ik break due to q approaching inf after {i} iter. Trying again.")
+                kwargs['closest_translation_q'] = closest_translation_q
+                return self.ik_jacobian(eef_pose, self.random_configuration(), gain, damp, max_iter - i, kind, **kwargs)
             i += 1
             if i >= max_iter:
                 success = False
-                q = best_q.q
+                q = closest_translation_q.q
                 break
 
         if not self.q_in_joint_limits(q):
@@ -839,7 +845,7 @@ class PinRobot(RobotBase):
                 # Give it another try, starting from a different configuration
                 i += 1
                 logging.info("IK was out of joint limits, re-try")
-                kwargs['current_best'] = best_q
+                kwargs['closest_translation_q'] = closest_translation_q
                 return self.ik_jacobian(eef_pose, self.random_configuration(), gain, damp, max_iter - i, kind, **kwargs)
 
         if self.has_self_collision(q):
@@ -849,7 +855,7 @@ class PinRobot(RobotBase):
             if i < max_iter:
                 # Give it another try, starting from a different configuration
                 i += 1
-                kwargs['current_best'] = best_q
+                kwargs['closest_translation_q'] = closest_translation_q
                 return self.ik_jacobian(eef_pose, self.random_configuration(), gain, damp, max_iter - i, kind, **kwargs)
             success = False
 
@@ -859,7 +865,7 @@ class PinRobot(RobotBase):
                 # Give it another try, starting from a different configuration
                 i += 1
                 logging.debug("Keep the previously best q, but without checking for environment collisions.")
-                kwargs['current_best'] = best_q
+                kwargs['closest_translation_q'] = closest_translation_q
                 return self.ik_jacobian(eef_pose, self.random_configuration(), gain, damp, max_iter - i, kind, **kwargs)
             success = False
 
