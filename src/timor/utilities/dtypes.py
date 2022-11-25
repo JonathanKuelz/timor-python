@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field, fields
 import datetime
 import logging
+from pathlib import Path
 import random
 import re
 from typing import Any, Callable, Collection, Dict, Generator, Iterable, List, Tuple, Type, Union, get_type_hints
@@ -507,6 +508,13 @@ def hppfcl_collision2pin_geometry(geometry: hppfcl.CollisionGeometry,
         return pin.GeometryObject(name, parent_joint, geometry, placement)
     else:
         return pin.GeometryObject(name, parent_frame, parent_joint, geometry, placement)
+
+
+def map2path(p: Union[str, Path]) -> Path:
+    """Maps strings to paths, but does nothing else s.t. e.g. Django paths are not casted."""
+    if isinstance(p, str):
+        return Path(p)
+    return p
 
 
 def possibly_nest_as_list(value: any, tuple_ok: bool = True):

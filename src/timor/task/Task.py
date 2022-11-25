@@ -18,7 +18,7 @@ from timor import compress_json_vectors
 from timor.Robot import PinRobot, RobotBase
 from timor.task import Constraints, Goals
 from timor.task.Obstacle import Obstacle
-from timor.utilities.dtypes import TypedHeader
+from timor.utilities.dtypes import TypedHeader, map2path
 import timor.utilities.logging as logging
 
 GRAVITY = np.array([0, 0, -9.81], dtype=float)  # Default gravity for z upwards TODO : Move to global configuration?!
@@ -122,7 +122,7 @@ class Task:
         :param filepath: The path to the json file
         :param package_dir: The path to the package directory, to which the mesh file paths are relative to.
         """
-        filepath, package_dir = map(Path, (filepath, package_dir))
+        filepath, package_dir = map(map2path, (filepath, package_dir))
         content = json.load(filepath.open('r'))
         return cls.from_json_data(content, package_dir)
 

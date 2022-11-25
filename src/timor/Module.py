@@ -24,7 +24,7 @@ from timor import Geometry, Robot
 from timor.Bodies import Body, BodyBase, BodySet, Connector, ConnectorSet, Gender
 from timor.Joints import Joint, JointSet, TimorJointType
 from timor.utilities import logging, spatial, write_urdf
-from timor.utilities.dtypes import SingleSet, TypedHeader, randomly
+from timor.utilities.dtypes import SingleSet, TypedHeader, map2path, randomly
 import timor.utilities.errors as err
 from timor.utilities.json_serialization_formatting import compress_json_vectors, possibly_nest_as_list
 from timor.utilities.transformation import Transformation, TransformationLike
@@ -350,8 +350,8 @@ class ModulesDB(SingleSet):
     """
 
     connection_type = Tuple[ModuleBase, Connector, ModuleBase, Connector]  # More specific than in Assembly!
-    _name: Optional[str]
-    _package_dir: Optional[Path]
+    _name: Optional[str]  # Optional name of the database, i.e. for referencing them in the CoBRA API
+    _package_dir: Optional[Path]  # Optional package directory relative to which mesh file paths are defined
 
     def __init__(self, *modules: Iterable[ModuleBase], name: Optional[str] = None, package_dir: Optional[Path] = None):
         """
@@ -424,7 +424,7 @@ class ModulesDB(SingleSet):
         :param package_dir: Package directory relative to which mesh file paths are defined
         :return: A ModulesDB
         """
-        filepath, package_dir = map(Path, (filepath, package_dir))
+        filepath, package_dir = map(map2path, (filepath, package_dir))
         with filepath.open('r') as json_file:
             content = json_file.read()
         name = filepath.stem
