@@ -24,7 +24,7 @@ from timor import Geometry, Robot
 from timor.Bodies import Body, BodyBase, BodySet, Connector, ConnectorSet, Gender
 from timor.Joints import Joint, JointSet, TimorJointType
 from timor.utilities import logging, spatial, write_urdf
-from timor.utilities.dtypes import SingleSet, TypedHeader, randomly
+from timor.utilities.dtypes import SingleSet, TypedHeader, map2path, randomly
 import timor.utilities.errors as err
 from timor.utilities.json_serialization_formatting import compress_json_vectors, possibly_nest_as_list
 from timor.utilities.transformation import Transformation, TransformationLike
@@ -350,6 +350,22 @@ class ModulesDB(SingleSet):
     """
 
     connection_type = Tuple[ModuleBase, Connector, ModuleBase, Connector]  # More specific than in Assembly!
+    _name: Optional[str]  # Optional name of the database, i.e. for referencing them in the CoBRA API
+    _package_dir: Optional[Path]  # Optional package directory relative to which mesh file paths are defined
+
+    def __init__(self, *modules: Iterable[ModuleBase], name: Optional[str] = None, package_dir: Optional[Path] = None):
+        """
+        Initializes the database from any number of modules.
+
+        :param modules: Any iterable over modules to be within the database
+        :param name: Optional name of the database, i.e. for referencing them in the CoBRA API
+        :param package_dir: Optional package directory relative to which mesh file paths are defined
+
+        :source: Details on CoBRA API: https://cobra.cps.cit.tum.de/robots
+        """
+        super().__init__(*modules)
+        self._name = name
+        self._package_dir = package_dir
 
     def __contains__(self, item: ModuleBase) -> bool:
         """
@@ -387,6 +403,18 @@ class ModulesDB(SingleSet):
         #     raise err.UniqueValueError("There cannot be two connectors with identical IDs in a module")
         super().add(element)
 
+    def filter(self, func: Callable[[AtomicModule], bool]) -> ModulesDB:
+        """
+        Apply a custom filter to this DB to get a new DB with only the modules that pass the filter.
+
+        :param func: A function that takes a module and returns a boolean
+        :return: A new DB with only the modules that pass the filter. The package_dir is preserved, the name is
+            intentionally discarded to avoid confusion.
+        """
+        new_db = super().filter(func)
+        new_db._package_dir = self._package_dir
+        return new_db
+
     @classmethod
     def from_file(cls, filepath: Union[Path, str], package_dir: Union[Path, str]) -> ModulesDB:
         """
@@ -396,21 +424,23 @@ class ModulesDB(SingleSet):
         :param package_dir: Package directory relative to which mesh file paths are defined
         :return: A ModulesDB
         """
-        filepath, package_dir = map(Path, (filepath, package_dir))
+        filepath, package_dir = map(map2path, (filepath, package_dir))
         with filepath.open('r') as json_file:
             content = json_file.read()
-        return cls.from_json_string(content, package_dir)
+        name = filepath.stem
+        return cls.from_json_string(content, package_dir, name=name)
 
     @classmethod
-    def from_json_string(cls, json_string: str, package_dir: Path) -> ModulesDB:
+    def from_json_string(cls, json_string: str, package_dir: Path, name: Optional[str] = None) -> ModulesDB:
         """
         Loads a modules Database from a json string.
 
         :param json_string: Json string of the modulesDB definition.
         :param package_dir: Package directory relative to which mesh file paths are defined
+        :param name: Referencing name for the database
         :return: A ModulesDB
         """
-        db = cls()
+        db = cls(package_dir=package_dir, name=name)
 
         for module_data in json.loads(json_string):
             db.add(AtomicModule.from_json_data(module_data, package_dir))
@@ -420,10 +450,16 @@ class ModulesDB(SingleSet):
         """
         Writes the ModulesDB to a json file.
 
-        :param save_at: File location to write the DB to. Should be the "name" of the DB.
+        :param save_at: File location or folder to write the DB to.
         """
         save_at = Path(save_at)
+        if save_at.is_dir():
+            if self._name is None:
+                raise ValueError("The DB needs a name if only a directory is specified for saving!")
+            save_at = save_at.joinpath(self._name + '.json')
         content = compress_json_vectors(self.to_json_string())
+        if (self._package_dir is not None) and (not str(save_at).startswith(str(self._package_dir))):
+            logging.info("Writing ModulesDB to file outside of the package directory it was loaded from.")
         with Path(save_at).open('w') as savefile:
             savefile.write(content)
 
@@ -488,12 +524,14 @@ class ModulesDB(SingleSet):
     @property
     def bases(self) -> ModulesDB[ModuleBase]:
         """Returns all modules containing at least one base connector"""
-        return self.__class__(mod for mod in self if any(c.type == 'base' for c in mod.available_connectors.values()))
+        return self.__class__((mod for mod in self if any(c.type == 'base' for c in mod.available_connectors.values())),
+                              package_dir=self._package_dir)
 
     @property
     def end_effectors(self) -> ModulesDB[ModuleBase]:
         """Returns all modules containing at least one eef connector"""
-        return self.__class__(mod for mod in self if any(c.type == 'eef' for c in mod.available_connectors.values()))
+        return self.__class__((mod for mod in self if any(c.type == 'eef' for c in mod.available_connectors.values())),
+                              package_dir=self._package_dir)
 
     @property
     def possible_connections(self) -> Set[connection_type]:
