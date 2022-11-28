@@ -3,6 +3,7 @@ from __future__ import annotations
 from functools import reduce
 from typing import Collection, Iterable, List, Optional, Tuple, Union
 
+import hppfcl
 from hppfcl import Transform3f
 import numpy as np
 import pinocchio as pin
@@ -21,6 +22,7 @@ _TransformationConvertable = Union[
     List[np.ndarray],
     Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray],
     pin.SE3,
+    hppfcl.Transform3f
 ]
 TransformationConvertable = Union[_TransformationConvertable, Iterable[_TransformationConvertable]]
 
@@ -129,6 +131,11 @@ class Transformation:
             transformation = transformation.homogeneous
         elif isinstance(transformation, pin.SE3):
             transformation = transformation.homogeneous
+        elif isinstance(transformation, hppfcl.Transform3f):
+            new = np.eye(4)
+            new[:3, :3] = transformation.getRotation()
+            new[:3, 3] = transformation.getTranslation()
+            transformation = new
         try:
             transformation = np.asarray(transformation, dtype=float)
         except ValueError:  # Multiple transformations cannot be packed in one np array

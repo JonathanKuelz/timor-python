@@ -70,7 +70,7 @@ def get_module_db_files(name: str) -> Tuple[Path, Path]:
     """
     Returns the filepaths to the database json file and the package folder for names of valid module databases.
 
-    :param name: The (folder) name of the modular robot module set
+    :param name: The (folder) name of the module set
     :return: (Path to modules.json, Path to package folder)
     """
     if name not in robots:

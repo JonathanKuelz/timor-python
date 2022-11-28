@@ -916,7 +916,9 @@ class PinRobot(RobotBase):
 
     def set_base_placement(self, placement: TransformationLike) -> None:
         """Moves the base to desired position"""
-        self.move(self.placement.inv.multiply_from_left(placement))
+        placement = Transformation(placement)
+        if placement != self._base_placement:
+            self.move(placement @ self.placement.inv)
 
     def static_torque(self, q: np.ndarray, f_ext: pin.StdVec_Force = None) -> np.ndarray:
         """

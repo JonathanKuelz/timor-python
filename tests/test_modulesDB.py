@@ -4,12 +4,10 @@ import unittest
 
 import networkx as nx
 import numpy as np
-import numpy.testing as np_test
 
 from timor import Joint, ToleratedPose, Transformation
 from timor.Module import AtomicModule, ModuleAssembly, ModuleHeader, ModulesDB
 from timor.utilities import logging
-import timor.utilities.errors as err
 from timor.utilities.file_locations import get_module_db_files, robots
 
 
@@ -46,26 +44,6 @@ class TestModulesDB(unittest.TestCase):
         with self.assertRaises(LookupError):
             assembly.add_random_from_db()  # The db is empty
 
-    def test_graph_features(self):
-        """An assembly of modules is (given some abstraction) just a graph. Check some basic graph attributes:"""
-        assembly = ModuleAssembly(self.db)
-        for _ in range(12):
-            assembly.add_random_from_db(lambda x: x not in self.db.end_effectors)
-
-        adjacency = assembly.adjacency_matrix
-        self.assertEqual(2 * len(assembly.connections), adjacency.sum())
-
-        num_nodes = len(assembly.module_instances)
-        # Check the networkx graph functionality and use it to evaluate the assembly structure
-        nxGraph = assembly.graph_of_modules
-        self.assertEqual(nxGraph.number_of_nodes(), num_nodes)
-        self.assertTrue(nx.is_connected(nxGraph), "There seem to be unconnected modules in the assembly")
-        np_test.assert_array_equal(adjacency, nx.convert_matrix.to_numpy_array(nxGraph, dtype=int))
-        np_test.assert_array_equal(adjacency[np.diag_indices(num_nodes)], np.zeros((num_nodes,), dtype=int),
-                                   "There are self-loops in the assembly")
-
-        G_a = assembly.assembly_graph
-
     def test_load_all_from_file(self):
         for db_name, db_dir in robots.items():
             if len(tuple(db_dir.rglob('*.json'))) == 0:
@@ -91,37 +69,6 @@ class TestModulesDB(unittest.TestCase):
         q, success = robot.ik(ToleratedPose(robot.fk()))
         self.assertTrue(success)
         self.assertEqual(q.size, robot.njoints)
-
-    def test_modules_assembly(self):
-        module_ids = ['1', '21', '4', '21', '5', '23', '7', '12']
-        connections = [
-            (1, '21_proximal_connector', 0, 'base_out'),
-            (2, '4_proximal_connector', 1, '21_distal_connector'),
-            (3, '21_proximal_connector', 2, '4_distal_connector'),
-            (4, '5_proximal_connector', 3, '21_distal_connector'),
-            (5, '23_proximal_connector', 4, '5_distal_connector'),
-            (6, '7_proximal_connector', 5, '23_distal_connector'),
-            (7, '12_proximal_connector', 6, '7_distal_connector'),
-        ]
-        assembly = ModuleAssembly(self.db, module_ids, connections)
-        assembly = ModuleAssembly(self.db, module_ids, set(connections))  # Order invariance
-
-        # Now, add a "loose" module and see if it fails
-        with self.assertRaises(ValueError):
-            assembly = ModuleAssembly(self.db, module_ids + ['1'], connections)
-
-        # Add an invalid connection
-        module_ids = module_ids + ['1']  # base
-        connections.append((7, '12_distal_connector', 8, 'base'))
-        with self.assertRaises(err.InvalidAssemblyError):
-            assembly = ModuleAssembly(self.db, module_ids, connections)
-
-        # Check that an empty assembly does not need to stay empty
-        assembly = ModuleAssembly(self.db)
-        assembly.add_random_from_db()
-        assembly.add_random_from_db()
-        self.assertIsNotNone(assembly.base_connector)
-        self.assertEqual(len(assembly.module_instances), 2)
 
     def test_possible_connections(self):
         possibilities = self.db.possible_connections

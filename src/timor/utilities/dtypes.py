@@ -7,7 +7,8 @@ import logging
 from pathlib import Path
 import random
 import re
-from typing import Any, Callable, Collection, Dict, Generator, Iterable, List, Tuple, Type, Union, get_type_hints
+from typing import Any, Callable, Collection, Dict, Generator, Generic, Iterable, List, Tuple, Type, TypeVar, Union, \
+    get_type_hints
 
 from hppfcl import hppfcl
 from matplotlib import pyplot as plt
@@ -19,6 +20,7 @@ import timor.utilities.errors as err
 from timor.utilities.transformation import Transformation, TransformationLike
 
 
+T = TypeVar('T')
 IntermediateIkResult = namedtuple("IntermediateIkResult", ["q", "distance"])
 
 
@@ -45,15 +47,15 @@ class EternalDict(dict):
     popitem = _immutable
 
 
-class Lazy:
+class Lazy(Generic[T]):
     """An implementation of lazy variables in python"""
 
-    def __init__(self, func):
+    def __init__(self, func: Callable[[], T]):
         """Initialize an "empty" lazy variable with the function to be evaluated lazily"""
-        self.func = func
+        self.func: Callable[[], T] = func
         self.value = None
 
-    def __call__(self, *args, **kwargs):
+    def __call__(self, *args, **kwargs) -> T:
         """Useful s.t. the variable can be evaluated like lazy()"""
         return self.value_or_func()
 
@@ -77,7 +79,7 @@ class Lazy:
         else:
             return other * self()
 
-    def __getstate__(self):
+    def __getstate__(self) -> T:
         """Lazy variables will always be evaluated when serialized"""
         return self.value_or_func()
 
@@ -85,14 +87,14 @@ class Lazy:
         """Reset the value of the lazy variable s.t. it must be re-evaluated next time the value is requested"""
         self.value = None
 
-    def value_or_func(self):
+    def value_or_func(self) -> T:
         """Evaluates the lazy variable. Is triggered by self()"""
         if self.value is None:
             self.value = self.func()
         return self.value
 
     @classmethod
-    def from_variable(cls, variable) -> 'Lazy':
+    def from_variable(cls, variable: any) -> Lazy:
         """Useful wrapper to prevent evaluation of Lazy variables when multiplied with another variable"""
 
         def ret():
@@ -133,7 +135,7 @@ class SingleSet(set):
             raise err.UniqueValueError(self._err.format(element))
         super().add(element)
 
-    def copy(self) -> 'SingleSet':
+    def copy(self) -> SingleSet:
         """Custom copy should also return a SingleSet"""
         return self.__class__(super().copy())
 
@@ -147,7 +149,7 @@ class SingleSet(set):
         """
         return self.__class__(element for element in self if func(element))
 
-    def intersection(self, *s: Iterable) -> 'SingleSet':
+    def intersection(self, *s: Iterable) -> SingleSet:
         """Intersection should also retutrn a SingleSet"""
         return self.__class__(element for arg in s for element in arg if element in self)
 
@@ -164,7 +166,7 @@ class SingleSet(set):
                 self.add(element)
                 added.add(element)
 
-    def union(self, *s: Iterable) -> 'SingleSet':
+    def union(self, *s: Iterable) -> SingleSet:
         """Returns a SingleSet of the union of this and the input"""
         elements = self.__class__()  # This is needed so this classes __contains__ method is used on the input as well
         for arg in s:

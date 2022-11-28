@@ -22,9 +22,10 @@ import pinocchio as pin
 
 from timor import Geometry, Robot
 from timor.Bodies import Body, BodyBase, BodySet, Connector, ConnectorSet, Gender
+from timor.Geometry import ComposedGeometry
 from timor.Joints import Joint, JointSet, TimorJointType
 from timor.utilities import logging, spatial, write_urdf
-from timor.utilities.dtypes import SingleSet, TypedHeader, map2path, randomly
+from timor.utilities.dtypes import Lazy, SingleSet, TypedHeader, map2path, randomly
 import timor.utilities.errors as err
 from timor.utilities.json_serialization_formatting import compress_json_vectors, possibly_nest_as_list
 from timor.utilities.transformation import Transformation, TransformationLike
@@ -591,7 +592,7 @@ class ModuleAssembly:
     """
     A combination of modules with defined connections between each another.
 
-    High level abstraction of a robot.
+    Represents a high-level abstraction to a robot and provides an interface to the kinematic model.
     """
 
     connection_type = Tuple[int, str, int, str]
@@ -600,7 +601,8 @@ class ModuleAssembly:
                  database: ModulesDB,
                  assembly_modules: Collection[str] = (),
                  connections: Collection[connection_type] = (),
-                 base_connector: Tuple[int, str] = None
+                 base_connector: Tuple[int, str] = None,
+                 **model_generation_kwargs
                  ):
         """
         A combination of modules, drawn from a common module database and arranged by defined connections.
@@ -618,10 +620,14 @@ class ModuleAssembly:
         :param base_connector: For every assembly, there must be a 'base' connector that indicates where the
           base of the robot coordinate system is. If it is not explicitly given, there must be exactly one connector of
           type 'base' in the assembly. The base connector argument is expected to be of type [module_idx, connector._id]
+        :param model_generation_kwargs: Additional arguments passed to the generating method for the kinematic/dynamic
+          model of the assembly.
         """
         self.db: ModulesDB = database
         self.module_instances: List[ModuleBase] = []
         self.connections: Set[Tuple[ModuleBase, Connector, ModuleBase, Connector]] = set()
+        self._robot_kwargs = dict() if model_generation_kwargs is None else model_generation_kwargs
+        self._robot: Lazy[Robot.PinRobot] = Lazy(lambda: self.to_pin_robot(**self._robot_kwargs))
 
         self._module_copies: Dict[str, str] = dict()
         if isinstance(assembly_modules, str):
@@ -677,12 +683,92 @@ class ModuleAssembly:
             self._base_connector = base_connector
 
     @classmethod
+    def from_monolithic_robot(cls, robot: Robot.PinRobot) -> ModuleAssembly:
+        """
+        Wraps a kinematic/dynamic robot model into a single module which will be the full assembly.
+
+        This method wraps the existing kinematic and dynamic pin model and continues to use it - the computational
+        effort of re-generating a model is spared, so if input robot changes, the robot property of the assembly
+        returned by this method will as well.
+
+        :param robot: A pinocchio robot model to be wrapped in an assembly.
+        :returns: A module assembly consisting of exactly one module: The robot given as input.
+        """
+        child_bodies = dict()
+        joints = set()
+        zero_inertia = pin.Inertia()
+        zero_inertia.setZero()
+
+        # First, parse the geometries and add them to fresh bodies
+        if len(robot.collision.geometryObjects) != len(robot.visual.geometryObjects):
+            raise NotImplementedError("Assembly wrapper cannot handle robots with different numbers of "
+                                      "collision and visual geometries.")
+        for collision, visual in zip(robot.collision.geometryObjects, robot.visual.geometryObjects):
+            cg = Geometry.Geometry.from_pin_geometry(collision)
+            vg = Geometry.Geometry.from_pin_geometry(visual)
+            if collision.parentJoint in child_bodies:
+                # Update only the geometry -- the inertia has already been set
+                child_bodies[collision.parentJoint].collision = \
+                    ComposedGeometry((child_bodies[collision.parentJoint].collision, cg))
+                child_bodies[collision.parentJoint]._visual = \
+                    ComposedGeometry((child_bodies[collision.parentJoint].visual, vg))
+                continue
+            inertia = robot.model.inertias[collision.parentJoint]
+            child_bodies[collision.parentJoint] = Body(body_id=collision.name, collision=cg, visual=vg, inertia=inertia)
+
+        # Now, parse the joints
+        for frame in robot.model.frames:
+            if frame.type is pin.FrameType.FIXED_JOINT:
+                parent_joint = frame.parent
+                if parent_joint == 0:
+                    continue
+                parent_body = child_bodies[frame.parent]
+                parent_body.connectors.add(
+                    Connector(frame.name, body2connector=frame.placement.homogeneous, parent=parent_body)
+                )
+            elif frame.type is pin.FrameType.BODY:
+                # Just perform some safety checks. Will add the body later on
+                if not frame.inertia == zero_inertia:
+                    raise ValueError("Unexpected non-zero inertia for a body frame")
+            elif frame.type == pin.FrameType.JOINT:
+                joint_nr = robot.model.getJointId(frame.name)
+                parent_joint = robot.model.parents[joint_nr]
+                nq = robot.model.joints[joint_nr].idx_q
+                assert nq == robot.model.joints[joint_nr].idx_v
+                joints.add(Joint(
+                    joint_id=frame.name,
+                    joint_type=robot.model.joints[frame.parent].shortname(),
+                    parent_body=child_bodies[parent_joint],
+                    child_body=child_bodies[joint_nr],
+                    q_limits=(robot.model.lowerPositionLimit[nq], robot.model.upperPositionLimit[nq]),
+                    velocity_limit=robot.model.velocityLimit[nq],
+                    torque_limit=robot.model.effortLimit[nq],
+                    parent2joint=robot.model.jointPlacements[joint_nr].homogeneous,
+                    gear_ratio=robot.model.rotorGearRatio[nq],
+                    motor_inertia=robot.model.rotorInertia[nq],
+                    friction_coulomb=robot.model.friction[nq],
+                    friction_viscous=robot.model.damping[nq],
+                ))
+
+        # Finally, set the base connector and create the module
+        base_connector = Connector('base', spatial.rotX(-np.pi), parent=child_bodies[0], connector_type='base')
+        child_bodies[0].connectors.add(base_connector)
+        module = AtomicModule(header=ModuleHeader(robot.name, robot.name, datetime.datetime.now()),
+                              bodies=child_bodies.values(),
+                              joints=joints)
+
+        db = ModulesDB((module,))
+        assembly = cls(db, (module.id,))
+        assembly._robot.value = robot  # Saves the computational effort of re-evaluating the robot model
+        return assembly
+
+    @classmethod
     def from_serial_modules(cls, db: ModulesDB, module_chain: Iterable[str]) -> 'ModuleAssembly':
         """
-        This function works on the assumption that the robot modules are arranged in a chain.
+        This function works on the assumption that the assembly modules are arranged in a chain.
 
-        :param db: The database used to build the robot
-        :param module_chain: The series of modules in the robot, referring to the module ids in the db.
+        :param db: The database used to build the assembly
+        :param module_chain: The series of modules in the assembly, referring to the module ids in the db.
         """
         by_id = db.by_id
         assembly = cls(db)
@@ -697,95 +783,13 @@ class ModuleAssembly:
                                         for to_con_id, to_con in assembly.free_connectors.items()
                                         if mod_con.connects(to_con)]
                 if len(possible_connections) != 1:
-                    raise err.InvalidAssemblyError(f"There is no unique way to add {module_instance} to the robot.")
+                    raise err.InvalidAssemblyError(f"There is no unique way to add {module_instance} to the assembly.")
                 connection = possible_connections[0]
                 if connection[3][0] != assembly.internal_module_ids[-1]:
                     raise ValueError("The provided modules do not build a chain, so the ordering is unambiguous.")
                 assembly.add(*connection)
 
         return assembly
-
-    def _assert_is_valid(self):
-        """Sanity checks to ensure the assembly has a unique and well-defined meaning"""
-        no_module_error = "You defined a connection containing module: {} , which is not in module_instances."
-        no_connector_error = "You defined a connection with connector <{}> and module <{}>," \
-                             " which does not contain such a connector."
-        # Modules can appear multiple times in the connections, as they can have multiple connectors, so in this case,
-        # set is the right container and to be preferred over the uniqueness-requiring ModuleSet.
-        seen_modules = set()
-        seen_connectors: ConnectorSet = ConnectorSet()  # Tuples of connectorID-parentID
-        for module in self.module_instances:
-            if module.id not in self._module_copies:
-                assert module in self.db, f"You provided a module that is not in the database: {module}"
-
-        for (mod_a, con_a, mod_b, con_b) in self.connections:
-            # First check that modules and connectors are unique and customize errors if not
-            try:
-                seen_modules.update((mod_a.id, mod_b.id))
-            except err.UniqueValueError:
-                # This also will be raised when mod_a == mod_b -> No self-loops allowed
-                raise err.UniqueValueError(f"There are multiple identical instances of either module {mod_a}"
-                                           f" or module {mod_b} in the assembly.")
-            try:
-                for con in (con_a, con_b):
-                    seen_connectors.add(con)
-            except err.UniqueValueError:
-                raise err.UniqueValueError(f"Connector {con} is used multiple times in the assembly.")
-
-            # Check that the objects in the connections are actually contained in the assembly
-            assert mod_a.id in self.internal_module_ids, no_module_error.format(mod_a)
-            assert mod_b.id in self.internal_module_ids, no_module_error.format(mod_b)
-            assert con_a in mod_a.available_connectors.values(), no_connector_error.format(con_a, mod_a)
-            assert con_b in mod_b.available_connectors.values(), no_connector_error.format(con_b, mod_b)
-            # Check the connection actually works
-            assert con_a.connects(con_b), f"You defined an invalida connection between {con_a} and {con_b}."
-
-        # Lastly, check there are no "loose" modules
-        if len(self.module_instances) > 1 and not len(seen_modules) == len(self.module_instances):
-            raise ValueError(f"Not every module in the assembly seems to be connect!\n"
-                             f"Connected: {len(seen_modules)}\n"
-                             f"Modules in the assembly: {len(self.module_instances)}")
-
-    def _add_module(self, module_id: str, set_base: bool = False) -> int:
-        """
-        Takes modules from a database and ensures duplicate module_ids do not lead to identical module instances.
-
-        The added module is not connected - use self.add() method to properly add a new module from outside this class
-
-        :param module_id: The module id - the right instance will be drawn from the internal db
-        :param set_base: Needs to be set if the first module is added externally to an empty assembly.
-        :return: Returns the module index (as in the internal module order)
-        """
-        if isinstance(module_id, ModuleBase):  # Common error
-            raise ValueError("You provided a Module, but an ID was expected.")
-        db_by_id = self.db.by_id
-        previous_identical = module_id in self.internal_module_ids
-
-        if set_base:
-            module = db_by_id[module_id]
-            if len(self.internal_module_ids) != 0:
-                raise NotImplementedError("Cannot reset the base after having set one already.")
-            base_connectors = [c for c in module.available_connectors.values() if c.type == 'base']
-            if len([c for c in module.available_connectors.values() if c.type == 'base']) != 1:
-                raise err.InvalidAssemblyError(
-                    "A base module needs to have exactly one base connector if added this way.")
-            self._base_connector = base_connectors[0]
-
-        if not previous_identical:
-            self.module_instances.append(db_by_id[module_id])
-        else:
-            i = 1
-            while True:
-                # Find the first free module id + suffix id and add the module as such
-                suffix = f'-{i}'
-                if (module_id + suffix) not in self.internal_module_ids:
-                    new_module = db_by_id[module_id].copy(f'-{i}')
-                    self._module_copies[new_module.id] = module_id
-                    self.module_instances.append(new_module)
-                    break
-                i += 1
-
-        return len(self.module_instances) - 1
 
     @property
     def adjacency_matrix(self) -> np.ndarray:
@@ -806,6 +810,35 @@ class ModuleAssembly:
     def base_connector(self) -> Connector:
         """The first body in the kinematic chain of the robot"""
         return self._base_connector
+
+    @property
+    def assembly_graph(self) -> nx.DiGraph:
+        """
+        Returns a networkx graph representing the internal modules in the assembly on a body, connector and joint level.
+
+        Nodes represent either of (body, joint, connector) while the directed edges define child-parent relations
+        between them with their edge properties containing information about the relative transformation from one of the
+        objects to another.
+        """
+        # TODO: Include the universe in this graph and include checks for connectivity with only 1 module as well
+        if len(self.module_instances) == 1:
+            return self.module_instances[0].module_graph
+
+        G_a = nx.DiGraph()
+        rotX = Transformation(spatial.rotX(np.pi))  # Necessary to align connector coordinate systems
+
+        for mod_a, con_a, mod_b, con_b in self.connections:
+            # First, add the module graphs
+            for u, v, transform in mod_a.module_graph.edges.data('transform'):
+                G_a.add_edge(u, v, transform=transform)
+            for u, v, transform in mod_b.module_graph.edges.data('transform'):
+                G_a.add_edge(u, v, transform=transform)
+
+            # Then, connect the module graphs accordingly
+            G_a.add_edge(con_a, con_b, transform=rotX)
+            G_a.add_edge(con_b, con_a, transform=rotX)
+
+        return G_a
 
     @property
     def free_connectors(self) -> Dict[Tuple[str, str, str], Connector]:
@@ -859,33 +892,21 @@ class ModuleAssembly:
         return len(self.module_instances)
 
     @property
-    def assembly_graph(self) -> nx.DiGraph:
+    def robot(self) -> Robot.PinRobot:
         """
-        Returns a networkx graph representing the internal modules in the assembly on a body, connector and joint level.
+        Returns the robot model for this assembly.
 
-        Nodes represent either of (body, joint, connector) while the directed edges define child-parent relations
-        between them with their edge properties containing information about the relative transformation from one of the
-        objects to another.
+        This property always contains the most up-to-date robot model, so if the assembly changes in between calls, the
+        return will as well. Opposed to the ModuleAssembly itself, the model returned can be used to perform kinematic
+        and dynamic calculations.
+        Be aware that a call to this explicitly creates the robot model of not done so before. Compared to modelling an
+        assembly, this is an expensive operation. (couple of ms for a standard 6-10 module, industrial robot)
         """
-        # TODO: Include the universe in this graph and include checks for connectivity with only 1 module as well
-        if len(self.module_instances) == 1:
-            return self.module_instances[0].module_graph
-
-        G_a = nx.DiGraph()
-        rotX = Transformation(spatial.rotX(np.pi))  # Necessary to align connector coordinate systems
-
-        for mod_a, con_a, mod_b, con_b in self.connections:
-            # First, add the module graphs
-            for u, v, transform in mod_a.module_graph.edges.data('transform'):
-                G_a.add_edge(u, v, transform=transform)
-            for u, v, transform in mod_b.module_graph.edges.data('transform'):
-                G_a.add_edge(u, v, transform=transform)
-
-            # Then, connect the module graphs accordingly
-            G_a.add_edge(con_a, con_b, transform=rotX)
-            G_a.add_edge(con_b, con_a, transform=rotX)
-
-        return G_a
+        from timor.parameterized import ParameterizableModule  # local import necessary to avoid circular imports
+        if any(isinstance(mod, ParameterizableModule) for mod in self.module_instances):
+            logging.info("An assembly with parameterized modules must be re-evaluated every time it is used.")
+            return self._robot.reset()
+        return self._robot()
 
     def add(self,
             new: ModuleBase,
@@ -1052,7 +1073,7 @@ class ModuleAssembly:
                 else:
                     raise NotImplementedError("Graph can only contain bodies, joints and connectors")
 
-        # Now update robot kinematic and collision data
+        # Now update robots kinematic and collision data
         robot._tcp = robot.model.nframes - 1
         robot._update_kinematic()
         robot.set_base_placement(Transformation(base_placement))
@@ -1187,3 +1208,86 @@ class ModuleAssembly:
                 writefile.write(urdf_string)
 
         return urdf_string
+
+    def _add_module(self, module_id: str, set_base: bool = False) -> int:
+        """
+        Takes modules from a database and ensures duplicate module_ids do not lead to identical module instances.
+
+        The added module is not connected - use self.add() method to properly add a new module from outside this class
+
+        :param module_id: The module id - the right instance will be drawn from the internal db
+        :param set_base: Needs to be set if the first module is added externally to an empty assembly.
+        :return: Returns the module index (as in the internal module order)
+        """
+        if isinstance(module_id, ModuleBase):  # Common error
+            raise ValueError("You provided a Module, but an ID was expected.")
+        db_by_id = self.db.by_id
+        previous_identical = module_id in self.internal_module_ids
+
+        if set_base:
+            module = db_by_id[module_id]
+            if len(self.internal_module_ids) != 0:
+                raise NotImplementedError("Cannot reset the base after having set one already.")
+            base_connectors = [c for c in module.available_connectors.values() if c.type == 'base']
+            if len([c for c in module.available_connectors.values() if c.type == 'base']) != 1:
+                raise err.InvalidAssemblyError(
+                    "A base module needs to have exactly one base connector if added this way.")
+            self._base_connector = base_connectors[0]
+
+        if not previous_identical:
+            self.module_instances.append(db_by_id[module_id])
+        else:
+            i = 1
+            while True:
+                # Find the first free module id + suffix id and add the module as such
+                suffix = f'-{i}'
+                if (module_id + suffix) not in self.internal_module_ids:
+                    new_module = db_by_id[module_id].copy(f'-{i}')
+                    self._module_copies[new_module.id] = module_id
+                    self.module_instances.append(new_module)
+                    break
+                i += 1
+
+        self._robot.reset()
+        return len(self.module_instances) - 1
+
+    def _assert_is_valid(self):
+        """Sanity checks to ensure the assembly has a unique and well-defined meaning"""
+        no_module_error = "You defined a connection containing module: {} , which is not in module_instances."
+        no_connector_error = "You defined a connection with connector <{}> and module <{}>," \
+                             " which does not contain such a connector."
+        # Modules can appear multiple times in the connections, as they can have multiple connectors, so in this case,
+        # set is the right container and to be preferred over the uniqueness-requiring ModuleSet.
+        seen_modules = set()
+        seen_connectors: ConnectorSet = ConnectorSet()  # Tuples of connectorID-parentID
+        for module in self.module_instances:
+            if module.id not in self._module_copies:
+                assert module in self.db, f"You provided a module that is not in the database: {module}"
+
+        for (mod_a, con_a, mod_b, con_b) in self.connections:
+            # First check that modules and connectors are unique and customize errors if not
+            try:
+                seen_modules.update((mod_a.id, mod_b.id))
+            except err.UniqueValueError:
+                # This also will be raised when mod_a == mod_b -> No self-loops allowed
+                raise err.UniqueValueError(f"There are multiple identical instances of either module {mod_a}"
+                                           f" or module {mod_b} in the assembly.")
+            try:
+                for con in (con_a, con_b):
+                    seen_connectors.add(con)
+            except err.UniqueValueError:
+                raise err.UniqueValueError(f"Connector {con} is used multiple times in the assembly.")
+
+            # Check that the objects in the connections are actually contained in the assembly
+            assert mod_a.id in self.internal_module_ids, no_module_error.format(mod_a)
+            assert mod_b.id in self.internal_module_ids, no_module_error.format(mod_b)
+            assert con_a in mod_a.available_connectors.values(), no_connector_error.format(con_a, mod_a)
+            assert con_b in mod_b.available_connectors.values(), no_connector_error.format(con_b, mod_b)
+            # Check the connection actually works
+            assert con_a.connects(con_b), f"You defined an invalida connection between {con_a} and {con_b}."
+
+        # Lastly, check there are no "loose" modules
+        if len(self.module_instances) > 1 and not len(seen_modules) == len(self.module_instances):
+            raise ValueError(f"Not every module in the assembly seems to be connect!\n"
+                             f"Connected: {len(seen_modules)}\n"
+                             f"Modules in the assembly: {len(self.module_instances)}")

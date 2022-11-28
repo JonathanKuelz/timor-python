@@ -40,7 +40,7 @@ class HppfclEnumMeta(EnumMeta):
 
 
 class GeometryType(Enum, metaclass=HppfclEnumMeta):
-    """Wraps GeometryTapes in an Enum.
+    """Wraps GeometryTypes in an Enum.
 
     Also contains the custom feature that it can be indexed by hppfcl Geometries due to inheriting from HppfclEnumMeta
     """
@@ -164,6 +164,7 @@ class Geometry(abc.ABC):
         return cls.from_json_data(json.loads(description), package_dir)
 
     @classmethod
+    @abc.abstractmethod
     def from_hppfcl(cls, fcl: hppfcl.CollisionObject) -> Geometry:
         """
         A helper function that transforms a generic hppfcl collision object to an according Geometry instance.
@@ -171,17 +172,31 @@ class Geometry(abc.ABC):
         :param fcl: The hppfcl collision object
         :return: An instance of the according Obstacle class, based on the kind of collision object handed over.
         """
-        if cls is not Geometry:  # Enforce inheritance by children
-            raise NotImplementedError("from_hppfcl not implemented for class {}".format(cls))
 
-        return _geometry_type2class(GeometryType[type(fcl)]).from_hppfcl(fcl)
+    @classmethod
+    def from_pin_geometry(cls, geo: pin.GeometryObject) -> Geometry:
+        """
+        A helper function that transforms a generic pinocchio GeometryObject to an according Geometry instance.
+
+        :param geo: The pinocchio GeometryObject
+        :return: An instance of the according Obstacle class, based on the kind of collision object handed over.
+        """
+        if cls is not Geometry:
+            raise ValueError("Call from_pin_geometry on the Geometry class, not on a subclass.")
+        fcl = geo.geometry
+        will_be_instance_of = _geometry_type2class(GeometryType[type(fcl)])
+        intermediate = will_be_instance_of.from_hppfcl(hppfcl.CollisionObject(fcl, geo.placement.rotation,
+                                                                              geo.placement.translation))
+        if isinstance(intermediate, Mesh):
+            logging.debug("Restoring mesh file information from pinocchio geometry object")
+            intermediate.parameters['file'] = geo.meshPath
+            intermediate.parameters['scale'] = geo.meshScale
+        return intermediate
 
     @property
     def as_hppfcl_collision_object(self) -> Tuple[hppfcl.CollisionObject, ...]:
         """Creates hppfcl CollisionObject(s) at the current pose of self."""
-        if self.collision_geometry:
-            return hppfcl.CollisionObject(self.collision_geometry, self.placement.as_transform3f()),
-        return ()
+        return hppfcl.CollisionObject(self.collision_geometry, self.placement.as_transform3f()),
 
     @property
     def collision_data(self) -> Tuple[Tuple[np.ndarray, hppfcl.CollisionGeometry], ...]:
@@ -242,7 +257,7 @@ class Box(Geometry):
     def from_hppfcl(cls, fcl: hppfcl.CollisionObject) -> Geometry:
         """Wraps a hppfcl Box in a Box instance."""
         x, y, z = [2 * hs for hs in fcl.collisionGeometry().halfSide]
-        return cls({'x': x, 'y': y, 'z': z}, fcl, fcl.getTransform())
+        return cls({'x': x, 'y': y, 'z': z}, fcl.getTransform(), fcl.collisionGeometry())
 
     def _make_collision_geometry(self) -> hppfcl.CollisionGeometry:
         """A hppfcl box is centered in the symmetry axes of the box defined by width, height, depth"""
@@ -302,7 +317,7 @@ class Cylinder(Geometry):
         """Wraps a hppfcl Cylinder in a Cylinder instance."""
         r = fcl.collisionGeometry().radius
         z = fcl.collisionGeometry().halfLength * 2
-        return cls({'r': r, 'z': z}, fcl, fcl.getTransform())
+        return cls({'r': r, 'z': z}, fcl.getTransform(), fcl.collisionGeometry())
 
     def _make_collision_geometry(self) -> hppfcl.CollisionGeometry:
         """
@@ -357,7 +372,7 @@ class Sphere(Geometry):
     def from_hppfcl(cls, fcl: hppfcl.CollisionObject) -> Geometry:
         """Wraps a hppfcl Sphere in a Sphere instance."""
         r = fcl.collisionGeometry().radius
-        return cls({'r': r}, fcl, fcl.getTransform())
+        return cls({'r': r}, fcl.getTransform(), fcl.collisionGeometry())
 
     def _make_collision_geometry(self) -> hppfcl.CollisionGeometry:
         """A hppfcl sphere is centered in the symmetry axes of the sphere defined by radius"""
@@ -405,7 +420,8 @@ class Mesh(Geometry):
     @classmethod
     def from_hppfcl(cls, fcl: hppfcl.CollisionObject) -> Geometry:
         """Wraps a hppfcl Mesh in a Mesh instance."""
-        return cls({'file': 0}, fcl, fcl.getTransform())  # TODO: File from hppfcl!
+        logging.debug("Creating mesh from hppfcl, will lose possible file location information")
+        return cls({'file': '', 'package_dir': ''}, fcl.getTransform(), fcl.collisionGeometry())
 
     @staticmethod
     def read_wrl(file: Path) -> Tuple[Tuple[np.ndarray, ...], Tuple[np.ndarray, ...]]:
@@ -597,6 +613,11 @@ class EmptyGeometry(Geometry):
         parameters = dict()
         super().__init__(parameters, pose, hppfcl_representation)
 
+    @classmethod
+    def from_hppfcl(cls, fcl: hppfcl.CollisionObject) -> Geometry:
+        """This method is not implemented as it is not necessary."""
+        raise NotImplementedError("Empty geometries are not loaded from hppfcl.")
+
     @property
     def parameters(self) -> Dict[str, Union[float, str]]:
         """No Geometry, no parameters."""
@@ -606,6 +627,11 @@ class EmptyGeometry(Geometry):
     def parameters(self, parameters: Dict[str, any]):
         """No Geometry, no parameters."""
         pass
+
+    @property
+    def as_hppfcl_collision_object(self) -> Tuple[hppfcl.CollisionObject, ...]:
+        """An empty geometry does not have a collision object."""
+        return ()
 
     @property
     def collision_data(self) -> Tuple[Tuple[np.ndarray, hppfcl.CollisionGeometry], ...]:

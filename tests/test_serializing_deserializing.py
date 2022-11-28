@@ -12,9 +12,10 @@ import pinocchio as pin
 
 from timor import Geometry, Transformation
 from timor import Robot
-from timor.Module import ModuleAssembly
+from timor.Module import ModuleAssembly, ModulesDB
 from timor.task import Constraints, Obstacle, Task, Tolerance
 from timor.utilities import file_locations, prebuilt_robots, logging
+from timor.utilities.file_locations import get_module_db_files
 from timor.utilities.tolerated_pose import ToleratedPose
 
 
@@ -75,6 +76,22 @@ def pin_models_functionally_equal(m1: pin.Model, m2: pin.Model) -> bool:
         tuple(m1.joints) == tuple(m2.joints)
     ))
     return all(checks)
+
+
+def robot_io_equal(m1: Robot.PinRobot, m2: Robot.PinRobot, n_iter: int = 1000) -> bool:
+    """
+    Make sure two robots behave the same way in kinematics and dynamics
+    """
+    for _ in range(n_iter):
+        q, dq, ddq = m1.random_configuration(), m1.random_configuration(), m1.random_configuration()
+        wrench = np.random.random((6,))
+        if not all((allclose(m1.id(q, dq, ddq), m2.id(q, dq, ddq)),
+                    allclose(m1.id(q, dq, ddq, eef_wrench=wrench), m2.id(q, dq, ddq, eef_wrench=wrench)),
+                    m1.fk(q) == m2.fk(q),
+                    allclose(m1.fd(ddq, q, dq), m2.fd(ddq, q, dq)))):
+            print(f"Discrepancy for q = {q}, dq = {dq}, ddq / tau = {ddq}, wrench = {wrench}")
+            return False
+    return True
 
 
 def _pin_geometry_objects_functionally_equal(o1: pin.GeometryObject, o2: pin.GeometryObject) -> bool:
@@ -147,7 +164,7 @@ def pin_geometry_models_functionally_equal(r1: Robot.RobotBase, r2: Robot.RobotB
     return difference / iterations
 
 
-class JsonSerializationTests(unittest.TestCase):
+class SerializationTests(unittest.TestCase):
     """Tests all relevant json (de)serialization methods"""
 
     def setUp(self) -> None:
@@ -225,13 +242,6 @@ class JsonSerializationTests(unittest.TestCase):
                 self.assertEqual(set(type(c) for c in task.constraints),
                                  set(type(c) for c in another_copy.constraints))
 
-    def test_cost_function_to_json(self):
-        pass
-
-    def test_solution_to_json(self):
-        # TODO Read sample solutions and make sure mostly same if dumped again
-        pass
-
     def test_pickle_robot(self):
         """Tests whether the kinematic model remains when pickling - geometry cannot be preserved at the moment"""
         pickled = pickle.dumps(self.robot)
@@ -283,6 +293,41 @@ class JsonSerializationTests(unittest.TestCase):
                     np_test.assert_array_equal(new.__dict__[key], tolerance.__dict__[key])
                 else:
                     self.assertEqual(new.__dict__[key], tolerance.__dict__[key])
+
+    def test_wrap_monolithic_robot(self):
+        panda = self.robot
+        as_assembly = ModuleAssembly.from_monolithic_robot(panda)
+        self.assertIs(panda, as_assembly.robot)
+
+        fresh_robot = as_assembly.to_pin_robot()
+        self.assertTrue(pin_models_functionally_equal(panda.model, fresh_robot.model))
+        self.assertTrue(robot_io_equal(panda, fresh_robot))
+        self.assertLess(pin_geometry_models_functionally_equal(panda, fresh_robot, iterations=1000), 0.01)
+        self.assertTrue(pin_geometry_models_structurally_equal(panda.visual, fresh_robot.visual))
+
+        # For the last check, we need to parse collision pairs as we do for URDFs
+        fresh_robot = as_assembly.to_pin_robot(collisions_between_neighboring_bodies=True)
+        fresh_robot._remove_home_collisions()
+        self.assertTrue(pin_geometry_models_structurally_equal(panda.collision, fresh_robot.collision))
+
+        modular = prebuilt_robots.get_six_axis_modrob()
+        as_assembly = ModuleAssembly.from_monolithic_robot(modular)
+        self.assertIs(modular, as_assembly.robot)
+        self.assertTrue(pin_models_functionally_equal(modular.model, as_assembly.robot.model))
+        self.assertTrue(robot_io_equal(panda, fresh_robot))
+        self.assertLess(pin_geometry_models_functionally_equal(modular, as_assembly.robot, iterations=1000), 0.01)
+        self.assertTrue(pin_geometry_models_structurally_equal(modular.visual, as_assembly.robot.visual))
+
+        # Test with more complex modular robot that also has joint inertias / friction / ...
+        modular_complex = ModuleAssembly.from_serial_modules(
+            ModulesDB.from_file(*get_module_db_files('IMPROV')),
+            ["1", "21", "14", "21", "14", "23", "13"]
+        ).robot
+        fresh_robot = ModuleAssembly.from_monolithic_robot(modular_complex).robot
+        self.assertTrue(pin_models_functionally_equal(modular_complex.model, fresh_robot.model))
+        self.assertTrue(robot_io_equal(modular_complex, fresh_robot))
+        self.assertLess(pin_geometry_models_functionally_equal(modular_complex, fresh_robot, iterations=1000), 0.01)
+        self.assertTrue(pin_geometry_models_structurally_equal(modular_complex.visual, fresh_robot.visual))
 
 
 if __name__ == '__main__':
