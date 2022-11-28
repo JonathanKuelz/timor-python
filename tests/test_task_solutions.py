@@ -7,7 +7,7 @@ import unittest
 import numpy as np
 import pinocchio as pin
 
-from timor import Robot
+from timor import ModuleAssembly, Robot
 from timor.task import Constraints, CostFunctions, Goals, Solution, Task, Tolerance
 from timor.utilities import dtypes, prebuilt_robots, spatial
 from timor.utilities.file_locations import get_test_tasks, robots
@@ -61,7 +61,8 @@ class TestSolution(unittest.TestCase):
         solution_header = Solution.SolutionHeader(task.id)
         cost_function = CostFunctions.CycleTime()
         solution = Solution.SolutionTrajectory(easy_trajectory, solution_header, task=task,
-                                               robot=panda, cost_function=cost_function)
+                                               assembly=ModuleAssembly.from_monolithic_robot(panda),
+                                               cost_function=cost_function)
 
         self.assertTrue(solution.valid)
         solution._valid.value = None  # Dirty but quick reset of solution
@@ -161,9 +162,11 @@ class TestSolution(unittest.TestCase):
             good_trajectory.goals = {pause_goal.id: t_end}
 
             valid = Solution.SolutionTrajectory(good_trajectory, {'taskID': task.id}, task=task,
-                                                robot=robot, cost_function=cost_function)
+                                                assembly=ModuleAssembly.from_monolithic_robot(robot),
+                                                cost_function=cost_function)
             invalid = Solution.SolutionTrajectory(bad_trajectory, {'taskID': task.id}, task=task,
-                                                  robot=robot, cost_function=cost_function)
+                                                  assembly=ModuleAssembly.from_monolithic_robot(robot),
+                                                  cost_function=cost_function)
 
             self.assertTrue(pause_goal.achieved(valid))
             self.assertFalse(pause_goal.achieved(invalid))
@@ -173,7 +176,8 @@ class TestSolution(unittest.TestCase):
             bad_trajectory_to_short = dtypes.Trajectory.stationary(np.zeros(q_array_shape), 0.9 * pause_goal.duration)
             bad_trajectory_to_short.goals = {pause_goal.id: bad_trajectory_to_short.t[-1]}
             invalid_too_short = Solution.SolutionTrajectory(bad_trajectory_to_short, {'taskID': task.id},
-                                                            task=task, robot=robot, cost_function=cost_function)
+                                                            task=task, cost_function=cost_function,
+                                                            assembly=ModuleAssembly.from_monolithic_robot(robot))
             self.assertFalse(pause_goal.achieved(invalid_too_short))
 
     def test_instantiation(self):
@@ -210,7 +214,7 @@ class TestSolution(unittest.TestCase):
         random_solution = Solution.SolutionTrajectory(random_trajectory,
                                                       self.solution_header,
                                                       task,
-                                                      self.robot,
+                                                      ModuleAssembly.from_monolithic_robot(self.robot),
                                                       cost_whitman)
 
         # Make sure lazy variables are not evaluated without explicitly calling them

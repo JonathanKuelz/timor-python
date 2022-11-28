@@ -170,7 +170,7 @@ class GoalOrderConstraint(ConstraintBase):
 
 
 class JointLimits(ConstraintBase):
-    """Holds constraints on the robot's (hardware) limits like position, velocity, torques, etc."""
+    """Holds constraints on the robots (hardware) limits like position, velocity, torques, etc."""
 
     robot_limit_types = ('q', 'dq', 'ddq', 'tau')
     _robot_attributs = ('joint_limits', 'joint_velocity_limits', 'joint_acceleration_limits', 'joint_torque_limits')

@@ -29,6 +29,10 @@ class TimorJointType(Enum):
     prismatic_passive = 2
     fixed = 3
 
+    # Pin Aliases
+    JointModelRZ = 0
+    JointModelPZ = 1
+
     def __str__(self) -> str:
         """Ensures defined string casting behavior when storing a joint of a certain type as json"""
         defaults = {0: 'revolute', 1: 'prismatic', 2: 'passive', 3: 'fixed'}
@@ -64,7 +68,7 @@ class Joint:
         """
         Holds all important joint meta-information. Not intended for calculations (kinematics / dynamics).
 
-        :param joint_id: Unique joint identifier. Has to be unique within each module set or robot it is in,
+        :param joint_id: Unique joint identifier. Has to be unique within each module set or assembly it is in,
         :param parent_body: The body the joint is attached to
         :param child_body: The child body that is attached to the joint
         :param in_module: The parent module this Joint belongs to
@@ -231,7 +235,7 @@ class Joint:
 
     @property
     def pin_joint_kwargs(self) -> Dict:
-        """Provides the key word arguments needed when adding a new joint to a pin robot"""
+        """Provides the key word arguments needed when adding a new joint to a pin robot."""
         return {
             'joint_placement': pin.SE3.Identity(),
             'joint_name': '.'.join(self.id),

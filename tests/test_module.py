@@ -6,7 +6,7 @@ import networkx as nx
 import numpy as np
 import pinocchio as pin
 
-from timor import Bodies, Body, Connector, ModuleAssembly, TimorJointType, Transformation
+from timor import Bodies, Body, TimorJointType, Transformation
 from timor import Geometry
 from timor import Joints
 from timor import AtomicModule, ModuleHeader, ModulesDB
@@ -318,48 +318,6 @@ class TestModule(unittest.TestCase):
             orthogonal.freeze()
         orthogonal.resize((1, 2, 3))
         self.assertIsInstance(orthogonal.proximal_link.freeze(), Body)
-
-    def test_parameterizable_assembly(self):
-        """Tests assemblies containing at least on parameterizable module."""
-        base_header = ModuleHeader('B', 'Base')
-        cyl_header = ModuleHeader('cylinder', 'cylinder')
-        l_header = ModuleHeader('L', 'orthogonal link')
-        straight_header = ModuleHeader('J1', 'Straight Prismatic Joint')
-        orthogonal_header = ModuleHeader('J2', 'Orthogonal Revolute Joint')
-        box = Geometry.Box({'x': .5, 'y': .5, 'z': .1})
-        base_cons = (
-            Connector('world', spatial.rotX(np.pi), gender='male', connector_type='base'),
-            Connector('out', Transformation.from_translation([0, 0, .1 / 2]), gender='male')
-        )
-        base_body = Body('base_body', box, connectors=base_cons)
-        base = AtomicModule(base_header, bodies=(base_body,))
-        cylinder = ParameterizedCylinderLink(cyl_header)
-        l_shaped = ParameterizedOrthogonalLink(l_header, lengths=(1, 3), radius=.2)
-        straight = ParameterizedStraightJoint(straight_header, radius=.1, joint_type=TimorJointType.prismatic)
-        orthogonal = ParameterizedOrthogonalJoint(orthogonal_header, radius=.1, joint_type=TimorJointType.revolute)
-
-        db = ModulesDB((base, cylinder, l_shaped, straight, orthogonal))
-
-        assembly = ModuleAssembly.from_serial_modules(db, ('B', 'cylinder', 'J1', 'L', 'J2'))
-        Gmod = assembly.graph_of_modules
-        self.assertTrue(nx.is_connected(Gmod))
-        Ga = assembly.assembly_graph
-        self.assertTrue(nx.is_weakly_connected(Ga))
-
-        rob = assembly.to_pin_robot()
-        self.assertAlmostEqual(rob.mass, assembly.mass)
-
-        fk = rob.fk()
-        move_up = .3
-        rob.update_configuration(np.array((move_up, 0)))
-        self.assertAlmostEqual(fk[2, 3], rob.fk()[2, 3] - move_up)
-        self.assertTrue(np.all(fk[:2, 3] == rob.fk()[:2, 3]))
-        self.assertTrue(np.all(fk[:3, :3] == rob.fk()[:3, :3]))
-
-        rob.update_configuration(np.array((0, np.pi)))
-        self.assertAlmostEqual(fk[0, 3], rob.fk()[0, 3])
-        self.assertAlmostEqual(fk[1, 3], rob.fk()[1, 3])
-        self.assertAlmostEqual(fk[2, 3] + orthogonal.l2 * 2, rob.fk()[2, 3])
 
 
 if __name__ == '__main__':

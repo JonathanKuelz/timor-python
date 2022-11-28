@@ -13,7 +13,7 @@ from timor.utilities.file_locations import get_module_db_files
 
 def random_assembly(n_joints: int, modules_file: Path, package: Path) -> Module.ModuleAssembly:
     """
-    Creates a random robot from modules.
+    Creates a random assembly from modules.
 
     The number of modules will be n_joints * 2 + 1 (base) (possibly one less if eef cannot connect)
 

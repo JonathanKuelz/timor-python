@@ -36,12 +36,12 @@ class SolutionHeader(TypedHeader):
 
 
 class SolutionBase(abc.ABC):
-    """A solution describes a robot and a trajectory it follows in order to reach all goals in a task"""
+    """A solution describes an assembly and a trajectory it follows in order to reach all goals in a task"""
 
     def __init__(self,
                  header: Union[Dict, SolutionHeader],
                  task: 'Task.Task',
-                 robot: RobotBase,
+                 assembly: ModuleAssembly,
                  cost_function: 'CostFunctions.CostFunctionBase',
                  base_pose: TransformationLike = Transformation.neutral(),
                  ):
@@ -51,18 +51,18 @@ class SolutionBase(abc.ABC):
         :param header: The header of the solution, containing information about the task it was crafted for and
             some more distinctive meta-information.
         :param task: The task the solution was crafted for
-        :param robot: The robot that solves the task
+        :param assembly: The assembly that solves the task
         :param cost_function: The cost function used to evaluate the solution (usually the lower, the better)
-        :param base_pose: The base placement of the robot
+        :param base_pose: The base placement of the assembly
         """
         self.header: SolutionHeader = header if isinstance(header, SolutionHeader) else SolutionHeader(**header)
         self.cost_function: 'CostFunctions.CostFunctionBase' = cost_function
+        self._module_assembly: ModuleAssembly = assembly
+        self._base_pose: Transformation = Transformation(base_pose)
         self._cost: Union[Lazy, bool] = Lazy(self._evaluate_cost)
         self._valid: Union[Lazy, bool] = Lazy(self._check_valid)  # Will be evaluated when needed only
-
         self._task: 'Task.Task' = task
-        robot.set_base_placement(base_pose)
-        self._robot: RobotBase = robot
+        self.robot.set_base_placement(base_pose)
 
     def __str__(self):
         """String representation of the solution"""
@@ -86,22 +86,21 @@ class SolutionBase(abc.ABC):
         if 'moduleOrder' in content:
             warnings.warn("Module Order should be replaced by proper module arrangement definition",
                           DeprecationWarning)
-            robot = ModuleAssembly.from_serial_modules(db, tuple(map(str, content['moduleOrder'])))
+            assembly = ModuleAssembly.from_serial_modules(db, tuple(map(str, content['moduleOrder'])))
         else:
-            robot = ModuleAssembly(db)
+            assembly = ModuleAssembly(db)
 
-        robot = robot.to_pin_robot()
         cost_func = CostFunctions.CostFunctionBase.from_descriptor(content["costFunction"])
         base_pose = np.array(content['basePose'])
         if len(base_pose) > 1:
-            raise ValueError("Cannot handle robot with multiple bases")
+            raise ValueError("Cannot handle assembly with multiple bases")
         base_pose = base_pose[0]
 
         if 'trajectory' in content:
             _trajectory = fuzzy_dict_key_matching(content['trajectory'], {'goal2time': 'goals'},
                                                   desired_only=tuple(Trajectory.__dataclass_fields__.keys()))
             trajectory = Trajectory(**_trajectory)
-            return SolutionTrajectory(trajectory, header, sol_task, robot, cost_func, base_pose)
+            return SolutionTrajectory(trajectory, header, sol_task, assembly, cost_func, base_pose)
         else:
             raise NotImplementedError("Only trajectory from json so far ")
 
@@ -112,6 +111,11 @@ class SolutionBase(abc.ABC):
     def to_json_string(self) -> str:
         """Convert the solution to a json string"""
         return json.dumps(self.to_json_data(), indent=2)
+
+    @property
+    def module_assembly(self) -> ModuleAssembly:
+        """The robot / module assembly set to solve this task."""
+        return self._module_assembly
 
     @property
     def cost(self) -> float:
@@ -134,9 +138,10 @@ class SolutionBase(abc.ABC):
         return self.task.header.timeStepSize
 
     @property
-    def robot(self):
-        """Prevent setting robot directly"""
-        return self._robot
+    def robot(self) -> RobotBase:
+        """Provide read access to the robot. This call might be expensive, depending on whether the robot is cached."""
+        self._module_assembly.robot.set_base_placement(self._base_pose)
+        return self._module_assembly.robot
 
     @property
     def task(self):
@@ -276,7 +281,7 @@ class SolutionTrajectory(SolutionBase):
                  trajectory: Trajectory,
                  header: Union[Dict, SolutionHeader],
                  task: 'Task.Task',
-                 robot: RobotBase,
+                 assembly: ModuleAssembly,
                  cost_function: 'CostFunctions.CostFunctionBase',
                  base_pose: TransformationLike = Transformation.neutral(),
                  ):
@@ -285,11 +290,11 @@ class SolutionTrajectory(SolutionBase):
         :param trajectory: The solution trajectory
         :param header: The header of the solution
         :param task: The task that the solution belongs to
-        :param robot: The robot that performs the given trajectory
+        :param assembly: The assembly of modules representing the assembly that performs the given trajectory
         :param cost_function: The cost function that should be used to evaluate the solution
-        :param base_pose: The base placement of the robot
+        :param base_pose: The base placement of the assembly
         """
-        super().__init__(header, task, robot, cost_function, base_pose)
+        super().__init__(header, task, assembly, cost_function, base_pose)
         self.trajectory: Trajectory = trajectory
         self._torques = Lazy(self._get_torques)
 
