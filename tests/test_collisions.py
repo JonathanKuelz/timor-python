@@ -1,3 +1,4 @@
+import logging
 import random
 from time import time
 import unittest
@@ -9,7 +10,7 @@ from timor import ModuleAssembly, ModulesDB, PinRobot
 from timor.Geometry import Sphere
 from timor.task.Obstacle import Obstacle
 from timor.task.Task import Task, TaskHeader
-from timor.utilities import spatial
+from timor.utilities import prebuilt_robots, spatial
 from timor.utilities.file_locations import get_module_db_files, robots
 
 
@@ -25,11 +26,14 @@ class TestCollisionUtilities(unittest.TestCase):
         np.random.seed(123)
 
     def test_assembly_to_robot_collisions(self):
-        modules = ('base', 'J2', 'i_30', 'J1', 'l_15', 'eef')
-        assembly = ModuleAssembly.from_serial_modules(self.modules, modules)
+        improv_db = ModulesDB.from_file(*prebuilt_robots.get_module_db_files('IMPROV'))
+        improv_assembly = ModuleAssembly.from_serial_modules(improv_db, ('1', '21', '4', '21', '5', '23', '7', '12'))
 
-        robot_colliding = assembly.to_pin_robot(collisions_between_neighboring_bodies=True)
-        robot_functional = assembly.to_pin_robot(collisions_between_neighboring_bodies=False)
+        simple_modules = ('base', 'J2', 'i_30', 'J1', 'l_15', 'eef')
+        simple_assembly = ModuleAssembly.from_serial_modules(self.modules, simple_modules)
+
+        robot_colliding = simple_assembly.to_pin_robot(ignore_collisions='rigid')
+        robot_functional = simple_assembly.to_pin_robot(ignore_collisions='via_joint')
 
         self.assertTrue(robot_colliding.has_self_collision())
         self.assertFalse(robot_functional.has_self_collision())
@@ -37,6 +41,30 @@ class TestCollisionUtilities(unittest.TestCase):
             q = robot_colliding.random_configuration()
             robot_colliding.update_configuration(q)
             self.assertTrue(robot_colliding.has_self_collision())
+
+        # The IMPROV module set requires the "multi_joint" collision mode to move to collision free configurations
+        robot_all = improv_assembly.to_pin_robot(ignore_collisions='rigid')
+        robot_neighbor = improv_assembly.to_pin_robot(ignore_collisions='via_joint')
+        robot_no_collisions = improv_assembly.to_pin_robot(ignore_collisions='rigid_via_joint')
+
+        known_collision_free = (  # Some poses that should be collision free judging from the plots
+            np.zeros(robot_all.njoints),
+            np.array((0, 0, np.pi / 2, 0, 0, -np.pi / 2)),
+            np.array((0, -np.pi / 4, np.pi / 8, np.pi / 8, -np.pi / 6, 0))
+        )
+        for conf in known_collision_free:
+            # Make sure the "multi_joint" mode is necessary and working
+            self.assertTrue(robot_all.has_self_collision(conf))
+            self.assertTrue(robot_neighbor.has_self_collision(conf))
+            self.assertFalse(robot_no_collisions.has_self_collision(conf))
+
+        # Make sure there still are possibilities to collide for the no_collision robot
+        for i in range(1000):
+            if robot_no_collisions.has_self_collision(robot_no_collisions.random_configuration()):
+                logging.debug("Found a self collision after {} iterations.".format(i))
+                break
+        else:
+            self.assertTrue(False, "No self collision found after 1000 iterations.")
 
     def test_robot_self_collision(self):
         self.assertFalse(self.robot.has_self_collision())
