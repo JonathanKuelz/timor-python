@@ -89,7 +89,7 @@ def robot_io_equal(m1: Robot.PinRobot, m2: Robot.PinRobot, n_iter: int = 1000) -
                     allclose(m1.id(q, dq, ddq, eef_wrench=wrench), m2.id(q, dq, ddq, eef_wrench=wrench)),
                     m1.fk(q) == m2.fk(q),
                     allclose(m1.fd(ddq, q, dq), m2.fd(ddq, q, dq)))):
-            print(f"Discrepancy for q = {q}, dq = {dq}, ddq / tau = {ddq}, wrench = {wrench}")
+            logging.warn(f"Discrepancy for q = {q}, dq = {dq}, ddq / tau = {ddq}, wrench = {wrench}")
             return False
     return True
 
@@ -211,7 +211,7 @@ class SerializationTests(unittest.TestCase):
                 tmp_urdf.flush()
                 r2 = Robot.PinRobot.from_urdf(Path(tmp_urdf.name), db_assets)
                 self.assertTrue(pin_models_functionally_equal(r1.model, r2.model))
-                self.assertLess(pin_geometry_models_functionally_equal(r1, r2), 0.1,
+                self.assertLess(pin_geometry_models_functionally_equal(r1, r2), 0.01,
                                 msg=f"Varying self-collisions for assembly {assembly}")
                 self.assertTrue(pin_geometry_models_structurally_equal(r1.visual, r2.visual))
 
@@ -306,7 +306,7 @@ class SerializationTests(unittest.TestCase):
         self.assertTrue(pin_geometry_models_structurally_equal(panda.visual, fresh_robot.visual))
 
         # For the last check, we need to parse collision pairs as we do for URDFs
-        fresh_robot = as_assembly.to_pin_robot(collisions_between_neighboring_bodies=True)
+        fresh_robot = as_assembly.to_pin_robot(ignore_collisions='rigid')
         fresh_robot._remove_home_collisions()
         self.assertTrue(pin_geometry_models_structurally_equal(panda.collision, fresh_robot.collision))
 

@@ -993,20 +993,28 @@ class ModuleAssembly:
     def to_pin_robot(self,
                      base_placement: TransformationLike = Transformation.neutral(),
                      add_com_frames: bool = False,
-                     collisions_between_neighboring_bodies: bool = False) -> Robot.PinRobot:
+                     ignore_collisions: str = 'via_joint') -> Robot.PinRobot:
         """
         Creates a pinocchio robot from a module tree
 
         :param base_placement: placement for the (single) base connector as 4x4 hom. transformation
         :param add_com_frames: Add frames for the center of mass of each Body
-        :param collisions_between_neighboring_bodies: If True, any two bodies in the resulting robot can collide as long
-            as they are not rigidly connected. If false, bodies connected only by a joint are not checked for
-            collisions. The latter one allows defining overlapping geometries, but in that case collision-safety must be
-            provided by joint limits.
+        :param ignore_collisions: Should be one of 'rigid', 'via_joint' or 'rigid_via_joint'. This argument defines,
+            which pairs of bodies of the robot are IGNORED when checking for collisions. All possible collision pairs
+            that are not explicitly ignored will be checked for - the following list provides details:
+
+            * all: All bodies can collide as long as they are not rigidly connected
+            * no_neighbors: Two bodies that are directly connected by a joint cannot collide
+            * multi_joint: Only bodies with 2 or more joints in between them can collide - in other words: Any number of
+            body-connector pairs can form a rigid connection. Rigid connections that are directly connected by a joint
+            cannot collide
+
         :return: pinocchio robot for this assembly
         """
         if len(self.module_instances) == 0:
             raise ValueError("Cannot create a robot model from an empty assembly!")
+        if ignore_collisions not in ['rigid', 'via_joint', 'rigid_via_joint']:
+            raise ValueError("Invalid collision mode: " + ignore_collisions)
         G = self.assembly_graph
         edges = self.assembly_graph.edges
         robot = Robot.PinRobot(wrapper=pin.RobotWrapper(pin.Model()))
@@ -1021,7 +1029,7 @@ class ModuleAssembly:
                                                    pin.FrameType.OP_FRAME)
                                          )
 
-        # work with np, not with transformations - pin needs np anyways
+        # work with np, not with transformations - pin needs np anyway
         transforms: Dict[Tuple[str, ...], np.ndarray] = {self.base_connector.id: spatial.rotX(np.pi)}
         frames = {self.base_connector.id: new_frame}
         for node, successors in nx.bfs_successors(G, self.base_connector):
@@ -1078,19 +1086,30 @@ class ModuleAssembly:
         robot._update_kinematic()
         robot.set_base_placement(Transformation(base_placement))
 
-        if not collisions_between_neighboring_bodies:
+        if ignore_collisions != 'rigid':  # Remove collision pairs depending on the collision mode
+            bodies = [node for node in G.nodes if isinstance(node, Body)]
             # Remove collisions between bodies connected by a joint
             neighbors_to_clean = set()
-            for node in G.nodes:
-                for neighbor in G.neighbors(node):
-                    if isinstance(neighbor, Joint):
-                        for potential_remove in G.neighbors(neighbor):
-                            if isinstance(potential_remove, Body) and not (potential_remove is node):
-                                neighbors_to_clean.add((node.id, potential_remove.id))
-                                logging.debug(f"Removing body pair ({node.id}, {potential_remove.id}) from collisions")
+            for first, second in itertools.combinations(bodies, 2):
+                remove = False
+                paths = tuple(nx.all_simple_paths(G, first, second))
+                n_joints = tuple(sum(isinstance(node, Joint) for node in path) for path in paths)
+                if min(n_joints) == 1:  # If n_joints = 0, "collisions" would be ignored anyway
+                    if ignore_collisions == 'rigid_via_joint':
+                        remove = True
+                    else:
+                        # We have to check whether the paths with one joint only are of the form body-joint-body
+                        node_types = tuple(tuple(type(node) for node in p) for p, n_joint in
+                                           zip(paths, n_joints) if n_joint <= 1)
+                        target_types = (Body, Joint, Body)
+                        remove = any(t == target_types for t in node_types)
+                if remove:
+                    neighbors_to_clean.add((first.id, second.id))
+                    logging.debug(f"Removing body pair ({first.id}, {second.id}) from collisions")
+
             cps_to_remove = list()
             for b1, b2 in neighbors_to_clean:
-                cps_to_remove.extend([[first, second] for first, second in itertools.product(
+                cps_to_remove.extend([sorted([first, second]) for first, second in itertools.product(
                     body_collision_geometries[b1], body_collision_geometries[b2])])
 
             original = robot.collision_pairs
