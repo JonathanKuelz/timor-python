@@ -783,7 +783,10 @@ class PinRobot(RobotBase):
 
         rot_join_mask = np.array([jnt.shortname() == 'JointModelRZ' for jnt in self.model.joints[1:]])
         if q_init is None:
-            q = self.configuration
+            # Find an initial guess for the solution where the robot is close to the desired point in space
+            candidates = [self.configuration] + [self.random_configuration() for _ in range(4)]
+            distances = [self.fk(cand).distance(eef_pose.nominal).translation_euclidean for cand in candidates]
+            q = candidates[np.argmin(distances)]
         else:
             q = q_init
         joint_idx_pin = self.model.frames[self.tcp].parent
@@ -832,21 +835,23 @@ class PinRobot(RobotBase):
                 return self.ik_jacobian(eef_pose, self.random_configuration(), gain, damp, max_iter - i, kind, **kwargs)
             i += 1
             if i >= max_iter:
-                success = False
-                q = closest_translation.q
-                break
+                logging.debug(f"Jacobian ik not successful due to reaching the maximum number of iterations {i}")
+                logging.debug("Returning partial/closest solution.")
+                return closest_translation.q, False
 
         if not self.q_in_joint_limits(q):
             q[rot_join_mask] = spatial.rotation_in_bounds(q[rot_join_mask], self.joint_limits[:, rot_join_mask])
             if self.q_in_joint_limits(q):
                 # We're good to go
-                logging.debug("Successfully mapped ik result to (-pi, pi]")
+                logging.debug("Successfully mapped ik result to the robot joint limits")
             elif i < max_iter:
                 # Give it another try, starting from a different configuration
                 i += 1
                 logging.info("IK was out of joint limits, re-try")
                 kwargs['closest_translation_q'] = closest_translation
                 return self.ik_jacobian(eef_pose, self.random_configuration(), gain, damp, max_iter - i, kind, **kwargs)
+            else:
+                logging.debug("IK was out of joint limits, but we're out of iterations")
 
         if self.has_self_collision(q):
             logging.info("IK solution had self-collisions, re-try")
@@ -857,9 +862,9 @@ class PinRobot(RobotBase):
                 i += 1
                 kwargs['closest_translation_q'] = closest_translation
                 return self.ik_jacobian(eef_pose, self.random_configuration(), gain, damp, max_iter - i, kind, **kwargs)
+            logging.debug("Jacobian ik not successful after maximum number of iterations, fails with self collision.")
             success = False
-
-        if 'task' in kwargs and self.has_collisions(kwargs['task']):
+        elif 'task' in kwargs and self.has_collisions(kwargs['task']):
             logging.info("IK solution collides with environment, re-try")
             if i < max_iter:
                 # Give it another try, starting from a different configuration
@@ -867,13 +872,10 @@ class PinRobot(RobotBase):
                 logging.debug("Keep the previously best q, but without checking for environment collisions.")
                 kwargs['closest_translation_q'] = closest_translation
                 return self.ik_jacobian(eef_pose, self.random_configuration(), gain, damp, max_iter - i, kind, **kwargs)
+            logging.debug("Jacobian ik not successful after maximum number of iterations, fails due to collision.")
             success = False
 
-        if success:
-            logging.debug(f"Jacobian ik successful after {i} iterations")
-        else:
-            logging.debug(f"Jacobian ik not successful due to reaching the maximum number of iterations {i}")
-
+        logging.debug(f"Jacobian ik successful after {i} iterations")
         return q, success
 
     def move(self, displacement: TransformationLike):

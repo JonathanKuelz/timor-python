@@ -156,6 +156,7 @@ class PinocchioRobotSetup(unittest.TestCase):
             else:
                 error_count['scipy'] += 1
 
+            robot.update_configuration(pin.neutral(robot.model))  # Prevent using the scipy result as initial guess
             conf, success = robot.ik_jacobian(ToleratedPose(goal, jacobian_tolerance))
             if success:
                 np_test.assert_array_almost_equal(goal.homogeneous, robot.fk(conf).homogeneous, decimal=2)
@@ -201,6 +202,11 @@ class PinocchioRobotSetup(unittest.TestCase):
             displacement.homogeneous @ robot_default.fk(conf, 'tcp').homogeneous,
             robot_moved.fk(conf, 'tcp').homogeneous
         )
+
+    def test_robot_random_conf(self):
+        robot = PinRobot.from_urdf(self.urdf, self.package_dir)
+        for _ in range(1000):
+            self.assertTrue(robot.q_in_joint_limits(robot.random_configuration()))
 
     def test_robot_viz(self):
         wrapper = pin.RobotWrapper.BuildFromURDF(str(self.urdf), str(self.package_dir))
