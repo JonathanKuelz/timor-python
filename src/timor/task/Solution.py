@@ -14,7 +14,7 @@ import pinocchio as pin
 from timor.Module import ModuleAssembly, ModulesDB
 from timor.Robot import RobotBase
 from timor.task import Constraints, CostFunctions, Goals, Task
-from timor.utilities.dtypes import Lazy, TorqueInput, Trajectory, TypedHeader, fuzzy_dict_key_matching  # noqa: F401
+from timor.utilities.dtypes import Lazy, Trajectory, TypedHeader, fuzzy_dict_key_matching, map2path
 from timor.utilities.file_locations import get_module_db_files
 from timor.utilities.transformation import Transformation, TransformationLike
 from timor.utilities.visualization import MeshcatVisualizerWithAnimation, animation
@@ -71,7 +71,7 @@ class SolutionBase(abc.ABC):
     @staticmethod
     def from_json_file(json_path: Union[Path, str], package_dir: Path, tasks: Dict[str, 'Task.Task']) -> SolutionBase:
         """Factory method to load a class instance from a json file."""
-        json_path = Path(json_path)
+        json_path = map2path(json_path)
         content = json.load(json_path.open('r'))
         _header = fuzzy_dict_key_matching(content, desired_only=SolutionHeader.fields())
         header = SolutionHeader(**_header)
