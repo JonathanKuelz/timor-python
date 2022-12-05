@@ -17,8 +17,7 @@ class MeshcatVisualizerWithAnimation(MeshcatVisualizer):
     """
     Extends Pinocchio's MeshcatVisualizer by create_animation_frame.
 
-    This creates an animation from the current state of all pinocchio robots within the scene; for an example see
-    demos/_solve_task.py.
+    This creates an animation from the current state of all pinocchio robots within the scene;
     """
 
     @classmethod
@@ -36,8 +35,6 @@ class MeshcatVisualizerWithAnimation(MeshcatVisualizer):
     def create_animation_frame(self, geometry_type, frame):
         """
         Can be used to capture the current visualizer state as an animation frame
-
-        Example usage in demos/_solve_task.py
         """
         if geometry_type == pin.GeometryType.VISUAL:
             geom_model = self.visual_model
