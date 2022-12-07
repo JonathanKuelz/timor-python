@@ -1,3 +1,4 @@
+from __future__ import annotations
 from abc import ABC, abstractmethod
 import inspect
 import json
@@ -21,7 +22,7 @@ class GoalBase(ABC):
 
     def __init__(self,
                  ID: Union[int, str],
-                 constraints: List['Constraints.ConstraintBase'] = None,
+                 constraints: List[Constraints.ConstraintBase] = None,
                  ):
         """
         Initiate goals with the according parameters
@@ -146,6 +147,50 @@ class GoalBase(ABC):
         return t_goal, id_goal
 
 
+class GoalWithDuration(GoalBase, ABC):
+    """
+    Any goal that needs to test more than a single time-step to be achieved.
+
+    This also includes checking the goal constraints at any point of the goal's duration.
+    """
+
+    epsilon: float = 1e-9  # Precision error: Pause is allowed to be epsilon shorter than self.duration
+
+    def __init__(self,
+                 ID: Union[int, str],
+                 duration: float,
+                 constraints: List[Constraints.ConstraintBase] = None
+                 ):
+        """Construct a goal with duration."""
+        super().__init__(ID, constraints)
+        self.duration = duration
+
+    def _get_time_range_goal(self, solution: 'task.Solution.SolutionBase') -> Tuple[Tuple[float, ...], range]:
+        """
+        Get all time-steps in solution that belong to this goal's duration as list of times and indices.
+
+        :param solution: Solution to evaluate this goal with duration on.
+        :returns:
+          - A tuple of times that are included in the duration of the goal
+          - A range of indices into the solution's time array that fall into the duration of this goal
+        """
+        t_goal, id_goal = self._get_t_idx_goal(solution)
+        t_goal_starts = t_goal - self.duration + self.epsilon  # Expected start time
+        try:  # Find index of time step before expected start time
+            t_goal_starts = solution.time_steps[solution.time_steps <= t_goal_starts][-1]
+        except IndexError:
+            raise ValueError("Duration goal expects that whole duration covered by trajectory")
+        id_start = solution.get_time_id(t_goal_starts)
+        ts = solution.time_steps[id_start:id_goal+1]
+        assert np.all(np.diff(ts) <= solution.task.header.timeStepSize + self.epsilon), \
+            "Solution should be sampled every timeStepSize"
+        return ts, range(id_start, id_goal+1)  # id_goal should be included in goal range
+
+    def _valid(self, solution: 'task.Solution.SolutionBase') -> bool:
+        """A goal with duration needs to ensure that its constraints hold at all time-steps within this duration."""
+        return all(c.is_valid_at(solution, t) for c in self.constraints for t in self._get_time_range_goal(solution)[0])
+
+
 class At(GoalBase):
     """A goal that is achieved when the robot is at a certain position for at least one time step t.
 
@@ -155,7 +200,7 @@ class At(GoalBase):
     def __init__(self,
                  ID: Union[int, str],
                  goalPose: ToleratedPose,
-                 constraints: List['Constraints.ConstraintBase'] = None,
+                 constraints: List[Constraints.ConstraintBase] = None,
                  ):
         """
         Pass a desired pose
@@ -213,7 +258,7 @@ class Reach(At):
                  ID: Union[int, str],
                  goalPose: ToleratedPose,
                  velocity_tolerance: Tolerance.ToleranceBase = Tolerance.Abs6dPoseTolerance.default(),
-                 constraints: List['Constraints.ConstraintBase'] = None,
+                 constraints: List[Constraints.ConstraintBase] = None,
                  ):
         """
         Reach a desired pose while standing still.
@@ -262,7 +307,7 @@ class ReturnTo(GoalBase):
                  ID: Union[int, str],
                  returnToGoal: Optional[str] = None,
                  epsilon: float = 1e-4,
-                 constraints: List['Constraints.ConstraintBase'] = None
+                 constraints: List[Constraints.ConstraintBase] = None
                  ):
         """
         Return to a previous goal
@@ -320,26 +365,12 @@ class ReturnTo(GoalBase):
                 and self.distance_tolerance.valid(desired_acceleration, is_acceleration))
 
 
-class Pause(GoalBase):
+class Pause(GoalWithDuration):
     """
     This goal is achieved if the robot does not move for a preconfigured duration.
     """
 
     epsilon: float = 1e-9  # Precision error: Pause is allowed to be epsilon shorter than self.duration
-
-    def __init__(self,
-                 ID: Union[int, str],
-                 duration: float,
-                 constraints: List['task.Constraints.ConstraintBase'] = None,
-                 ):
-        """
-        Pause for a given amount of time.
-
-        :param ID: The id of the goal. This is used to identify the goal in the solution.
-        :param duration: The duration of the pause in seconds.
-        """
-        super().__init__(ID=ID, constraints=constraints)
-        self.duration: float = duration
 
     def visualize(self, viz: MeshcatVisualizer, scale: float = .33) -> None:
         """Pause goals cannot be visualized, but the method is kept for consistency"""
@@ -367,24 +398,12 @@ class Pause(GoalBase):
         """
         Returns true, if the robot does not move for a preconfigured duration, starting at t_goal.
         """
-        t_goal, id_goal = self._get_t_idx_goal(solution)
-        t_goal_starts = t_goal - self.duration + self.epsilon
-        # Start pause goal at earliest possible time that is in the solution trajectory
         try:
-            t_goal_starts = solution.time_steps[solution.time_steps <= t_goal_starts][-1]
-        except IndexError:
-            return False  # The pause goal would start before the trajectory even begins
-        t_idx_start = solution.get_time_id(t_goal_starts)
-        while solution.time_steps[t_idx_start] > t_goal_starts + 1e-6:
-            # The trajectory is not defined at the exact time when this goal time span ends, so we need to check the
-            #  next time step.
-            if t_idx_start == 0:
-                logging.warning("Pause goal is not achievable, because the trajectory is not defined at t={}.".format(
-                    t_goal_starts))
-                return False
-            t_idx_start -= 1
-        q_start = solution.q[t_idx_start]
-        return all((q_start == solution.q[t]).all() and
-                   not solution.dq[t].any() and
-                   not solution.ddq[t].any()
-                   for t in range(t_idx_start+1, id_goal+1))
+            sol_times, sol_idx = self._get_time_range_goal(solution)
+        except ValueError as e:
+            logging.info(f"Duration not covered by trajectory; {e}")
+            return False
+        return all((solution.q[sol_idx[0]] == solution.q[idx]).all() and
+                   not solution.dq[idx].any() and
+                   not solution.ddq[idx].any()
+                   for idx in sol_idx)

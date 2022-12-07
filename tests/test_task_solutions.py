@@ -5,6 +5,7 @@ import random
 import unittest
 
 import numpy as np
+import numpy.testing as np_test
 import pinocchio as pin
 
 from timor import ModuleAssembly, Robot
@@ -142,7 +143,9 @@ class TestSolution(unittest.TestCase):
         dt = 0.01
         time_steps = 100
         q_array_shape = (time_steps, robot.njoints)
-        pause_goal = Goals.Pause(ID='pause', duration=pause_duration)
+        # Add constraint such that _valid can be tested as well
+        pause_goal = Goals.Pause(ID='pause', duration=pause_duration,
+                                 constraints=[Constraints.JointAngles(robot.joint_limits)])
 
         Solution.SolutionBase.t_resolution = float('inf')  # Monkey patch to being able testing invalid solutions
         for _ in range(10):
@@ -179,6 +182,24 @@ class TestSolution(unittest.TestCase):
                                                             task=task, cost_function=cost_function,
                                                             assembly=ModuleAssembly.from_monolithic_robot(robot))
             self.assertFalse(pause_goal.achieved(invalid_too_short))
+
+            # Test that times in goal duration rightly calculated
+            sol_times, sol_times_indices = pause_goal._get_time_range_goal(valid)
+            self.assertListEqual(np.where(pause_mask)[0].tolist(), list(sol_times_indices))
+            np_test.assert_array_less(t_start - dt, np.asarray(sol_times))
+            np_test.assert_array_less(np.asarray(sol_times), t_end + dt)
+
+            # Test constraint in duration - replace a single time-step inside pause with joint limit + a_bit_over_0
+            q_bad_outside_joint_limits = good_trajectory.q.copy()
+            q_bad_outside_joint_limits[np.random.choice(np.argwhere(pause_mask).squeeze())] = \
+                robot.joint_limits[1, :] + np.random.random(robot.njoints)
+            bad_trajectory_outside_joint_limits = dtypes.Trajectory(t=dt, q=q_bad_outside_joint_limits,
+                                                                    goals=good_trajectory.goals)
+            bad_sol_outside_joint_limits = \
+                Solution.SolutionTrajectory(bad_trajectory_outside_joint_limits, {'taskID': task.id}, task=task,
+                                            assembly=ModuleAssembly.from_monolithic_robot(robot),
+                                            cost_function=cost_function)
+            self.assertFalse(pause_goal._valid(bad_sol_outside_joint_limits))
 
     def test_instantiation(self):
         """Instantiate Solutions, Goals, Constraints"""
