@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 # Author: Jonathan Külz
 # Date: 12.01.22
+from __future__ import annotations
+
 import abc
 import itertools
 from pathlib import Path
@@ -88,7 +90,7 @@ class RobotBase(abc.ABC):
     # ---------- Static- and Classmethods ----------
     @classmethod
     @abc.abstractmethod
-    def from_urdf(cls, urdf_file: Path, package_dir: Path, **kwargs) -> 'RobotBase':
+    def from_urdf(cls, urdf_file: Path, package_dir: Path, **kwargs) -> RobotBase:
         """Class constructor from urdf file. kwargs should at least handle RobotBase keyword arguments."""
 
     # ---------- Abstract Properties ----------
@@ -164,7 +166,7 @@ class RobotBase(abc.ABC):
         """
 
     @abc.abstractmethod
-    def collisions(self, task: 'Task.Task') -> List[Tuple['RobotBase', Obstacle]]:  # noqa: F821
+    def collisions(self, task: 'Task.Task') -> List[Tuple[RobotBase, Obstacle]]:  # noqa: F821
         """
         Returns all collisions that appear between the robot and itself or obstacles in the task.
 
@@ -447,7 +449,7 @@ class PinRobot(RobotBase):
 
     # ---------- Static- and Classmethods ----------
     @classmethod
-    def from_urdf(cls, urdf_file: Path, package_dir: Path, **kwargs) -> 'PinRobot':
+    def from_urdf(cls, urdf_file: Path, package_dir: Path, **kwargs) -> PinRobot:
         """Utility wrapper to load information about a robot from URDF and build the according PinRobot."""
         wrapper = pin.RobotWrapper.BuildFromURDF(str(urdf_file), str(package_dir))
         kwargs.setdefault('home_configuration', pin.neutral(wrapper.model))

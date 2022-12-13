@@ -131,6 +131,14 @@ class TestSolution(unittest.TestCase):
                 self.assertEqual(internal_1.weight, internal_2.weight)
                 self.assertIs(type(internal_1), type(internal_2))
 
+            # Test serialize
+            c1_string = c_1.descriptor()
+            c2_string = c_2.descriptor()
+            self.assertEqual(c1_string, c2_string)
+            self.assertEqual(c_1, CostFunctions.CostFunctionBase.from_descriptor(c1_string))
+            self.assertEqual(c_2, CostFunctions.CostFunctionBase.from_descriptor(c1_string))
+            self.assertEqual(c_2, CostFunctions.CostFunctionBase.from_descriptor(c2_string))
+
         with self.assertRaises(KeyError):
             CostFunctions.CostFunctionBase.from_descriptor('not_a_cost')
 

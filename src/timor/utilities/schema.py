@@ -7,6 +7,9 @@ import jsonschema
 from timor.utilities.file_locations import schemata
 
 
+DEFAULT_DATE_FORMAT = "%Y-%m-%d"
+
+
 def get_schema_validator(schema_file: Path) -> Tuple[Dict, jsonschema.Validator]:
     """
     Returns a json schema and validator for it.
@@ -16,12 +19,15 @@ def get_schema_validator(schema_file: Path) -> Tuple[Dict, jsonschema.Validator]
 
     :return (schema dictionary, validator)
     """
-    with open(schema_file) as f:
-        main_schema = json.load(f)
+    try:
+        with open(schema_file) as f:
+            main_schema = json.load(f)
+    except FileNotFoundError as exe:
+        raise FileNotFoundError("Schemata are not available - you need internet connection do download them.") from exe
 
     # Contains local copy of not yet hosted schemata
     schema_store = {}
-    for s in schemata:
+    for s in schemata.values():
         with open(s) as f:
             schema = json.load(f)
         schema_store[schema['$id']] = schema

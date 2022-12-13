@@ -1,27 +1,22 @@
 #!/usr/bin/env python3
 # Author: Jonathan Külz
 # Date: 04.03.22
-from pathlib import Path
-
 import numpy as np
 
-from timor import Module
+from timor import Module, ModuleAssembly
 from timor.Robot import PinRobot
-from timor.utilities.file_locations import get_module_db_files
 
 
-def random_assembly(n_joints: int, modules_file: Path, package: Path) -> Module.ModuleAssembly:
+def random_assembly(n_joints: int, module_db: Module.ModulesDB) -> Module.ModuleAssembly:
     """
     Creates a random assembly from modules.
 
     The number of modules will be n_joints * 2 + 1 (base) (possibly one less if eef cannot connect)
 
     :param n_joints: The number of non-base modules to add
-    :param modules_file: The path to the modules file
-    :param package: The path to the package to which the mesh files are defined relative to
+    :param module_db: Where to draw modules from
     """
-    db = Module.ModulesDB.from_file(modules_file, package_dir=package)
-    assembly = Module.ModuleAssembly(db)
+    assembly = Module.ModuleAssembly(module_db)
     assembly.add_random_from_db()  # First one by default is a base
 
     def no_dead_end(module):
@@ -41,7 +36,7 @@ def random_assembly(n_joints: int, modules_file: Path, package: Path) -> Module.
         # Add joint-body-pair or joint-eef
         assembly.add_random_from_db(db_filter=add_joint)
         if i == n_joints - 1:
-            for eef in db.end_effectors:  # Try all end effectors
+            for eef in module_db.end_effectors:  # Try all end effectors
                 for connector in eef.available_connectors.values():
                     for free in assembly.free_connectors.values():
                         if connector.connects(free):
@@ -59,7 +54,16 @@ def get_six_axis_modrob() -> PinRobot:
     """
     Creates a six axis robot with ca. 1 m reach
     """
-    db = Module.ModulesDB.from_file(*get_module_db_files('geometric_primitive_modules'))
+    robot = get_six_axis_assembly().robot
+    robot.update_configuration(np.array([np.pi / 2] * 6))  # At q = 0, 0, ..., the robot is in self collision
+    return robot
+
+
+def get_six_axis_assembly() -> ModuleAssembly:
+    """
+    Creates an assembly of a six axis robot with ca. 1 m reach
+    """
+    db = Module.ModulesDB.from_name('geometric_primitive_modules')
     assembly = Module.ModuleAssembly(
         database=db,
         assembly_modules=('base', 'J2', 'J2', 'l_45', 'J2', 'l_30', 'J2', 'J2', 'J2', 'eef'),
@@ -70,6 +74,4 @@ def get_six_axis_modrob() -> PinRobot:
         ),
         base_connector=(0, 'base')
     )
-    robot = assembly.to_pin_robot()
-    robot.update_configuration(np.array([np.pi / 2] * 6))  # At q = 0, 0, ..., the robot is in self collision
-    return robot
+    return assembly

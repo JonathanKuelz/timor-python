@@ -13,6 +13,7 @@ import random
 import re
 from typing import Callable, Collection, Dict, Iterable, List, Optional, Set, Tuple, Union
 import uuid
+import warnings
 import xml.etree.ElementTree as ET
 
 import matplotlib.pyplot as plt
@@ -27,7 +28,9 @@ from timor.Joints import Joint, JointSet, TimorJointType
 from timor.utilities import logging, spatial, write_urdf
 from timor.utilities.dtypes import Lazy, SingleSet, TypedHeader, map2path, randomly
 import timor.utilities.errors as err
+from timor.utilities.file_locations import get_module_db_files
 from timor.utilities.json_serialization_formatting import compress_json_vectors, possibly_nest_as_list
+from timor.utilities.schema import DEFAULT_DATE_FORMAT
 from timor.utilities.transformation import Transformation, TransformationLike
 
 
@@ -230,8 +233,8 @@ class ModuleBase(abc.ABC):
 
         :return: Returns the module specification in a json-ready dictionary
         """
-        header = self.header._asdict()
-        header['date'] = header['date'].strftime('%Y-%m-%d')
+        header = self.header.asdict()
+        header['date'] = header['date'].strftime(DEFAULT_DATE_FORMAT)
 
         return {
             'header': header,
@@ -262,7 +265,7 @@ class AtomicModule(ModuleBase):
         super().__copy__()
 
     @classmethod
-    def from_concert_specification(cls, d: Dict, package_dir: Path) -> 'ModuleBase':  # pragma: no cover
+    def from_concert_specification(cls, d: Dict, package_dir: Path) -> ModuleBase:  # pragma: no cover
         """
         Maps a concert-module description to an instance of this class.
 
@@ -362,7 +365,7 @@ class ModulesDB(SingleSet):
         :param name: Optional name of the database, i.e. for referencing them in the CoBRA API
         :param package_dir: Optional package directory relative to which mesh file paths are defined
 
-        :source: Details on CoBRA API: https://cobra.cps.cit.tum.de/robots
+        :source: Get selected ModulesDBs using the API: https://cobra.cps.cit.tum.de/api/robots
         """
         super().__init__(*modules)
         self._name = name
@@ -417,6 +420,13 @@ class ModulesDB(SingleSet):
         return new_db
 
     @classmethod
+    def from_name(cls, module_db_name) -> ModulesDB:
+        """
+        Create module DB from name of a module DB configured as loadable robot in timor.config
+        """
+        return cls.from_file(*get_module_db_files(module_db_name))
+
+    @classmethod
     def from_file(cls, filepath: Union[Path, str], package_dir: Union[Path, str]) -> ModulesDB:
         """
         Loads a modules Database from a json file.
@@ -428,7 +438,7 @@ class ModulesDB(SingleSet):
         filepath, package_dir = map(map2path, (filepath, package_dir))
         with filepath.open('r') as json_file:
             content = json_file.read()
-        name = filepath.stem
+        name = filepath.parent.stem
         return cls.from_json_string(content, package_dir, name=name)
 
     @classmethod
@@ -535,6 +545,11 @@ class ModulesDB(SingleSet):
                               package_dir=self._package_dir)
 
     @property
+    def name(self) -> str:
+        """Return name of module db as given in the CoBRA API"""
+        return self._name
+
+    @property
     def possible_connections(self) -> Set[connection_type]:
         """
         Returns a set of all possible connections in this db.
@@ -639,19 +654,31 @@ class ModuleAssembly:
         # Unpack the connections and establish object references if int/str references were given
         for mod_a, con_a, mod_b, con_b in connections:
             if isinstance(mod_a, int):
-                mod_a = self.module_instances[mod_a]
+                try:
+                    mod_a = self.module_instances[mod_a]
+                except IndexError:
+                    raise IndexError(f"Could not find {mod_a} in {self.module_instances}")
             else:
                 raise ValueError("Non-integer module specifiers are deprecated")
             if isinstance(mod_b, int):
-                mod_b = self.module_instances[mod_b]
+                try:
+                    mod_b = self.module_instances[mod_b]
+                except IndexError:
+                    raise IndexError(f"Could not find {mod_b} in {self.module_instances}")
             else:
                 raise ValueError("Non-integer module specifiers are deprecated")
             if isinstance(con_a, str):
-                con_a = mod_a.connectors_by_own_id[con_a]
+                try:
+                    con_a = mod_a.connectors_by_own_id[con_a]
+                except KeyError:
+                    raise KeyError(f"Could not find {con_a} in {mod_a}")
             else:
                 raise ValueError("Non-id connector specifiers are deprecated")
             if isinstance(con_b, str):
-                con_b = mod_b.connectors_by_own_id[con_b]
+                try:
+                    con_b = mod_b.connectors_by_own_id[con_b]
+                except KeyError:
+                    raise KeyError(f"Could not find {con_b} in {mod_b}")
             else:
                 raise ValueError("Non-id connector specifiers are deprecated")
             self.connections.add((mod_a, con_a, mod_b, con_b))
@@ -763,7 +790,7 @@ class ModuleAssembly:
         return assembly
 
     @classmethod
-    def from_serial_modules(cls, db: ModulesDB, module_chain: Iterable[str]) -> 'ModuleAssembly':
+    def from_serial_modules(cls, db: ModulesDB, module_chain: Iterable[str]) -> ModuleAssembly:
         """
         This function works on the assumption that the assembly modules are arranged in a chain.
 
@@ -810,6 +837,11 @@ class ModuleAssembly:
     def base_connector(self) -> Connector:
         """The first body in the kinematic chain of the robot"""
         return self._base_connector
+
+    @property
+    def base_module(self) -> ModuleBase:
+        """Returns the base module."""
+        return self.base_connector.parent.in_module
 
     @property
     def assembly_graph(self) -> nx.DiGraph:
@@ -890,6 +922,11 @@ class ModuleAssembly:
     def nModules(self) -> int:
         """The number of modules in the assembly"""
         return len(self.module_instances)
+
+    @property
+    def original_module_ids(self) -> Tuple[str, ...]:
+        """Returns the module base / type ID for each module in this assembly in order of internal_module_ids"""
+        return tuple(self._module_copies.get(id, id) for id in self.internal_module_ids)
 
     @property
     def robot(self) -> Robot.PinRobot:
@@ -989,6 +1026,63 @@ class ModuleAssembly:
         nx.draw(G, pos=pos, with_labels=True)
         plt.tight_layout()
         plt.show()
+
+    @classmethod
+    def from_json_data(cls, description: Dict[str, any], module_db: Optional[ModulesDB] = None) -> ModuleAssembly:
+        """
+        Create an assembly from description found in serialized solutions.
+
+        :param description: dictionary with keys from solution that allow to reconstruct a module assembly.
+          Always needs moduleSet field if no additional module_db given.
+          Always needs moduleOrder.
+          Supported combinations:
+            - no moduleConnection: fallback linear assembly along moduleOrder; baseConnection deduced implicitly
+            - no/empty baseConnection: try to build assembly and see if there is unique base connector left
+            - default: moduleOrder + moduleConnection + baseConnection
+        :param module_db: Optional db if generated adhoc or to recycle already loaded
+        """
+        db = module_db if module_db else ModulesDB.from_name(description["moduleSet"])
+
+        if 'moduleConnection' not in description:
+            warnings.warn("Module Order should be replaced by proper module arrangement definition",
+                          DeprecationWarning)
+            assembly = cls.from_serial_modules(db, tuple(map(str, description['moduleOrder'])))
+        else:
+            if 'baseConnection' not in description or len(description['baseConnection']) == 0:
+                warnings.warn("Complete assembly specification should include baseConnection; trying to find open ...")
+                assembly = cls(db, description['moduleOrder'], description['moduleConnection'])
+            elif len(description['baseConnection']) > 1:
+                raise NotImplementedError("Can only instantiate robot with single base connection")
+            else:
+                assembly = cls(db, description['moduleOrder'], description['moduleConnection'],
+                               description['baseConnection'][0][:2])
+
+        assembly.robot.set_base_placement(Transformation(description['basePose'][0]))
+        return assembly
+
+    def to_json_data(self) -> Dict[str, any]:
+        """
+        Creates jsonable dictionary that serializes this assembly.
+
+        :return: A dictionary that serializes this assembly
+        """
+        module_connections = [(self.internal_module_ids.index(m_a.header.ID), c_a.id[2],
+                               self.internal_module_ids.index(m_b.header.ID), c_b.id[2])
+                              for m_a, c_a, m_b, c_b in self.connections]
+        return {'moduleSet': self.db.name,
+                'moduleOrder': self.original_module_ids,  # Map to module type ids
+                'moduleConnection': module_connections,
+                # For now assumed only one base
+                'baseConnection': [(self.internal_module_ids.index(self.base_module.id), self.base_connector.id[2], 0)],
+                'basePose': [self.robot.placement.homogeneous]}
+
+    def to_json_string(self) -> str:
+        """
+        Writes the ModulesAssembly to a json string.
+
+        :return: The json string
+        """
+        return json.dumps(self.to_json_data(), indent=2)
 
     def to_pin_robot(self,
                      base_placement: TransformationLike = Transformation.neutral(),

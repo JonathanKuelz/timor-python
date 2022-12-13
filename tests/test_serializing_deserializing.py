@@ -13,9 +13,11 @@ import pinocchio as pin
 from timor import Geometry, Transformation
 from timor import Robot
 from timor.Module import ModuleAssembly, ModulesDB
-from timor.task import Constraints, Obstacle, Task, Tolerance
-from timor.utilities import file_locations, prebuilt_robots, logging
-from timor.utilities.file_locations import get_module_db_files
+from timor.task import Constraints, CostFunctions, Obstacle, Solution, Task, Tolerance
+from timor.utilities import dtypes, file_locations, prebuilt_robots, logging
+from timor.utilities.file_locations import get_module_db_files, schema_dir
+from timor.utilities.prebuilt_robots import random_assembly
+from timor.utilities.schema import get_schema_validator
 from timor.utilities.tolerated_pose import ToleratedPose
 
 
@@ -102,6 +104,7 @@ def _pin_geometry_objects_functionally_equal(o1: pin.GeometryObject, o2: pin.Geo
     Closely following original equality implementation:
     https://github.com/stack-of-tasks/pinocchio/blob/master/src/multibody/fcl.hxx
     """
+
     def geometry_equal(geo1: hppfcl.CollisionGeometry, geo2: hppfcl.CollisionGeometry):
         """Provisional geometry equality check, as hppfcl also contains name properties that are not important here"""
         if not type(geo1) is type(geo2):
@@ -198,10 +201,48 @@ class SerializationTests(unittest.TestCase):
         collision = Constraints.CollisionFree()
         self.constraints = [goal_order, joint_constraints, base_placement, collision]
 
+    def test_assembly_to_json(self):
+        for db_name in ('IMPROV', 'PROMODULAR', 'modrob-gen2'):
+            logging.debug(f"Testing with {db_name}")
+            db = ModulesDB.from_name(db_name)
+            for _ in range(3):
+                assembly = random_assembly(6, db)
+
+                robot = assembly.to_pin_robot()
+                assembly_description = assembly.to_json_data()
+                self.assertEqual(set(assembly_description.keys()),
+                                 {"moduleSet", "moduleOrder", "moduleConnection", "baseConnection", "basePose"})
+                self.assertEqual(assembly_description['moduleSet'], db_name)
+
+                reconstructed_assembly = ModuleAssembly.from_json_data(assembly_description, db)
+                new_json = reconstructed_assembly.to_json_data()
+                for key in assembly_description.keys():
+                    print(key, end=': ')
+                    if key == 'basePose':
+                        np_test.assert_array_equal(new_json[key][0], assembly_description[key][0])
+                    elif key == 'moduleConnection':
+                        # JSON doesn't know sets, but the order of connections doesn't matter
+                        self.assertEqual(set(new_json[key]), set(assembly_description[key]))
+                    else:
+                        self.assertEqual(new_json[key], assembly_description[key])
+
+                np_test.assert_array_equal(assembly.adjacency_matrix, reconstructed_assembly.adjacency_matrix)
+                self.assertEqual(assembly.base_module.id, reconstructed_assembly.base_module.id)
+                self.assertEqual(assembly.internal_module_ids, reconstructed_assembly.internal_module_ids)
+                self.assertEqual(assembly.original_module_ids, reconstructed_assembly.original_module_ids)
+
+                reconstructed_robot = reconstructed_assembly.robot
+                pin_models_functionally_equal(robot.model, reconstructed_robot.model)
+                robot_io_equal(robot, reconstructed_robot)
+                pin_geometry_models_structurally_equal(robot.visual, reconstructed_robot.visual)
+                pin_geometry_models_structurally_equal(robot.collision, reconstructed_robot.collision)
+                pin_geometry_models_functionally_equal(robot, reconstructed_robot)
+
     def test_assembly_to_urdf(self):
-        db_loc, db_assets = file_locations.get_module_db_files('IMPROV')
+        _, db_assets = file_locations.get_module_db_files('IMPROV')
+        db = ModulesDB.from_name('IMPROV')
         for _ in range(5):
-            assembly = prebuilt_robots.random_assembly(n_joints=6, modules_file=db_loc, package=db_assets)
+            assembly = prebuilt_robots.random_assembly(n_joints=6, module_db=db)
             logging.info(f"Testing assembly {assembly.internal_module_ids}")
 
             r1 = assembly.to_pin_robot()
@@ -226,6 +267,53 @@ class SerializationTests(unittest.TestCase):
             for key in constraint.__dict__:
                 self.assertEqual(constraint.__dict__[key], new.__dict__[key])
                 self.assertEqual(constraint.__dict__[key], from_string.__dict__[key])
+
+    def test_de_serialize_solution(self):
+        assembly = prebuilt_robots.get_six_axis_assembly()
+        q1 = assembly.robot.random_configuration()
+        q2 = assembly.robot.random_configuration()
+
+        task = Task.Task(
+            Task.TaskHeader(1),
+            goals=(
+                Task.Goals.At("1", ToleratedPose(assembly.robot.fk(q1))),
+                Task.Goals.At("2", ToleratedPose(assembly.robot.fk(q2)))
+            ),
+            constraints=(Task.Constraints.BasePlacement(ToleratedPose(Transformation.neutral())),
+                         Task.Constraints.JointLimits(("q")))
+        )
+        cost_function = CostFunctions.CycleTime(0.2) + CostFunctions.MechanicalEnergy(0.5)
+        solution = Solution.SolutionTrajectory(
+            trajectory=dtypes.Trajectory(np.asarray((0., 1.)), np.asarray((q1, q2)), {"1": 0., "2": 1.}),
+            header=Solution.SolutionHeader(1),
+            task=task,
+            assembly=assembly,
+            cost_function=cost_function,
+            base_pose=assembly.robot.placement
+        )
+
+        solution_dict = solution.to_json_data()
+        self.assertIsNotNone(json.dumps(solution_dict))
+        _, validator = get_schema_validator(schema_dir.joinpath("SolutionSchema.json"))
+        # make sure is storable
+        with tempfile.NamedTemporaryFile(mode="w+") as t:
+            json.dump(solution_dict, t)
+            t.flush()
+            with open(t.name) as f:
+                validator.validate(json.load(f))
+            loaded_sol = Solution.SolutionBase.from_json_file(Path(t.name), Path("/"), {task.id: task})
+
+        self.assertEqual(solution.valid, loaded_sol.valid)
+        # Depends on robot, trajectory, position, cost function -> most important parts of solution tested
+        self.assertEqual(solution.cost, loaded_sol.cost)
+        self.assertEqual(solution.trajectory, loaded_sol.trajectory)
+        self.assertEqual(solution.header, loaded_sol.header)
+
+        with tempfile.NamedTemporaryFile(mode="w+") as t:
+            json.dump({"test": "json_validator"}, t)
+            t.flush()
+            with self.assertRaises(ValueError):
+                Solution.SolutionBase.from_json_file(Path(t.name), Path("/"), {task.id: task})
 
     def test_load_then_dump_task(self):
         for task_file in self.task_files:
@@ -271,9 +359,9 @@ class SerializationTests(unittest.TestCase):
                 np_test.assert_array_equal(newfs_dict[key], comp_dict[key])
 
     def test_serial_module_assembly(self):
-        db_loc, db_assets = file_locations.get_module_db_files('IMPROV')
+        db = ModulesDB.from_name('IMPROV')
         for _ in range(5):
-            assembly = prebuilt_robots.random_assembly(n_joints=6, modules_file=db_loc, package=db_assets)
+            assembly = prebuilt_robots.random_assembly(n_joints=6, module_db=db)
             modules = assembly.internal_module_ids
             original_ids = tuple(assembly._module_copies.get(mod_id, mod_id) for mod_id in modules)
             copied = ModuleAssembly.from_serial_modules(assembly.db, original_ids)

@@ -13,7 +13,7 @@ from timor.utilities.schema import get_schema_validator
 class TestSchemas(unittest.TestCase):
     """Test everything related to solutions here: are they valid, can we correctly identify valid solutions, ..."""
     def test_schema_valid(self):
-        for s in schemata:
+        for s in schemata.values():
             with open(s) as f:
                 schema_def = json.load(f)
             try:
