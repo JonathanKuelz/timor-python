@@ -181,10 +181,10 @@ class GoalWithDuration(GoalBase, ABC):
         except IndexError:
             raise ValueError("Duration goal expects that whole duration covered by trajectory")
         id_start = solution.get_time_id(t_goal_starts)
-        ts = solution.time_steps[id_start:id_goal+1]
+        ts = solution.time_steps[id_start:id_goal + 1]
         assert np.all(np.diff(ts) <= solution.task.header.timeStepSize + self.epsilon), \
             "Solution should be sampled every timeStepSize"
-        return ts, range(id_start, id_goal+1)  # id_goal should be included in goal range
+        return ts, range(id_start, id_goal + 1)  # id_goal should be included in goal range
 
     def _valid(self, solution: 'task.Solution.SolutionBase') -> bool:
         """A goal with duration needs to ensure that its constraints hold at all time-steps within this duration."""
@@ -403,7 +403,7 @@ class Pause(GoalWithDuration):
         except ValueError as e:
             logging.info(f"Duration not covered by trajectory; {e}")
             return False
-        return all((solution.q[sol_idx[0]] == solution.q[idx]).all() and
-                   not solution.dq[idx].any() and
-                   not solution.ddq[idx].any()
+        return all((solution.q[sol_idx[0]] == solution.q[idx]).all()
+                   and not solution.dq[idx].any()
+                   and not solution.ddq[idx].any()
                    for idx in sol_idx)

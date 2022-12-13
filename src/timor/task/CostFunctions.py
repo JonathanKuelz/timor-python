@@ -218,6 +218,6 @@ class QDist(CostFunctionBase):
 
     def _evaluate(self, solution: 'Solution.SolutionBase') -> float:
         """The integral over time for all joint parameters (mixes up radian and meters!)"""
-        return float(np.sum(np.abs(solution.trajectory.q[1:, :] -  # All but first q
-                                   solution.trajectory.q[:-1, :])))  # All but last q
+        return float(np.sum(np.abs(solution.trajectory.q[1:, :]  # All but first q
+                                   - solution.trajectory.q[:-1, :])))  # All but last q
         # TODO : No field for sample time? -or- move scale by time into sum

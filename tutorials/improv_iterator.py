@@ -116,8 +116,8 @@ class Science2019Iterator(Iterator):
 
     def __iter__(self):
         """Iterators are self-iterable: https://peps.python.org/pep-0234/"""
-        return self 
-        
+        return self
+
     def __next__(self) -> ModuleAssembly:
         """
         Iterate over:
@@ -313,10 +313,10 @@ class Science2019Iterator(Iterator):
                        )
 
         return tuple(c for c in combinations if
-                     dof_filter(c) and
-                     can_connect_filter(c) and
-                     eef_filter(c) and
-                     base_filter(c))
+                     dof_filter(c)
+                     and can_connect_filter(c)
+                     and eef_filter(c)
+                     and base_filter(c))
 
     def _identify_links_between_joints(self) -> Dict[Tuple[str, str], Tuple[Tuple[int, ...], ...]]:
         """Enumerates all possible combinations of links in between two joints

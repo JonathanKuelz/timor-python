@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 # Author: Jonathan Külz
 # Date: 04.03.22
-# flake8: noqa
 from pathlib import Path
 
 import numpy as np
@@ -27,7 +26,7 @@ def random_assembly(n_joints: int, modules_file: Path, package: Path) -> Module.
 
     def no_dead_end(module):
         return len(module.available_connectors) > 1 and \
-               not any(c.type == 'eef' for c in module.available_connectors.values())
+            not any(c.type == 'eef' for c in module.available_connectors.values())
 
     def has_joint(module: Module.ModuleBase) -> bool:
         return len(module.joints) > 0
@@ -72,6 +71,5 @@ def get_six_axis_modrob() -> PinRobot:
         base_connector=(0, 'base')
     )
     robot = assembly.to_pin_robot()
-    robot.update_configuration(np.array([np.pi/2] * 6))  # At q = 0, 0, ..., the robot is in self collision
+    robot.update_configuration(np.array([np.pi / 2] * 6))  # At q = 0, 0, ..., the robot is in self collision
     return robot
-    

@@ -435,7 +435,7 @@ def deep_iter_dict(d: Dict[any, any], max_depth=10, _prev=None) -> Generator[Tup
         if not isinstance(val, dict):
             yield _prev + [key], val
         else:
-            yield from deep_iter_dict(val, max_depth-1, _prev + [key])
+            yield from deep_iter_dict(val, max_depth - 1, _prev + [key])
 
 
 def float2array(scalar: float) -> np.ndarray:

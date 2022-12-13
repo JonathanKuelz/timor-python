@@ -7,7 +7,7 @@ from timor.Robot import RobotBase
 from timor.task import Constraints, Goals
 from timor.task.Task import Task
 from timor.utilities.dtypes import Trajectory
-import timor.utilities.logging as logging
+
 
 class TrajectoryPlanner:
     """
@@ -39,7 +39,7 @@ class TrajectoryPlanner:
         self.trajectory_acceleration_time = trajectory_acceleration_time
         self.maximum_speed = float('inf')
         self.time_limit_per_goal = time_limit_per_goal
-    
+
     def solve(self, robot: RobotBase = None) -> Optional[Trajectory]:
         """
         Compute a trajectory that solves the task with a given robot if possible.
@@ -60,7 +60,7 @@ class TrajectoryPlanner:
         solution = self._solve()
         self._evaluated = True
         return solution
-    
+
     @property
     def task(self) -> Task:
         """Keep the task private, as it should not be changed."""
@@ -77,7 +77,6 @@ class TrajectoryPlanner:
         self.maximum_speed = np.min(new_robot.joint_velocity_limits)
         self._evaluated = False
         self._robot = new_robot
-        
 
     def _set_base(self):
         """Don't optimize, but just take the center of the possible space the base can be placed into"""
@@ -143,7 +142,6 @@ class TrajectoryPlanner:
             traj.goals[goal_id] = traj.t[-1]
 
             trajectory = trajectory + traj
-        
         return trajectory
 
     def _solve_reach_goal(self,

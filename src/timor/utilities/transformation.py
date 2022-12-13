@@ -169,7 +169,7 @@ class Transformation:
         :param other: A Transformation-Like object representing a placement and orientation in space to which the
             distance shall be measured.
         """
-        return (self.inv@Transformation(other)).norm
+        return (self.inv @ Transformation(other)).norm
 
     def interpolate(self, other: Transformation, alpha: float) -> Transformation:
         """
@@ -186,7 +186,7 @@ class Transformation:
         return self @ Transformation(spatial.homogeneous(delta_translation, delta_rotation))
 
     def multiply_from_left(self, other: np.ndarray) -> Transformation:
-        """Multiply a placement from the left.
+        """Multiply a transformation from the left.
 
         Multiplication (matmul) from the right side with a numpy array is easy, as it can be done with this @ other.
         However, other @ this fails due to numpys matmul implementation which cannot be overridden. Use this method
