@@ -1052,8 +1052,8 @@ class ModuleAssembly:
                                                 parent_joints[successor.id],
                                                 frames[successor.id],
                                                 pin.SE3((
-                                                                Transformation(transforms[successor.id]) @
-                                                                Transformation.from_translation(successor.inertia.lever)
+                                                        Transformation(transforms[successor.id]) @
+                                                        Transformation.from_translation(successor.inertia.lever)
                                                         ).homogeneous),
                                                 pin.FrameType.OP_FRAME))
                         frames[successor.id + ("CoM",)] = new_frame

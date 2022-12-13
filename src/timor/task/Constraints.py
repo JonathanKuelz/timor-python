@@ -310,7 +310,7 @@ class CoterminalJointAngles(ConstraintBase):
     @staticmethod
     def map(q: Union[float, np.ndarray]) -> Union[float, np.ndarray]:
         """Maps the input q to the range [-pi, pi)."""
-        return np.mod(q + np.pi, 2*np.pi) - np.pi
+        return np.mod(q + np.pi, 2 * np.pi) - np.pi
 
     def _validate(self, q: np.ndarray) -> bool:
         """

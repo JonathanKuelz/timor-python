@@ -269,8 +269,8 @@ class Spatial(ToleranceBase, abc.ABC):
         """Public interface, makes sure child classes only work on (3,) shaped points"""
         desired, real = map(Transformation, (desired, real))
         diff = self._projection(desired.inv @ real).round(16)  # Tries to prevent precision errors close to 0
-        return (all(self.stacked[:, 0] - self._rounding_error <= diff) and
-                all(self.stacked[:, 1] + self._rounding_error >= diff))
+        return (all(self.stacked[:, 0] - self._rounding_error <= diff)
+                and all(self.stacked[:, 1] + self._rounding_error >= diff))
 
     def _add_same(self, other: Spatial) -> Spatial:
         """Combine two pose tolerances"""
@@ -611,12 +611,12 @@ class RotationAxisAngle(Rotation):
         if np.isclose(diff[-1], 0, rtol=0, atol=self._rounding_error):
             # theta_r is almost 0, so the axis is not reliable, and we only check if theta=0 is valid after all
             return self.stacked[-1, 0] <= .0 <= self.stacked[-1, 1]
-        valid = (all(self.stacked[:, 0] - self._rounding_error <= diff) and
-                 all(self.stacked[:, 1] + self._rounding_error >= diff))
+        valid = (all(self.stacked[:, 0] - self._rounding_error <= diff)
+                 and all(self.stacked[:, 1] + self._rounding_error >= diff))
         if not valid and self.stacked[-1, 0] < 0:  # Lower bound for theta_r is negative
             diff = -diff  # R(n, theta) = R(-n, -theta)
-            valid = (all(self.stacked[:, 0] - self._rounding_error <= diff) and
-                     all(self.stacked[:, 1] + self._rounding_error >= diff))
+            valid = (all(self.stacked[:, 0] - self._rounding_error <= diff)
+                     and all(self.stacked[:, 1] + self._rounding_error >= diff))
         return valid
 
     def _projection(self, nominal: Transformation) -> np.ndarray:

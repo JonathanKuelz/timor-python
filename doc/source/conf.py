@@ -14,8 +14,8 @@ from pathlib import Path
 import os
 import re
 import sys
-sys.path.insert(0, os.path.abspath('../../src'))
 
+sys.path.insert(0, os.path.abspath('../../src'))
 
 # -- Project information -----------------------------------------------------
 
@@ -25,19 +25,19 @@ author = 'Jonathan Kuelz'
 
 # Get the version
 with Path('../../src/timor/__init__.py').open('r') as init_file:
-	init_content = init_file.read()
+    init_content = init_file.read()
 version = re.match(r'__version__ = [\"\']([0-9.]*)[\"\']', init_content)[1]
 
 # The full version, including alpha/beta/rc tags
 release = version
-
 
 # -- General configuration ---------------------------------------------------
 
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
-extensions = ['sphinx.ext.autodoc', 'autoapi.extension', 'sphinx.ext.intersphinx', 'sphinx_git', 'sphinx.ext.mathjax', 'sphinx_rtd_theme']
+extensions = ['sphinx.ext.autodoc', 'autoapi.extension', 'sphinx.ext.intersphinx', 'sphinx_git', 'sphinx.ext.mathjax',
+              'sphinx_rtd_theme']
 
 # Add any paths that contain templates here, relative to this directory.
 autoapi_template_dir = '_autoapi_templates'
@@ -69,7 +69,6 @@ intersphinx_mapping = {'python': ('https://docs.python.org/3', None),
                        'numpy': ('https://numpy.org/doc/stable', None),
                        'scipy': ('https://docs.scipy.org/doc/scipy', None),
                        'matplotlib': ('https://matplotlib.org/stable', None)}
-
 
 # Auto API doc
 autoapi_type = 'python'

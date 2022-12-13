@@ -157,7 +157,7 @@ class Joint:
             q_limits=[
                 fuzzy_dict_key_matching(d['limits'], {'lower': 'positionLower'})['positionLower'],
                 fuzzy_dict_key_matching(d['limits'], {'upper': 'positionUpper'})['positionUpper']
-                         ],
+            ],
             **optional_kwargs
         )
 

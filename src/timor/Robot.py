@@ -610,7 +610,7 @@ class PinRobot(RobotBase):
     def friction(self, dq: np.ndarray) -> np.ndarray:
         """Computes the forces due to friction"""
         # sin(atan( )) is smooth signum function
-        return self.model.damping*dq + self.model.friction*np.sin(np.arctan(100*dq))
+        return self.model.damping * dq + self.model.friction * np.sin(np.arctan(100 * dq))
 
     def motor_inertias(self, ddq: np.ndarray) -> np.ndarray:
         """Computes the motor inertias in the joins at a given acceleration"""
@@ -713,8 +713,8 @@ class PinRobot(RobotBase):
                 # force just needs rotation
                 last_joint_to_world[:3, :3] @ eef_wrench[:3],
                 # torque needs rotation + torques from offsetting force
-                last_joint_to_world[:3, :3] @ eef_wrench[3:] +
-                last_joint_to_world[:3, :3] @ (np.cross(last_joint_to_eef[:3, 3], eef_wrench[:3]))
+                last_joint_to_world[:3, :3] @ eef_wrench[3:]
+                + last_joint_to_world[:3, :3] @ (np.cross(last_joint_to_eef[:3, 3], eef_wrench[:3]))
             ))
             f_ext_vec.append(pin.Force(wrench_in_last_joint_frame))
         else:

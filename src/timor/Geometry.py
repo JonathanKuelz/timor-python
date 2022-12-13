@@ -460,7 +460,7 @@ class Mesh(Geometry):
             vertices, faces = self.read_wrl(self.abs_filepath)
             geom = hppfcl.BVHModelOBBRSS()
             num_tris = sum(f.shape[0] for f in faces)
-            geom.beginModel(num_tris, 3*num_tris)
+            geom.beginModel(num_tris, 3 * num_tris)
             for vs, fs in zip(vertices, faces):
                 for f in fs:
                     geom.addTriangle(vs[f[0], :], vs[f[1], :], vs[f[2], :])
