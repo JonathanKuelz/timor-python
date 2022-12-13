@@ -6,7 +6,7 @@
 
 (What's the expected behavior after implementation)
 
-## What's id needed for?
+## What's is needed for?
 
 (What do you need the enhancement for? How would the libary benefit from including it?)
 
