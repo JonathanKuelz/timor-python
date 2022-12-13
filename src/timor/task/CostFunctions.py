@@ -79,10 +79,6 @@ class CostFunctionBase(abc.ABC):
         :param descriptor: Abbreviation for the cost function. Format <name> or <name_weight>
         :return: instance of the cost function
         """
-        abbreviations = {"cyc": CycleTime,
-                         "mechEnergy": MechanicalEnergy,
-                         "qDist": QDist,
-                         "effort": Effort}
         references = descriptor.split(',')
         costs = list()
         for ref in references:
@@ -99,6 +95,26 @@ class CostFunctionBase(abc.ABC):
         if len(costs) == 1:
             return costs[0]
         return ComposedCost(*costs)
+
+    def descriptor(self, scale: float = 1.) -> str:
+        """
+        Creates a string describing this cost function which can be used for serialization.
+        """
+        data = f"{abbreviations_inverse[type(self)]}"
+        weight = round(self.weight * scale, 4)
+        if weight != 1:
+            data += f"_{weight}"
+        return data
+
+    def __str__(self) -> str:
+        """Turn cost function into string representation."""
+        return self.descriptor()
+
+    def __eq__(self, other) -> bool:
+        """Check if cost functions are the same."""
+        if type(self) is type(other):
+            return self.weight == other.weight
+        return NotImplemented
 
 
 class ComposedCost(CostFunctionBase):
@@ -139,6 +155,19 @@ class ComposedCost(CostFunctionBase):
     def _evaluate(self, solution: 'Solution.SolutionBase') -> float:
         """The evaluation of the composed cost function is the sum of all internal cost functions"""
         return sum(cost.evaluate(solution) for cost in self._internal)
+
+    def descriptor(self) -> str:
+        """
+        Creates a string describing this cost function. Uses alphanumeric sorting to ensure deterministic name.
+        """
+        partial_costs = sorted(c.descriptor(self.weight) for c in self._internal)
+        return ",".join(partial_costs)
+
+    def __eq__(self, other: CostFunctionBase) -> bool:
+        """Check if two composed cost functions are the same, i.e., have the same descriptor."""
+        if isinstance(other, CostFunctionBase):
+            return self.descriptor() == other.descriptor()
+        return NotImplemented
 
 
 class CycleTime(CostFunctionBase):
@@ -221,3 +250,15 @@ class QDist(CostFunctionBase):
         return float(np.sum(np.abs(solution.trajectory.q[1:, :]  # All but first q
                                    - solution.trajectory.q[:-1, :])))  # All but last q
         # TODO : No field for sample time? -or- move scale by time into sum
+
+
+# Encoding cost types as defined by: M. Mayer, J. Kuelz, M. Althoff,
+# "CoBRA: A Composable Benchmark for Robotics Applications" - https://arxiv.org/abs/2203.09337
+abbreviations = {"cyc": CycleTime,
+                 "mechEnergy": MechanicalEnergy,
+                 "qDist": QDist,
+                 "effort": Effort,
+                 "mass": RobotMass,
+                 "numJ": NumJoints,
+                 "fulfillN": GoalsFulfilled}
+abbreviations_inverse = {v: k for k, v in abbreviations.items()}

@@ -14,7 +14,7 @@ from hppfcl import hppfcl
 import numpy as np
 import pinocchio as pin
 
-from timor import compress_json_vectors
+from timor import compress_json_vectors, DEFAULT_DATE_FORMAT
 from timor.Robot import PinRobot, RobotBase
 from timor.task import Constraints, Goals
 from timor.task.Obstacle import Obstacle
@@ -147,8 +147,8 @@ class Task:
         content = dict()
 
         # Header
-        content['header'] = self.header._asdict()
-        content['header']['date'] = content['header']['date'].strftime('%Y-%m-%d')
+        content['header'] = self.header.asdict()
+        content['header']['date'] = content['header']['date'].strftime(DEFAULT_DATE_FORMAT)
 
         # Constraints
         content['constraints'] = []

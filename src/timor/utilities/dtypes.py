@@ -17,8 +17,8 @@ import pinocchio as pin
 from roboticstoolbox.tools.trajectory import mstraj
 
 import timor.utilities.errors as err
+from timor.utilities.schema import DEFAULT_DATE_FORMAT
 from timor.utilities.transformation import Transformation, TransformationLike
-
 
 T = TypeVar('T')
 IntermediateIkResult = namedtuple("IntermediateIkResult", ["q", "distance"])
@@ -209,13 +209,15 @@ class TypedHeader:
             return value
         if isinstance(value, str):
             value = re.sub('/', '-', value)  # Allows parsing yyyy/mm/dd formatted dates
-            return datetime.datetime.strptime(value, "%Y-%m-%d")
+            return datetime.datetime.strptime(value, DEFAULT_DATE_FORMAT)
         raise TypeError(f"Cannot cast {value} to datetime.datetime")
 
     @staticmethod
     def string_list_factory() -> field:
         """Returns a field with a default factory that returns a list with one empty string"""
+
         def list_factory() -> List[str]: return ['']
+
         return field(default_factory=list_factory)
 
     @classmethod
@@ -223,12 +225,13 @@ class TypedHeader:
         """Returns the fields of this class"""
         return tuple(f.name for f in fields(cls))
 
-    def _asdict(self) -> Dict[str, Any]:
+    def asdict(self) -> Dict[str, Any]:
         """Returns a dictionary representation of this object"""
         return asdict(self)
 
     def _raise_immutable(self, f: Callable) -> Callable:
         """Raises error if objects in this dataclass are to be resetted but the instance is set to immutable"""
+
         def wrapper(*args, **kwargs):
             try:
                 if self.__getattribute__('__immutable'):
@@ -236,6 +239,7 @@ class TypedHeader:
             except AttributeError:  # __init__, __immutable not yet set
                 pass
             return f(*args, **kwargs)
+
         return wrapper
 
     def __delattr__(self, item):
@@ -350,6 +354,16 @@ class Trajectory:
         ddq = np.zeros_like(q)
         return Trajectory(t=np.asarray([0, time]), q=q, dq=dq, ddq=ddq, goals={})
 
+    def to_json_data(self) -> Dict:
+        """Return trajectory as a dictionary that can be serialized as json."""
+        return {
+            "t": self.t.tolist(),
+            "q": self.q.tolist(),
+            "dq": self.dq.tolist(),
+            "ddq": self.ddq.tolist(),
+            "goal2time": self.goals
+        }
+
     def plot(self, show_goals_reached: bool = False) -> plt.Figure:
         """
         Plot this trajectory
@@ -414,6 +428,19 @@ class Trajectory:
             ddq=self.ddq[item]
         )
 
+    def __eq__(self, other) -> bool:
+        """Test if two trajectories are close together (max distance < 1e-5)"""
+        if type(self) is type(other):
+            return all((np.allclose(self.t, other.t),
+                        np.allclose(self.q, other.q),
+                        np.allclose(self.dq, other.dq),
+                        np.allclose(self.ddq, other.ddq),
+                        self.goals.keys() == other.goals.keys(),
+                        all(abs(self.goals[k] - other.goals[k]) < 1e-5 for k in self.goals.keys())))
+        elif isinstance(other, Trajectory):
+            raise NotImplementedError(f"Comparison of {type(self)} and {type(other)} not yet implemented.")
+        return NotImplemented
+
 
 def deep_iter_dict(d: Dict[any, any], max_depth=10, _prev=None) -> Generator[Tuple[List[any], any], None, None]:
     """
@@ -477,9 +504,11 @@ def fuzzy_dict_key_matching(dict_in: Dict[str, any],
         aliases = {}
     if ignore_casing:
         # Define the operation performed on
-        def strfnc(s: str): return s.lower()
+        def strfnc(s: str):
+            return s.lower()
     else:
-        def strfnc(s: str): pass
+        def strfnc(s: str):
+            pass
     if desired_only is not None:
         # Add them to aliases to possibly enable string-insensitive matching for desired keys
         aliases.update({desired: desired for desired in desired_only})

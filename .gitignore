@@ -20,6 +20,9 @@ timor.config
 # API-available schemata
 */schemata
 
+# Other downloaded robots
+src/cache/**
+
 # Jupyter
 .ipynb_checkpoints
 jupyterlab_git/labextension

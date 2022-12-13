@@ -6,34 +6,32 @@ import json
 from pathlib import Path
 import re
 from typing import Dict, List, Tuple, Union
-import urllib
 
 from timor.utilities import logging
 from timor.utilities.configurations import CONFIG_FILE, TIMOR_CONFIG
+from timor.utilities.download_data import download_additional_robots, download_schemata
 
 __utilities = Path(__file__).parent.absolute()
 package = __utilities.parent  # Main directory of the package
 head = package.parent
+cache_dir = head.joinpath("cache")  # For caching downloaded robots, etc.
+if not cache_dir.exists():
+    cache_dir.mkdir()
 logging.info("Loading custom configurations from {}".format(CONFIG_FILE))
 log_conf = TIMOR_CONFIG['FILE_LOCATIONS'] if TIMOR_CONFIG.has_section('FILE_LOCATIONS') else dict()
 test_data = Path(log_conf.get('test_data', head.parent.joinpath('tests/data')))
-schema_dir = Path(log_conf.get('schema_dir', head.joinpath("schemata")))
+default_robot_dir = head.joinpath('timor_sample_robots')
+cache_robot_dir = cache_dir.joinpath("robots")
+if not cache_robot_dir.exists():
+    cache_robot_dir.mkdir()
+
+# Get schemas
+schema_dir = Path(log_conf.get('schema_dir', cache_dir.joinpath("schemata")))
 if not schema_dir.exists():
     schema_dir.mkdir()
-if len(tuple(schema_dir.iterdir())) < 4:
-    # --- Begin download schemata ---
-    tld = "https://cobra.cps.cit.tum.de/api/schemas/"
-    for schema in ('PoseSchema', 'TaskSchema', 'ModuleSchema', 'SolutionSchema'):
-        url = tld + schema + '.json'
-        logging.info(f"Downloading schema from {url}")
-        try:
-            with urllib.request.urlopen(url) as response:
-                with open(schema_dir.joinpath(schema + '.json'), 'wb') as f:
-                    f.write(response.read())
-        except Exception as e:
-            logging.warning(f"Could not download from {url}: {e}")
-    # --- End download schemata ---
-schemata = tuple(f for f in schema_dir.iterdir() if f.suffix == ".json")
+schemata = download_schemata(schema_dir)
+
+# Find local robots
 if 'robots' in log_conf:
     robots = dict()
     for __r in chain.from_iterable(Path(d).iterdir() for d in json.loads(log_conf['robots'])):
@@ -42,7 +40,10 @@ if 'robots' in log_conf:
             continue
         robots[__r.name] = __r
 else:
-    robots = {d.name: d for d in head.joinpath('timor_sample_robots').iterdir()}
+    robots = {d.name: d for d in default_robot_dir.iterdir()}
+
+# Get robots available via CoBRA
+download_additional_robots(cache_robot_dir, robots)
 module_DBs = robots  # alias
 
 DEFAULT_TASK_FILTER = re.compile(".*(PTP_1|PTP_2|PTP_2_cycle|PTP_3|Empty)+.json")

@@ -1,21 +1,23 @@
 from __future__ import annotations
 
 import abc
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import datetime
 import json
 from pathlib import Path
 from typing import Dict, List, Tuple, Union
-import warnings
 
+import jsonschema.exceptions
 import numpy as np
 import pinocchio as pin
 
-from timor.Module import ModuleAssembly, ModulesDB
+from timor import compress_json_vectors
+from timor.Module import ModuleAssembly
 from timor.Robot import RobotBase
 from timor.task import Constraints, CostFunctions, Goals, Task
-from timor.utilities.dtypes import Lazy, Trajectory, TypedHeader, fuzzy_dict_key_matching, map2path
-from timor.utilities.file_locations import get_module_db_files
+from timor.utilities.dtypes import Lazy, Trajectory, TypedHeader, fuzzy_dict_key_matching, map2path  # noqa: F401
+from timor.utilities.file_locations import schema_dir
+from timor.utilities.schema import DEFAULT_DATE_FORMAT, get_schema_validator
 from timor.utilities.transformation import Transformation, TransformationLike
 from timor.utilities.visualization import MeshcatVisualizerWithAnimation, animation
 
@@ -26,13 +28,13 @@ class SolutionHeader(TypedHeader):
 
     taskID: str  # This is NOT the Solution ID, but identifies the task the solution was crafted for!
     version: str = "Py2022"
-    author: List[str] = ''
-    email: List[str] = ''
-    affiliation: List[str] = ''
+    author: List[str] = field(default_factory=lambda: [''])
+    email: List[str] = field(default_factory=lambda: [''])
+    affiliation: List[str] = field(default_factory=lambda: [''])
     publication: str = ''
     date: datetime.datetime = datetime.datetime(1970, 1, 1)
     computationTime: float = -1.
-    processor: str = ''
+    processorName: str = ''
 
 
 class SolutionBase(abc.ABC):
@@ -73,6 +75,11 @@ class SolutionBase(abc.ABC):
         """Factory method to load a class instance from a json file."""
         json_path = map2path(json_path)
         content = json.load(json_path.open('r'))
+        _, validator = get_schema_validator(schema_dir.joinpath("SolutionSchema.json"))
+        try:
+            validator.validate(content)
+        except jsonschema.exceptions.ValidationError:
+            raise ValueError(f"Invalid solution json provided. Details: {tuple(validator.iter_errors(content))}.")
         _header = fuzzy_dict_key_matching(content, desired_only=SolutionHeader.fields())
         header = SolutionHeader(**_header)
         try:
@@ -80,21 +87,12 @@ class SolutionBase(abc.ABC):
         except KeyError:
             raise KeyError(f"Got solution for task {header.ID}, but there is no such task.")
 
-        modules, package = get_module_db_files(content['moduleSet'])
-        db = ModulesDB.from_file(modules, package)
-
-        if 'moduleOrder' in content:
-            warnings.warn("Module Order should be replaced by proper module arrangement definition",
-                          DeprecationWarning)
-            assembly = ModuleAssembly.from_serial_modules(db, tuple(map(str, content['moduleOrder'])))
-        else:
-            assembly = ModuleAssembly(db)
+        assembly = ModuleAssembly.from_json_data(content)
 
         cost_func = CostFunctions.CostFunctionBase.from_descriptor(content["costFunction"])
-        base_pose = np.array(content['basePose'])
-        if len(base_pose) > 1:
+        base_pose = np.array(content['basePose'][0]).squeeze()
+        if base_pose.shape != (4, 4):
             raise ValueError("Cannot handle assembly with multiple bases")
-        base_pose = base_pose[0]
 
         if 'trajectory' in content:
             _trajectory = fuzzy_dict_key_matching(content['trajectory'], {'goal2time': 'goals'},
@@ -110,7 +108,7 @@ class SolutionBase(abc.ABC):
 
     def to_json_string(self) -> str:
         """Convert the solution to a json string"""
-        return json.dumps(self.to_json_data(), indent=2)
+        return compress_json_vectors(json.dumps(self.to_json_data(), indent=2))
 
     @property
     def module_assembly(self) -> ModuleAssembly:
@@ -299,8 +297,21 @@ class SolutionTrajectory(SolutionBase):
         self._torques = Lazy(self._get_torques)
 
     def to_json_data(self) -> Dict[str, any]:
-        """Future todo"""
-        raise NotImplementedError()
+        """
+        Creates jsonable dictionary that serializes this solution.
+
+        :return: A dictionary that serializes this solution
+        """
+        data = {
+            "cost": self.cost,
+            "costFunction": self.cost_function.descriptor(),
+            **self.header.asdict(),
+            **self.module_assembly.to_json_data(),
+            "basePose": [self.robot.placement.serialized],
+            "trajectory": self.trajectory.to_json_data()
+        }
+        data['date'] = data['date'].strftime(DEFAULT_DATE_FORMAT)
+        return data
 
     def _get_torques(self) -> np.ndarray:
         """Utility method to calculate joint torques based on the trajectory"""

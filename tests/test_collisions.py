@@ -10,8 +10,8 @@ from timor import ModuleAssembly, ModulesDB, PinRobot
 from timor.Geometry import Sphere
 from timor.task.Obstacle import Obstacle
 from timor.task.Task import Task, TaskHeader
-from timor.utilities import prebuilt_robots, spatial
-from timor.utilities.file_locations import get_module_db_files, robots
+from timor.utilities import spatial
+from timor.utilities.file_locations import robots
 
 
 class TestCollisionUtilities(unittest.TestCase):
@@ -20,13 +20,13 @@ class TestCollisionUtilities(unittest.TestCase):
         self.package_dir = robots['panda'].parent
         self.urdf = robots['panda'].joinpath('urdf').joinpath('panda.urdf')
         self.robot = PinRobot.from_urdf(self.urdf, self.package_dir)
-        self.modules = ModulesDB.from_file(*get_module_db_files('geometric_primitive_modules'))
+        self.modules = ModulesDB.from_name('geometric_primitive_modules')
         self.header = TaskHeader('Collision Test')
         random.seed(123)
         np.random.seed(123)
 
     def test_assembly_to_robot_collisions(self):
-        improv_db = ModulesDB.from_file(*prebuilt_robots.get_module_db_files('IMPROV'))
+        improv_db = ModulesDB.from_name('IMPROV')
         improv_assembly = ModuleAssembly.from_serial_modules(improv_db, ('1', '21', '4', '21', '5', '23', '7', '12'))
 
         simple_modules = ('base', 'J2', 'i_30', 'J1', 'l_15', 'eef')
