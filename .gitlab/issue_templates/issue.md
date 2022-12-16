@@ -25,4 +25,3 @@ it's very hard to read otherwise.)
 
 /label ~bug ~pending
 /cc @JonathanKuelz
-

@@ -40,4 +40,3 @@ version = {attr = "timor.__version__"}
 "Source Code" = "https://gitlab.lrz.de/tum-cps/timor-python"
 "Documentation" = "https://timor-python.readthedocs.io/en/latest/"
 "Bug Tracker" = "https://gitlab.lrz.de/tum-cps/timor-python/-/issues"
-

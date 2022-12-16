@@ -8,19 +8,19 @@ data_file = ../ci/coverage/report.coverage
 
 [report]
 skip_empty = True
-omit = 
+omit =
 	*/__init__.py
 	timor/utilities/visualization.py
 	tests/
 	doc/
-	
+
 exclude_lines =
 	# Don't complain about defensive assertion code:
 	raise AsertionError
 	raise NotImplementedError
 	assert
 	pragma: no cover
-	
+
 	# Don't complain if non-runnable code isn't run:
 	if False:
 	if __name__ == ["']__main__["']:
@@ -34,4 +34,3 @@ directory = ../ci/coverage/html
 # XML report is needed for gitlab visualization
 [xml]
 output = ../ci/coverage/coverage.xml
-

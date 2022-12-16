@@ -121,12 +121,12 @@ class SolutionBase(abc.ABC):
         return self._cost()
 
     @property
-    def failed_constraints(self) -> Tuple['Constraints.ConstraintBase', ...]:
+    def failed_constraints(self) -> Tuple[Constraints.ConstraintBase, ...]:
         """A tuple of all task-level constraints that were hurt by this solution"""
         return tuple(c for c in self.task.constraints if not c.fulfilled(self))
 
     @property
-    def failed_goals(self) -> Tuple['Goals.GoalBase', ...]:
+    def failed_goals(self) -> Tuple[Goals.GoalBase, ...]:
         """A tuple of all goals that were not fulfilled by this solution"""
         return tuple(g for g in self.task.goals if not g.achieved(self))
 

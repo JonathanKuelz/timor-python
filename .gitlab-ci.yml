@@ -6,7 +6,7 @@ variables:
   GIT_SUBMODULE_UPDATE_FLAGS: --remote
   GIT_CLONE_PATH: $CI_BUILDS_DIR/$CI_JOB_STAGE/$CONCURRENT_ID/$CI_PROJECT_NAME
   CONDA_ENV: timor
-  
+
 cache:
   paths:
     - .cache/pip
@@ -39,7 +39,7 @@ docstring check:
   script:
     - pip install pydocstyle
     - cd src/timor && pydocstyle --config=../../.pydocstyle
-    
+
 flake8 linting:
   stage: static_check
   script:
