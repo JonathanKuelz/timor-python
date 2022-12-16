@@ -14,11 +14,11 @@ The Toolbox for Industrial Modular Robot Design (Timor) is a python library for 
 .. image:: https://readthedocs.org/projects/timor-python/badge/?version=latest
     :target: https://timor-python.readthedocs.io/en/latest/?badge=latest
     :alt: Documentation Status
-    
+
 .. image:: https://gitlab.lrz.de/tum-cps/timor-python/badges/main/coverage.svg
     :target: https://gitlab.lrz.de/tum-cps/timor-python/-/jobs/artifacts/main/file/ci/coverage/html//index.html?job=coverage&min_acceptable=80&min_good=90
     :alt: Coverage Report
-    
+
 With Timor you can:
 
 - Create, export and load sets of robot modules
@@ -53,9 +53,18 @@ If you want to work with the bleeding-edge version, you can download the source 
 Nagivate to the timor-python repository you cloned and enter::
 
    pip install -e .
-   
+
 to install it in editeable mode. This requires :code:`setuptools>=61` and :code:`pip>=21.3` (previous versions of setuptools require a :code:`setup.py`-file). To install optional dependencies, proceed in the same manner as for PyPI installs.
 
+If you want to use pre-commit, for installation please use::
+
+   pip install pre-commit
+
+then::
+
+   pre-commit install
+
+After that, each time when you commit files, it will automatically perform the checks which are defined in the .pre-commit-config.yaml file.
 
 Usage
 -----
@@ -67,7 +76,7 @@ To open and run the notebooks, you will need jupyter, which can be installed fro
 To inspect, run, or edit the tutorials, navigate to the tutorials folder and start the notebook::
 
   jupyter lab
-  
+
 You can set custom configurations such as file paths of robot libraries or logging behavior by editing the config file. You can import the file location of the config file as :code:`from timor.utilities.configurations import CONFIG_FILE`.
 
 For further information, please visit the `documentation <https://timor-python.readthedocs.io>`_.

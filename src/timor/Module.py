@@ -550,7 +550,7 @@ class ModulesDB(SingleSet):
         return self._name
 
     @property
-    def possible_connections(self) -> Set[connection_type]:
+    def possible_connections(self) -> Set[ModulesDB.connection_type]:
         """
         Returns a set of all possible connections in this db.
 
@@ -1004,7 +1004,7 @@ class ModuleAssembly:
 
         raise LookupError("There is no possible connection that could be added")
 
-    def connections_between(self, mod_a: int, mod_b: int) -> Set[connection_type]:
+    def connections_between(self, mod_a: int, mod_b: int) -> Set[ModuleAssembly.connection_type]:
         """
         Returns all connections that exist between module mod_a and module mod_b.
 

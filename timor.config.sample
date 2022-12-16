@@ -17,4 +17,3 @@ filename = /tmp/timor.log  # If you do not provide a filename, stdout will be th
 # Declare a "schema_dir" to define where timor stores schemata to validate JSON files for tasks, modules, and more
 [FILE_LOCATIONS]
 robots = ["/home/<username>/timor-python/src/timor_sample_robots", "/home/<username>/my_robots"]
-

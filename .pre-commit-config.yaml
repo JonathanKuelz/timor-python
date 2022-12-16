@@ -1,0 +1,37 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.4.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: .*(stl|dae|wrl)$
+      - id: end-of-file-fixer
+        exclude: .*(stl|dae|wrl)$
+      - id: check-added-large-files
+      - id: detect-private-key
+      - id: forbid-submodules
+      - id: check-case-conflict
+      - id: check-json
+      - id: check-toml
+      - id: check-xml
+      - id: check-yaml
+      - id: check-merge-conflict
+
+  - repo: https://github.com/pre-commit/pygrep-hooks
+    rev: v1.9.0
+    hooks:
+      - id: python-check-blanket-noqa
+      - id: python-use-type-annotations
+      - id: python-no-eval
+      - id: rst-inline-touching-normal
+      - id: rst-directive-colons
+      - id: rst-backticks
+
+  - repo: https://github.com/PyCQA/pydocstyle
+    rev: 6.1.1
+    hooks:
+      - id: pydocstyle
+
+  - repo: https://github.com/pycqa/flake8
+    rev: 5.0.0
+    hooks:
+      - id: flake8

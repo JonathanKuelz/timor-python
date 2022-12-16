@@ -177,7 +177,7 @@ class PinocchioRobotSetup(unittest.TestCase):
             ))
 
         for goal, conf in fails:
-            # Make sure the configuration found by jacobian is at least close to the goal
+            logging.info('For iks that failed, check that the solution is at least closer than random:')
             for _ in range(10):
                 result_distance = robot.fk(conf).distance(goal).translation_euclidean
                 random_distance = robot.fk(robot.random_configuration()).distance(goal).translation_euclidean
