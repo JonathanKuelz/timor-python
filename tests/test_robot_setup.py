@@ -220,13 +220,6 @@ class PinocchioRobotSetup(unittest.TestCase):
                 error_count['scipy'], error_count['jacobian']
             ))
 
-        for goal, conf in fails:
-            logging.info('For iks that failed, check that the solution is at least closer than random:')
-            for _ in range(10):
-                result_distance = robot.fk(conf).distance(goal).translation_euclidean
-                random_distance = robot.fk(robot.random_configuration()).distance(goal).translation_euclidean
-                self.assertLessEqual(result_distance, random_distance)
-
     def test_robot_move_base(self):
         """Creates two robots, one with the base moved to another origin and then checks whether
         frame displacement checks out."""
