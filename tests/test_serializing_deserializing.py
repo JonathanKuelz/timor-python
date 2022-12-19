@@ -199,7 +199,15 @@ class SerializationTests(unittest.TestCase):
         joint_constraints = Constraints.JointLimits(('q', 'dq', 'ddq', 'tau'))
         base_placement = Constraints.BasePlacement(ToleratedPose(random_homogeneous, tolerance=cylindrical))
         collision = Constraints.CollisionFree()
-        self.constraints = [goal_order, joint_constraints, base_placement, collision]
+        eef_constraint_pose = Constraints.EndEffector(pose=ToleratedPose(Transformation.random()))
+        eef_constraint_v = Constraints.EndEffector(velocity_lim=np.asarray((.1234, 0.2345)),
+                                                   rotation_velocity_lim=np.asarray((-.1, .4)))
+        eef_constraint_all = Constraints.EndEffector(pose=ToleratedPose(Transformation.random()),
+                                                     velocity_lim=np.asarray((random.random(), random.random() + 1)),
+                                                     rotation_velocity_lim=np.asarray((-random.random(),
+                                                                                       random.random())))
+        self.constraints = [goal_order, joint_constraints, base_placement, collision, eef_constraint_pose,
+                            eef_constraint_v, eef_constraint_all]
 
     def test_assembly_to_json(self):
         for db_name in ('IMPROV', 'PROMODULAR', 'modrob-gen2'):
@@ -257,6 +265,15 @@ class SerializationTests(unittest.TestCase):
                 self.assertTrue(pin_geometry_models_structurally_equal(r1.visual, r2.visual))
 
     def test_constraints_to_json(self):
+        with self.assertRaises(KeyError):
+            Constraints.ConstraintBase.from_json_data({"no-type": "really no type information"})
+
+        with self.assertRaises(NotImplementedError):
+            Constraints.ConstraintBase.from_json_data({"type": "thisIsARatherUnlikelyTypeStringToEverExist"})
+
+        with self.assertRaises(ValueError):
+            Constraints.EndEffector.from_json_data({"type": "basePlacement"})
+
         for constraint in self.constraints:
             as_json = json.dumps(constraint.to_json_data())
             from_json = json.loads(as_json)
@@ -265,8 +282,18 @@ class SerializationTests(unittest.TestCase):
             self.assertIs(type(new), type(constraint))
             self.assertIs(type(from_string), type(constraint))
             for key in constraint.__dict__:
-                self.assertEqual(constraint.__dict__[key], new.__dict__[key])
-                self.assertEqual(constraint.__dict__[key], from_string.__dict__[key])
+                if isinstance(constraint.__dict__[key], np.ndarray):
+                    np_test.assert_array_equal(constraint.__dict__[key], new.__dict__[key])
+                    np_test.assert_array_equal(constraint.__dict__[key], from_string.__dict__[key])
+                else:
+                    self.assertEqual(constraint.__dict__[key], new.__dict__[key])
+                    self.assertEqual(constraint.__dict__[key], from_string.__dict__[key])
+
+            if isinstance(constraint, Constraints.BasePlacement):  # Test that redirect for from_json_string works
+                from_string_2 = Constraints.BasePlacement.from_json_string(constraint.to_json_string())
+                self.assertIsNotNone(from_string_2)
+                with self.assertRaises(ValueError):
+                    Constraints.EndEffector.from_json_string(constraint.to_json_string())
 
     def test_de_serialize_solution(self):
         assembly = prebuilt_robots.get_six_axis_assembly()
