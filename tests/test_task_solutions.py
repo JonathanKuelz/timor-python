@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # Author: Jonathan Külz
 # Date: 17.02.22
+import math
 import random
 import unittest
 
@@ -42,7 +43,7 @@ class TestSolution(unittest.TestCase):
         limits = panda.joint_limits
         base_constraint = Constraints.BasePlacement(ToleratedPose(Transformation.neutral(),
                                                                   tolerance=Tolerance.DEFAULT_SPATIAL))
-        basic_joint_constraing = Constraints.JointLimits(parts=('q',))
+        basic_joint_constraint = Constraints.JointLimits(parts=('q',))
         additional_joint_constraint = Constraints.CoterminalJointAngles(limits * 0.95)
 
         start_conf = np.mean(limits * np.random.random(limits.shape), axis=0)  # Around middle of limits
@@ -53,7 +54,7 @@ class TestSolution(unittest.TestCase):
         at_goal = Goals.At('At_Goal', goal_pose, constraints=[additional_joint_constraint])
 
         task = Task.Task(self.task_header, goals=[at_goal],
-                         constraints=[base_constraint, basic_joint_constraing])
+                         constraints=[base_constraint, basic_joint_constraint])
 
         steps = 100
         dt = .1
@@ -141,6 +142,91 @@ class TestSolution(unittest.TestCase):
 
         with self.assertRaises(KeyError):
             CostFunctions.CostFunctionBase.from_descriptor('not_a_cost')
+
+    def test_eef_constraint(self):
+        eef_constraint_allow_any_pose = Constraints.EndEffector(
+            pose=ToleratedPose(nominal=Transformation.neutral(), tolerance=Tolerance.AlwaysValidTolerance()))
+        qs = np.asarray([self.robot.random_configuration() for _ in range(10)])
+        eef_constraint_allow_first_pose = Constraints.EndEffector(
+            pose=ToleratedPose(self.robot.fk(qs[0, :]), tolerance=Tolerance.DEFAULT_SPATIAL)
+        )
+
+        # Check pose
+        sol = Solution.SolutionTrajectory(dtypes.Trajectory(1., qs, {}), Solution.SolutionHeader("tmp"),
+                                          Task.Task(Task.TaskHeader('tmp'), ),
+                                          ModuleAssembly.from_monolithic_robot(self.robot), CostFunctions.RobotMass(),
+                                          Transformation.neutral())
+        self.assertTrue(eef_constraint_allow_first_pose.is_valid_at(sol, 0.))
+        self.assertFalse(eef_constraint_allow_first_pose.is_valid_at(sol, 1.))
+        self.assertFalse(eef_constraint_allow_first_pose.fulfilled(sol))
+        self.assertTrue(eef_constraint_allow_any_pose.is_valid_at(sol, 0.))
+        self.assertTrue(eef_constraint_allow_any_pose.is_valid_at(sol, 1.))
+        self.assertTrue(eef_constraint_allow_any_pose.fulfilled(sol))
+
+        # Constructed case - movement along line with invariant rotation about line, e.g. drilling
+        orientation_tolerance = Tolerance.RotationAxisAngle(n_x=(-math.pi / 100, math.pi / 100),
+                                                            n_y=(-math.pi / 100, math.pi / 100),
+                                                            n_z=(-1, 1),  # Any rotation about local z-axis is ok
+                                                            theta_r=(0, np.pi))
+        ik_tolerance = Tolerance.Composed((orientation_tolerance, Tolerance.CartesianXYZ.default()))
+        start_pose = Transformation.from_translation((0.5, 0., 0.5)) @ spatial.rotY(math.pi / 2)
+        # Construct movement steps - q_start, q_end, q_mid_ok, q_mid_nok (small rot), q_end_to_far
+        qs = []
+        N_middle = 10  # How many random valid position inbetween start and end pose
+        t_good = 2 + N_middle  # start, end + valid in the middle
+        for T in (start_pose,  # q_start
+                  Transformation.from_translation((.2, 0., 0.)) @ start_pose,  # q_end
+                  # q_mid - all with random translation in 0, 0.2 and rotation about drill axis
+                  *(Transformation.from_translation((random.random() * 0.2, 0., 0.)) @
+                    start_pose @ spatial.rotZ(random.random()) for _ in range(N_middle)),
+                  Transformation.from_translation((.11, 0., 0.)) @ start_pose @ spatial.rotX(0.02),  # q_mid_not_ok
+                  Transformation.from_translation((.11, 0., 0.)) @ start_pose @ spatial.rotY(-0.02),  # q_mid_not_ok
+                  Transformation.from_translation((.22, 0., 0.)) @ start_pose  # q_end_to_far
+                  ):
+            q, success = self.robot.ik(ToleratedPose(T, ik_tolerance))
+            self.assertTrue(success, f"ik for {str(T)} failed")
+            qs.append(q)
+        drill_eef_constraint = Constraints.EndEffector(pose=ToleratedPose(
+            nominal=start_pose,
+            tolerance=Tolerance.Composed((
+                Tolerance.CartesianXYZ((-0.01, 0.01), (-0.01, 0.01), (-0.01, 0.2)),  # Drill along z
+                orientation_tolerance
+            ))
+        ))
+        drill_test_traj = dtypes.Trajectory(1., np.asarray(qs), {})
+        sol = Solution.SolutionTrajectory(drill_test_traj, Solution.SolutionHeader("tmp"),
+                                          Task.Task(Task.TaskHeader("tmp")),
+                                          ModuleAssembly.from_monolithic_robot(self.robot), CostFunctions.RobotMass(),
+                                          Transformation.neutral())
+        for t in np.arange(0, t_good, 1):
+            self.assertTrue(drill_eef_constraint.is_valid_at(sol, t), f"Error at step {t}")
+        for t in np.arange(t_good, t_good + 3, 1):
+            self.assertFalse(drill_eef_constraint.is_valid_at(sol, t))
+
+        # Check velocities
+        self.robot.update_configuration(np.zeros((7,)))  # ~0.6 m from first joint to eef
+        eef_constraint_v = Constraints.EndEffector(velocity_lim=np.asarray((.55, 0.65)))
+        eef_constraint_o = Constraints.EndEffector(rotation_velocity_lim=np.asarray((.95, 1.05)))
+        vel_test_traj = dtypes.Trajectory(np.asarray([0., 1., 2., 3., 4.]), np.zeros((5, 7)), {},
+                                          dq=np.asarray(((0., 1., 0., 0., 0., 0., 0.),  # eef ~ 0.6 m/s
+                                                         (0., .9, 0., 0., 0., 0., 0.),  # eef ~ 0.54 m/s - invalid
+                                                         (0., 1.1, 0., 0., 0., 0., 0.),  # eef ~ 0.66 m/s - invalid
+                                                         (0., -1., 0., 0., 0., 0., 0.),  # eef ~ 0.6 m/s
+                                                         (0., -.85, 0., 0., 0., 0., 0.),  # eef ~ 0.5 m/s
+                                                         )))
+        sol = Solution.SolutionTrajectory(vel_test_traj, Solution.SolutionHeader("tmp"),
+                                          Task.Task(Task.TaskHeader("tmp"), constraints=(eef_constraint_v,)),
+                                          ModuleAssembly.from_monolithic_robot(self.robot), CostFunctions.RobotMass(),
+                                          Transformation.neutral())
+        for c in (eef_constraint_v, eef_constraint_o):
+            self.assertTrue(c.is_valid_at(sol, 0.))
+            self.assertTrue(c.is_valid_at(sol, 3.))
+            self.assertFalse(c.is_valid_at(sol, 1.))
+            self.assertFalse(c.is_valid_at(sol, 2.))
+            self.assertFalse(c.is_valid_at(sol, 4.))
+        for t in np.arange(0., 3., 1.):
+            self.assertTrue(eef_constraint_allow_any_pose.is_valid_at(sol, t))
+            self.assertFalse(eef_constraint_allow_first_pose.is_valid_at(sol, t))
 
     def test_goals(self):
         task = Task.Task({'ID': 'dummy'})

@@ -73,6 +73,50 @@ class PinocchioRobotSetup(unittest.TestCase):
             self.assertTrue(Tolerance.DEFAULT_SPATIAL.valid(T @ fk_eye4, robot.fk()),
                             msg=f"Could not reconstruct fk after moving base {i + 1} times")
 
+    def test_robot_eef_velocity(self):
+        robot = PinRobot.from_urdf(self.urdf, self.package_dir)
+        dq0 = np.asarray((1., 0., 0., 0., 0., 0., 0.))
+        dq1 = np.asarray((0., 1., 0., 0., 0., 0., 0.))
+
+        # Velocity should be close to omega x r if single joint moves
+        for _ in range(100):
+            q = robot.random_configuration()
+            # First joint movement. Needs relative movement of 5th (= 1st joint) and EEF frame; specific to Panda robot
+            robot.update_configuration(q, dq0)
+            fks = robot.fk(kind="full")
+            v_rob = robot.tcp_velocity
+            J_1toEEF = fks[5].inv @ fks[-1]  # From 1st joint frame (=5th in complete hierarchy) frame to eef
+            v_eef_from_J_1 = np.cross(np.asarray((0., 0., 1.)), J_1toEEF.translation)
+            # Rotate velocity from 1st joint frame into base (= world) frame for comparison with tcp_velocity output
+            np_test.assert_array_almost_equal(v_rob[:3], fks[5].rotation @ v_eef_from_J_1)
+            np_test.assert_array_almost_equal(v_rob[3:], np.asarray((0., 0., 1.)))
+
+            # Second joint movement (= 7th frame in complete FK)
+            robot.update_configuration(q, dq1)
+            v_rob = robot.tcp_velocity
+            J_2toEEF = fks[7].inv @ fks[-1]
+            v_eef_from_J_2 = np.cross(np.asarray((0., 0., 1.)), J_2toEEF.translation)
+            # Rotate velocity from 2nd joint frame into base (= world) frame for comparison
+            np_test.assert_array_almost_equal(v_rob[:3], fks[7].rotation @ v_eef_from_J_2)
+            np_test.assert_array_almost_equal(v_rob[3:], fks[7].rotation @ np.asarray((0., 0., 1.)))
+
+            # Velocity should not change with translation of base
+            robot.set_base_placement(Transformation.from_translation(np.random.random((3,))))
+            robot.update_configuration(q, dq1)
+            v_rob_moved = robot.tcp_velocity
+            np_test.assert_array_almost_equal(v_rob, v_rob_moved)
+
+            # Velocity should rotate with rotation of base
+            randon_transformation = Transformation.random()
+            robot.set_base_placement(randon_transformation)
+            robot.update_configuration(q, dq1)
+            v_rob_moved = robot.tcp_velocity
+            np_test.assert_array_almost_equal(v_rob[:3], randon_transformation.inv.rotation @ v_rob_moved[:3])
+            np_test.assert_array_almost_equal(v_rob[3:], randon_transformation.inv.rotation @ v_rob_moved[3:])
+
+            # reset
+            robot.set_base_placement(Transformation.neutral())
+
     def test_robot_fk(self):
         robot = PinRobot.from_urdf(self.urdf, self.package_dir)
         self.assertIsInstance(robot.fk(robot.configuration, 'tcp'), Transformation)

@@ -567,14 +567,15 @@ class PinRobot(RobotBase):
         return self.model.names[parent_internal_index]
 
     @property
-    def tcp_velocity(self) -> np.ndarray:
-        """
-        Returns the current tcp velocity as 6x1 numpy array - relative to the world coordinate system.
+    def tcp_velocity(self, reference_frame=pin.ReferenceFrame.LOCAL_WORLD_ALIGNED) -> np.ndarray:
+        r"""
+        Returns the current tcp velocity as 6x1 numpy array - per default relative to the world coordinate system.
 
-        :return: Array (dx, dy, dz, d_alpha, d_beta, d_gamma) / dt
+        :param reference_frame: Select reference frame to represent tcp velocity in; details see:
+           https://docs.ros.org/en/kinetic/api/pinocchio/html/group__pinocchio__multibody.html
+        :return: Array math:`(\Delta x, \Delta y, \Delta z, \Delta \alpha, \Delta \beta, \Delta \gamma) / \Delta t`
         """
-        reference = pin.ReferenceFrame.WORLD
-        return pin.getFrameVelocity(self.model, self.data, self.tcp, reference).np
+        return pin.getFrameVelocity(self.model, self.data, self.tcp, reference_frame).np
 
     @property
     def tcp_acceleration(self) -> np.ndarray:

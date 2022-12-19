@@ -1,6 +1,8 @@
+from __future__ import annotations
 from abc import ABC, abstractmethod
 import json
-from typing import Dict, Iterable, List, Tuple, Union
+import math
+from typing import Dict, Iterable, List, Optional, Tuple, Union
 from warnings import warn
 
 import numpy as np
@@ -17,35 +19,56 @@ class ConstraintBase(ABC):
 
     global_only: bool = False  # If this is True, the constraint cannot be used as a local goal constraint.
 
-    @staticmethod
-    def from_json_data(description: Dict[str, any]) -> Union[List['ConstraintBase'], 'ConstraintBase']:
+    @classmethod
+    def from_json_data(cls, description: Dict[str, any]) -> ConstraintBase:
         """
         Converts a description (string, parsed from json) to a constraint
 
         :param description: A description, mapping a constraint name to one or more constraint specifications
         """
+        try:
+            constraint_type = description.pop('type')
+        except KeyError:
+            if len(description) == 0:
+                return AlwaysTrueConstraint()
+            raise KeyError("Any constraint description must contain type information.")
+
         type2class = {
             'allGoalsFulfilled': AlwaysTrueConstraint,
             'allGoalsFulfilledInOrder': GoalOrderConstraint,
+            'alwaysTrue': AlwaysTrueConstraint,
             'collisionFree': CollisionFree,
             'goalsBySameRobot': GoalsBySameRobot,
             'joint': JointLimits,
             'selfCollisionFree': SelfCollisionFree,
             'validAssembly': AlwaysTrueConstraint,
-            'basePlacement': None
+            'basePlacement': BasePlacement,
+            'endEffector': EndEffector
         }
-        constraint_type = description.pop('type')
-        if constraint_type in type2class:
-            if constraint_type == 'basePlacement':
-                pose = ToleratedPose.from_json_data(description['pose'])
-                return BasePlacement(pose)
-            else:
-                return type2class[constraint_type](**description)
 
-        raise NotImplementedError(f"Unknown constraint of type {constraint_type}!")
+        # Shortcut to _from_json_data if used on subclasses to return Error or expected type if possible
+        if cls is not ConstraintBase:
+            if cls is type2class[constraint_type]:
+                return cls._from_json_data(description)
+            raise ValueError(f"Want to create {type(cls)} with description of type {constraint_type}.")
+        try:
+            class_ref = type2class[constraint_type]
+        except KeyError as e:
+            raise NotImplementedError(f"Unknown constraint of type {constraint_type}!") from e
+
+        return class_ref._from_json_data(description)
 
     @classmethod
-    def from_json_string(cls, description: str) -> Union[List['ConstraintBase'], 'ConstraintBase']:
+    def _from_json_data(cls, description: Dict[str, any]) -> ConstraintBase:
+        """
+        Default constraints can just be constructed from using json fields as constructor inputs.
+
+        Can be overwritten by children if more complex unpacking needed.
+        """
+        return cls(**description)
+
+    @classmethod
+    def from_json_string(cls, description: str) -> Union[List[ConstraintBase], ConstraintBase]:
         """
         Converts a description (string, parsed from json) to a constraint
 
@@ -54,12 +77,12 @@ class ConstraintBase(ABC):
         return cls.from_json_data(json.loads(description))
 
     @abstractmethod
-    def is_valid_at(self, solution: 'Solution.SolutionBase', t: float) -> bool:
+    def is_valid_at(self, solution: Solution.SolutionBase, t: float) -> bool:
         """Should be implemented to check for a constraint on a subset of a solution only"""
         pass
 
     @abstractmethod
-    def fulfilled(self, solution: 'Solution.SolutionBase') -> bool:
+    def fulfilled(self, solution: Solution.SolutionBase) -> bool:
         """Main access point to check constraints"""
         pass
 
@@ -89,11 +112,11 @@ class AlwaysTrueConstraint(ConstraintBase):
     This constraint is always true and can be used for constraints ensured by the software library before evaluation.
     """
 
-    def is_valid_at(self, solution: 'Solution.SolutionBase', t: float) -> bool:
+    def is_valid_at(self, solution: Solution.SolutionBase, t: float) -> bool:
         """As the name says, this constraint is always valid"""
         return True
 
-    def fulfilled(self, solution: 'Solution.SolutionBase') -> bool:
+    def fulfilled(self, solution: Solution.SolutionBase) -> bool:
         """As the name says, this constraint is always valid"""
         return True
 
@@ -115,7 +138,7 @@ class GoalsBySameRobot(ConstraintBase):
         self.goals = set(goals)
         raise NotImplementedError("Goals by same robot not yet specified nor implemented")
 
-    def is_valid_at(self, solution: 'Solution.SolutionBase', t: float) -> bool:
+    def is_valid_at(self, solution: Solution.SolutionBase, t: float) -> bool:
         """Evaluates the solution up to time t"""
         # goal_ids, times = map(tuple, zip(*sorted(solution.t_goals.items(), key=lambda x: x[1])))
         # goals = [solution.task.goals_by_id[gid] for gid in goal_ids]
@@ -124,7 +147,7 @@ class GoalsBySameRobot(ConstraintBase):
         warn("Multi-Robot-Tasks not yet implemented", UserWarning)
         return True
 
-    def fulfilled(self, solution: 'Solution.SolutionBase') -> bool:
+    def fulfilled(self, solution: Solution.SolutionBase) -> bool:
         """Checks the whole solution for all goals specified by this constraint"""
         # goals = [goal for goal in solution.task.goals if goal.id in self.goals]
         # TODO: Check that all goals with ID in self.goals were done by the same robot
@@ -150,13 +173,13 @@ class GoalOrderConstraint(ConstraintBase):
         """
         self.order: Tuple[str, ...] = tuple(map(str, order))
 
-    def is_valid_at(self, solution: 'Solution.SolutionBase', t: float) -> bool:
+    def is_valid_at(self, solution: Solution.SolutionBase, t: float) -> bool:
         """Evaluates the solution up to time t"""
         goal_ids, times = map(tuple, zip(*sorted(solution.t_goals.items(), key=lambda x: x[1])))
         check_for = tuple(gid for i, gid in enumerate(goal_ids) if gid in self.order and times[t] <= t)
         return check_for == self.order[:len(check_for)]  # Only check until time t
 
-    def fulfilled(self, solution: 'Solution.SolutionBase') -> bool:
+    def fulfilled(self, solution: Solution.SolutionBase) -> bool:
         """Every goal specified by this constraint must be fulfilled in the right order"""
         goal_ids, times = map(tuple, zip(*sorted(solution.t_goals.items(), key=lambda x: x[1])))
         return tuple(gid for gid in goal_ids if gid in self.order) == self.order
@@ -191,7 +214,7 @@ class JointLimits(ConstraintBase):
         self.ddq = 'ddq' in parts
         self.tau = 'tau' in parts
 
-    def is_valid_at(self, solution: 'Solution.SolutionBase', t: float) -> bool:
+    def is_valid_at(self, solution: Solution.SolutionBase, t: float) -> bool:
         """Evaluates the solution up to time t"""
         valid = True
         for kind, robot_att in zip(self.robot_limit_types, self._robot_attributs):
@@ -204,7 +227,7 @@ class JointLimits(ConstraintBase):
                     valid = valid and np.all(np.abs(in_solution) <= limits)
         return valid
 
-    def fulfilled(self, solution: 'Solution.SolutionBase') -> bool:
+    def fulfilled(self, solution: Solution.SolutionBase) -> bool:
         """Checks the whole solution for all applied joint constraints"""
         valid = True
         for kind, robot_att in zip(self.robot_limit_types, self._robot_attributs):
@@ -235,6 +258,12 @@ class BasePlacement(ConstraintBase):
         :param base_pose: The desired placement of the base coordinate system with arbitrary tolerances.
         """
         self.base_pose = base_pose
+
+    @classmethod
+    def _from_json_data(cls, description: Dict[str, any]) -> ConstraintBase:
+        """Create Base placement constraint from json data."""
+        base_pose = ToleratedPose.from_json_data(description['pose'])
+        return cls(base_pose)
 
     @property
     def tolerance(self):
@@ -268,11 +297,11 @@ class BasePlacement(ConstraintBase):
 
         return sample
 
-    def is_valid_at(self, solution: 'Solution.SolutionBase', t: float) -> bool:
+    def is_valid_at(self, solution: Solution.SolutionBase, t: float) -> bool:
         """We assume the base placement does not change, so this method makes no sense."""
         raise NotImplementedError("Assuming fixed base for now - use fulfilled method.")
 
-    def fulfilled(self, solution: 'Solution.SolutionBase') -> bool:
+    def fulfilled(self, solution: Solution.SolutionBase) -> bool:
         """Checks whether the center of the base is within the defined tolerance."""
         base_placement = solution.robot.placement
         return self.base_pose.valid(base_placement)
@@ -321,12 +350,12 @@ class CoterminalJointAngles(ConstraintBase):
         q = self.map(q)
         return all(self.limits[0, :] <= q) and all(self.limits[1, :] >= q)
 
-    def is_valid_at(self, solution: 'Solution.SolutionBase', t: float) -> bool:
+    def is_valid_at(self, solution: Solution.SolutionBase, t: float) -> bool:
         """Checks whether the given joint angles are within the defined limits at time t."""
         q = solution.q[solution.get_time_id(t)]
         return self._validate(q)
 
-    def fulfilled(self, solution: 'Solution.SolutionBase') -> bool:
+    def fulfilled(self, solution: Solution.SolutionBase) -> bool:
         """Checks whether the given joint angles are within the defined limits in the solution."""
         return all(self._validate(q) for q in solution.q)
 
@@ -357,13 +386,13 @@ class JointAngles(CoterminalJointAngles):
 class CollisionFree(ConstraintBase):
     """A constraint that checks whether the robot is in collision with the environment or itself."""
 
-    def is_valid_at(self, solution: 'Solution.SolutionBase', t: float) -> bool:
+    def is_valid_at(self, solution: Solution.SolutionBase, t: float) -> bool:
         """Checks whether the robot is in collision with the environment or itself at time t."""
         q = solution.q[solution.get_time_id(t)]
         solution.robot.update_configuration(q)
         return not solution.robot.has_collisions(solution.task)
 
-    def fulfilled(self, solution: 'Solution.SolutionBase') -> bool:
+    def fulfilled(self, solution: Solution.SolutionBase) -> bool:
         """Evaluates the whole solution for collision-freeness."""
         return all(self.is_valid_at(solution, t) for t in solution.time_steps)
 
@@ -375,7 +404,7 @@ class CollisionFree(ConstraintBase):
 class SelfCollisionFree(CollisionFree):
     """A constraint that checks whether the robot is in collision with itself."""
 
-    def is_valid_at(self, solution: 'Solution.SolutionBase', t: float) -> bool:
+    def is_valid_at(self, solution: Solution.SolutionBase, t: float) -> bool:
         """Checks whether the robot is in collision with itself at time t."""
         q = solution.q[solution.get_time_id(t)]
         return not solution.robot.has_self_collision(q)
@@ -383,3 +412,71 @@ class SelfCollisionFree(CollisionFree):
     def to_json_data(self) -> Dict[str, any]:
         """Dumps this constraint to a dictionary"""
         return {'type': 'selfCollisionFree'}
+
+
+class EndEffector(ConstraintBase):
+    """A constraint that checks whether the end-effector (eef) keeps a certain pose and/or velocity."""
+
+    default_velocity_limits = np.asarray((-math.inf, math.inf))
+
+    def __init__(self, *,  # Enforce keyword as any part can be missing
+                 pose: Optional[ToleratedPose] = None,
+                 velocity_lim: Optional[np.ndarray] = None,
+                 rotation_velocity_lim: Optional[np.ndarray] = None):
+        r"""
+        Initialize eef constraint.
+
+        :param pose: tolerated pose to keep within (either initialized or serialized in dict)
+        :param velocity_lim: Minimal / Maximal translation velocity :math:`v` of the end-effector in
+          :math:`\frac{m}{s}`; defaults to any allowed
+        :param rotation_velocity_lim: Minimal / Maximal rotation velocity :math:`\omega` of the end-effector in
+          :math:`\frac{rad}{s}`; defaults to any allowed
+        """
+        self.pose = pose
+        self.velocity_lim = self.default_velocity_limits.copy() if velocity_lim is None else velocity_lim
+        self.rotation_velocity_lim = self.default_velocity_limits.copy() \
+            if rotation_velocity_lim is None else rotation_velocity_lim
+        if self.velocity_lim[0] > self.velocity_lim[1] or self.rotation_velocity_lim[0] > self.rotation_velocity_lim[1]:
+            logging.warning("velocity_lim_min > velocity_lim_max or "
+                            "rotation_velocity_lim_min > rotation_velocity_lim_max; "
+                            "eef_constraint will always be invalid.")
+
+    @classmethod
+    def _from_json_data(cls, description: Dict[str, any]) -> ConstraintBase:
+        pose = ToleratedPose.from_json_data(description.pop('pose')) if "pose" in description else None
+        velocity_lim = np.asarray((description.pop('v_min', -math.inf), description.pop('v_max', math.inf)))
+        rotation_velocity_lim = np.asarray((description.pop('o_min', -math.inf), description.pop('o_max', math.inf)))
+        return cls(pose=pose, velocity_lim=velocity_lim, rotation_velocity_lim=rotation_velocity_lim)
+
+    def is_valid_at(self, solution: Solution.SolutionBase, t: float) -> bool:
+        """Checks whether the robot obeys eef velocity and pose constraints at time t."""
+        q = solution.q[solution.get_time_id(t)]
+        dq = solution.dq[solution.get_time_id(t)]
+
+        # Check eef velocities
+        solution.robot.update_configuration(q, dq)
+        v_robot = solution.robot.tcp_velocity
+        v_robot, o_robot = np.linalg.norm(v_robot[:3]), np.linalg.norm(v_robot[3:])
+        if v_robot < self.velocity_lim[0] or self.velocity_lim[1] < v_robot or \
+                o_robot < self.rotation_velocity_lim[0] or self.rotation_velocity_lim[1] < o_robot:
+            return False
+
+        # Check eef pose
+        if self.pose is None:
+            return True
+        return self.pose.valid(solution.robot.fk())
+
+    def fulfilled(self, solution: Solution.SolutionBase) -> bool:
+        """Evaluates the whole solution for obeying the eef constraint."""
+        return all(self.is_valid_at(solution, t) for t in solution.time_steps)
+
+    def to_json_data(self) -> Dict[str, any]:
+        """Dumps this constraint to a dictionary."""
+        data = {'type': 'endEffector'}
+        for k, v in (('v_min', self.velocity_lim[0]), ('v_max', self.velocity_lim[1]),
+                     ('o_min', self.rotation_velocity_lim[0]), ('o_max', self.rotation_velocity_lim[1])):
+            if abs(v) < math.inf:
+                data[k] = v
+        if self.pose is not None:
+            data['pose'] = self.pose.serialized
+        return data
