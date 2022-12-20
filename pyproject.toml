@@ -29,8 +29,8 @@ requires-python = ">=3.7"
 dynamic = ["version", "readme"]
 
 [project.optional-dependencies]
-dev = ["flake8>=5.0", "coverage>=6.3", "pip-tools", "pytest>=6.0", "setuptools>=61.0.0"]
-full = ["flake8>=5.0", "coverage>=6.3", "pip-tools", "pytest>=6.0", "jupyterlab", "setuptools>=61.0.0"]
+dev = ["flake8>=5.0", "coverage>=6.3", "pre-commit", "pip-tools", "pytest>=6.0", "setuptools>=61.0.0"]
+full = ["flake8>=5.0", "coverage>=6.3", "pre-commit", "pip-tools", "pytest>=6.0", "jupyterlab", "setuptools>=61.0.0"]
 
 [tool.setuptools.dynamic]
 readme = {file = "README.rst"}
