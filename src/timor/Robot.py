@@ -806,7 +806,7 @@ class PinRobot(RobotBase):
             else:
                 raise ValueError("Unknown argument, kind={}".format(kind))
 
-        i = 0
+        i = 1
         success = True
         closest_translation = kwargs.get('closest_translation_q', IntermediateIkResult(q, -np.inf))
         while not eef_pose.valid(self.fk(q)):
@@ -836,11 +836,11 @@ class PinRobot(RobotBase):
                 logging.debug(f"Jacobian ik break due to q approaching inf after {i} iter. Trying again.")
                 kwargs['closest_translation_q'] = closest_translation
                 return self.ik_jacobian(eef_pose, self.random_configuration(), gain, damp, max_iter - i, kind, **kwargs)
-            i += 1
             if i >= max_iter:
                 logging.debug(f"Jacobian ik not successful due to reaching the maximum number of iterations {i}")
                 logging.debug("Returning partial/closest solution.")
                 return closest_translation.q, False
+            i += 1
 
         if not self.q_in_joint_limits(q):
             q[rot_join_mask] = spatial.rotation_in_bounds(q[rot_join_mask], self.joint_limits[:, rot_join_mask])
