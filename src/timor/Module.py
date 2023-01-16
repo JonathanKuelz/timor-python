@@ -519,7 +519,7 @@ class ModulesDB(SingleSet):
 
     @property
     def all_connectors_by_id(self) -> Dict[Tuple[str, str, str], Connector]:
-        """All complete connecor IDs in the DB (counter piece to all_connector_own_ids, which is basically a subset)"""
+        """All complete connector IDs in the DB (counter piece to all_connector_own_ids, which is basically a subset)"""
         return {c.id: c for c in self.all_connectors}
 
     @property

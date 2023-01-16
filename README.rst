@@ -56,7 +56,7 @@ Nagivate to the timor-python repository you cloned and enter::
 
 to install it in editeable mode. This requires :code:`setuptools>=61` and :code:`pip>=21.3` (previous versions of setuptools require a :code:`setup.py`-file). To install optional dependencies, proceed in the same manner as for PyPI installs.
 
-If you want to use pre-commit, for installation please use::
+If you want to use pre-commit hooks provided with Timor, for installation please use::
 
    pip install pre-commit
 
@@ -64,7 +64,8 @@ then::
 
    pre-commit install
 
-After that, each time when you commit files, it will automatically perform the checks which are defined in the .pre-commit-config.yaml file.
+
+After that, each time you commit files, it will automatically perform linting and style checks.
 
 Usage
 -----

@@ -96,7 +96,6 @@ class Lazy(Generic[T]):
     @classmethod
     def from_variable(cls, variable: any) -> Lazy:
         """Useful wrapper to prevent evaluation of Lazy variables when multiplied with another variable"""
-
         def ret():
             """Utility function"""
             return variable
