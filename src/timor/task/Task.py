@@ -149,6 +149,7 @@ class Task:
         # Header
         content['header'] = self.header.asdict()
         content['header']['date'] = content['header']['date'].strftime(DEFAULT_DATE_FORMAT)
+        content['header']['gravity'] = list(content['header']['gravity'])
 
         # Constraints
         content['constraints'] = []
@@ -178,6 +179,7 @@ class Task:
 
         :param filepath: The path to the file to write the json to
         """
+        filepath = map2path(filepath)
         content = compress_json_vectors(json.dumps(self.to_json_data(), indent=2))
         if (self._package_dir is not None) and (not str(filepath).startswith(str(self._package_dir))):
             logging.info("Writing task to file outside of the package directory it was loaded from.")
