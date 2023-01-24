@@ -210,6 +210,8 @@ class At(GoalBase):
         :param constraints: A list of constraints that need to be satisfied for the goal to be achieved.
         """
         super().__init__(ID, constraints)
+        if not isinstance(goalPose, ToleratedPose):
+            raise ValueError(f"Goal {ID} needs a ToleratedPose, got a variably of type {type(goalPose)}.")
         self.goal_pose: ToleratedPose = goalPose
 
     def visualize(self, viz: MeshcatVisualizer, scale: float = .33, show_name: bool = False) -> None:

@@ -295,7 +295,7 @@ class SerializationTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     Constraints.EndEffector.from_json_string(constraint.to_json_string())
 
-    def test_de_serialize_solution(self):
+    def test_de_serialize_solution_and_task(self):
         assembly = prebuilt_robots.get_six_axis_assembly()
         q1 = assembly.robot.random_configuration()
         q2 = assembly.robot.random_configuration()
@@ -329,6 +329,11 @@ class SerializationTests(unittest.TestCase):
             with open(t.name) as f:
                 validator.validate(json.load(f))
             loaded_sol = Solution.SolutionBase.from_json_file(Path(t.name), Path("/"), {task.id: task})
+
+        # Also check the custom task
+        with tempfile.NamedTemporaryFile(mode="w+") as t:
+            task.to_json_file(t.name)
+            t.flush()
 
         self.assertEqual(solution.valid, loaded_sol.valid)
         # Depends on robot, trajectory, position, cost function -> most important parts of solution tested

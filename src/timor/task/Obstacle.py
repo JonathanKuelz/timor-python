@@ -55,7 +55,9 @@ class Obstacle:
         """
         ID = d['ID']
         collision = d['collision']
-        package_dir = Path(d['package_dir']) if 'package_dir' in d else None
+        package_dir = d['package_dir'] if 'package_dir' in d else None
+        if isinstance(package_dir, str):
+            package_dir = Path(package_dir)
         collision_geometry = Geometry.Geometry.from_json_data(collision, package_dir=package_dir)
         if 'visual' in d:
             visual_geometry = Geometry.Geometry.from_json_data(d['visual'], package_dir=package_dir)
