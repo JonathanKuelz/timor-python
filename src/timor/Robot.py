@@ -13,7 +13,6 @@ from warnings import warn
 from hppfcl.hppfcl import CollisionObject, CollisionRequest, CollisionResult, Transform3f, collide
 from matplotlib import colors
 import numpy as np
-from numpy.linalg import norm
 import pinocchio as pin
 import scipy.optimize as optimize
 
@@ -331,27 +330,26 @@ class RobotBase(abc.ABC):
         :param restore_config: If True, the current robot configuration will be kept. If false, the found solution for
             the inverse kinematics will be kept
         :param max_n_tries: Maximum number of runs with a new random init configuration before the algorithm gives up
-        :return: A tuple of q_solution [np.ndarray], success [boolean]
+        :return: A tuple of q_solution [np.ndarray], success [boolean]. If success is False, q_solution is the
+            configuration with minimal self._ik_cost_function amongst all seen in between iterations if this method.
         """
-        # Custom errors to make sure no more deprecated arguments are used for the IK solver
         if 'tolerance' in kwargs:
             raise ValueError("The pose needs to be tolerated - providing an extra tolerance is deprecated.")
 
         if self.njoints == 0:
             return self.configuration, eef_pose.valid(self.fk())
 
-        previous_config = self.configuration
+        def _cost(_q: np.ndarray):
+            return self._ik_cost_function(_q, eef_pose.nominal)
 
+        previous_config = self.configuration
         if q_init is None:
             q = self.configuration
         else:
             q = q_init
-
-        def _cost(_q: np.ndarray):
-            return self._ik_cost_function(_q, eef_pose.nominal)
+        lowest_cost = kwargs.get('lowest_cost', IntermediateIkResult(q, _cost(q)))
 
         bounds = optimize.Bounds(self.joint_limits[0, :], self.joint_limits[1, :])
-
         sol = optimize.minimize(
             _cost,
             q,
@@ -360,18 +358,33 @@ class RobotBase(abc.ABC):
             options={'maxiter': max_iter, 'ftol': 1e-12}
         )
 
+        if sol.fun < lowest_cost.distance:
+            lowest_cost = IntermediateIkResult(sol.x, sol.fun)
+
         if restore_config:
             self.update_configuration(previous_config)  # Restore the old configuration
 
         # sol.success gives information about successfull termination, but we are not interested in that
         success = eef_pose.valid(self.fk(sol.x))
 
-        if not success and max_n_tries > 0:
-            q_init = self.random_configuration()
-            return self.ik_scipy(eef_pose, q_init, max_iter - sol.nit, restore_config, max_n_tries - 1)
+        if self.has_self_collision() and kwargs.get('ignore_self_collision', False):
+            success = False
+        elif 'task' in kwargs and self.has_collisions(kwargs['task']):
+            success = False
 
-        # sol.message gives information about the reason for termination, good for debugging
-        return sol.x, success
+        logging.debug("Scipy IK ends with message: %s", sol.message)
+        if not success and max_n_tries > 0:
+            logging.debug("Scipy IK failed, trying again with new random init configuration")
+            q_init = self.random_configuration()
+            kwargs['lowest_cost'] = lowest_cost
+            return self.ik_scipy(eef_pose, q_init, max_iter - sol.nit, restore_config, max_n_tries - 1, **kwargs)
+
+        if success or 'lowest_cost' not in kwargs:
+            q = sol.x
+        else:
+            logging.debug("Scipy IK failed, using lowest cost solution from all tries")
+            q = lowest_cost.q
+        return q, success
 
     def q_in_joint_limits(self, q: np.ndarray) -> bool:
         """Returns true if a configuration q is within the joint limits of the robot"""
@@ -591,10 +604,10 @@ class PinRobot(RobotBase):
     def _ik_cost_function(self, q: np.ndarray, goal: Transformation) -> float:
         """A custom cost function to evaluate the quality of an inverse kinematic solution."""
         current = self.fk(q, kind='tcp')
-        translation_error = norm(current[:3, 3] - goal[:3, 3])
-        rotation_error = (current.inv @ goal).projection.axis_angles[-1]
+        translation_error = current.distance(goal).translation_euclidean
+        rotation_error = current.distance(goal).rotation_angle
         translation_weight = 1.
-        rotation_weight = .1 / np.pi  # .1 meter displacement ~ 180 degree orientation error
+        rotation_weight = .5 / np.pi  # .5 meter displacement ~ 180 degree orientation error
         return (translation_weight * translation_error + rotation_weight * rotation_error) / (
             translation_weight + rotation_weight
         )
@@ -857,9 +870,9 @@ class PinRobot(RobotBase):
                 logging.debug("IK was out of joint limits, but we're out of iterations")
 
         if self.has_self_collision(q):
-            logging.info("IK solution had self-collisions, re-try")
             if kwargs.get('ignore_self_collision', False):
                 return q, success
+            logging.info("IK solution had self-collisions, re-try")
             if i < max_iter:
                 # Give it another try, starting from a different configuration
                 i += 1
