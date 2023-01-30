@@ -195,13 +195,12 @@ class SolutionBase(abc.ABC):
 
     def _check_valid(self) -> bool:
         """
-        Returns true if all goals of the internal task are solved while all constraints
+        Returns true if all all constraints are fulfilled by this solution.
 
-        are fulfilled by this solution.
+        :note: add allGoalsFulfilled Constraint if you want to ensure all goals and their constraints are fulfilled
         """
-        goals = all(goal.achieved(self) for goal in self.task.goals)
         global_constraints = all(constraint.fulfilled(self) for constraint in self.task.constraints)
-        return goals and global_constraints
+        return global_constraints
 
     def _evaluate_cost(self) -> float:
         """Evaluates the cost function - without checking validity though"""

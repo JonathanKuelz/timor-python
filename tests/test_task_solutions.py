@@ -54,7 +54,9 @@ class TestSolution(unittest.TestCase):
         at_goal = Goals.At('At_Goal', goal_pose, constraints=[additional_joint_constraint])
 
         task = Task.Task(self.task_header, goals=[at_goal],
-                         constraints=[base_constraint, basic_joint_constraint])
+                         constraints=[base_constraint, basic_joint_constraint, Constraints.AllGoalsFulfilled()])
+        task_without_all_goals_fulfilled = Task.Task(self.task_header, goals=[at_goal],
+                                                     constraints=[base_constraint, basic_joint_constraint])
 
         steps = 100
         dt = .1
@@ -65,6 +67,9 @@ class TestSolution(unittest.TestCase):
         solution = Solution.SolutionTrajectory(easy_trajectory, solution_header, task=task,
                                                assembly=ModuleAssembly.from_monolithic_robot(panda),
                                                cost_function=cost_function)
+        solution_without_all_goals_fulfilled = Solution.SolutionTrajectory(
+            easy_trajectory, solution_header, task=task_without_all_goals_fulfilled,
+            assembly=ModuleAssembly.from_monolithic_robot(panda), cost_function=cost_function)
 
         self.assertTrue(solution.valid)
         solution._valid.value = None  # Dirty but quick reset of solution
@@ -73,6 +78,8 @@ class TestSolution(unittest.TestCase):
         previous_limits = additional_joint_constraint.limits.copy()
         additional_joint_constraint.limits = np.zeros_like(additional_joint_constraint.limits)
         self.assertFalse(solution.valid)
+        # Should be valid as not every goal needs to be valid
+        self.assertTrue(solution_without_all_goals_fulfilled.valid)
         solution._valid.value = None  # Dirty but quick reset of solution
 
         # Reset to valid
@@ -156,11 +163,11 @@ class TestSolution(unittest.TestCase):
                                           Task.Task(Task.TaskHeader('tmp'), ),
                                           ModuleAssembly.from_monolithic_robot(self.robot), CostFunctions.RobotMass(),
                                           Transformation.neutral())
-        self.assertTrue(eef_constraint_allow_first_pose.is_valid_at(sol, 0.))
-        self.assertFalse(eef_constraint_allow_first_pose.is_valid_at(sol, 1.))
+        self.assertTrue(eef_constraint_allow_first_pose.is_valid_until(sol, 0.))
+        self.assertFalse(eef_constraint_allow_first_pose.is_valid_until(sol, 1.))
         self.assertFalse(eef_constraint_allow_first_pose.fulfilled(sol))
-        self.assertTrue(eef_constraint_allow_any_pose.is_valid_at(sol, 0.))
-        self.assertTrue(eef_constraint_allow_any_pose.is_valid_at(sol, 1.))
+        self.assertTrue(eef_constraint_allow_any_pose.is_valid_until(sol, 0.))
+        self.assertTrue(eef_constraint_allow_any_pose.is_valid_until(sol, 1.))
         self.assertTrue(eef_constraint_allow_any_pose.fulfilled(sol))
 
         # Constructed case - movement along line with invariant rotation about line, e.g. drilling
@@ -199,9 +206,9 @@ class TestSolution(unittest.TestCase):
                                           ModuleAssembly.from_monolithic_robot(self.robot), CostFunctions.RobotMass(),
                                           Transformation.neutral())
         for t in np.arange(0, t_good, 1):
-            self.assertTrue(drill_eef_constraint.is_valid_at(sol, t), f"Error at step {t}")
+            self.assertTrue(drill_eef_constraint.is_valid_until(sol, t), f"Error at step {t}")
         for t in np.arange(t_good, t_good + 3, 1):
-            self.assertFalse(drill_eef_constraint.is_valid_at(sol, t))
+            self.assertFalse(drill_eef_constraint.is_valid_until(sol, t))
 
         # Check velocities
         self.robot.update_configuration(np.zeros((7,)))  # ~0.6 m from first joint to eef
@@ -219,14 +226,14 @@ class TestSolution(unittest.TestCase):
                                           ModuleAssembly.from_monolithic_robot(self.robot), CostFunctions.RobotMass(),
                                           Transformation.neutral())
         for c in (eef_constraint_v, eef_constraint_o):
-            self.assertTrue(c.is_valid_at(sol, 0.))
-            self.assertTrue(c.is_valid_at(sol, 3.))
-            self.assertFalse(c.is_valid_at(sol, 1.))
-            self.assertFalse(c.is_valid_at(sol, 2.))
-            self.assertFalse(c.is_valid_at(sol, 4.))
+            self.assertTrue(c.is_valid_until(sol, 0.))
+            self.assertTrue(c.is_valid_until(sol, 3.))
+            self.assertFalse(c.is_valid_until(sol, 1.))
+            self.assertFalse(c.is_valid_until(sol, 2.))
+            self.assertFalse(c.is_valid_until(sol, 4.))
         for t in np.arange(0., 3., 1.):
-            self.assertTrue(eef_constraint_allow_any_pose.is_valid_at(sol, t))
-            self.assertFalse(eef_constraint_allow_first_pose.is_valid_at(sol, t))
+            self.assertTrue(eef_constraint_allow_any_pose.is_valid_until(sol, t))
+            self.assertFalse(eef_constraint_allow_first_pose.is_valid_until(sol, t))
 
     def test_goals(self):
         task = Task.Task({'ID': 'dummy'})
@@ -303,6 +310,7 @@ class TestSolution(unittest.TestCase):
         rot_tolerance = Tolerance.RotationAxisAngle.default()
         base_tolerance = pos_tolerance + rot_tolerance
         constraint_base = Constraints.BasePlacement(ToleratedPose(Transformation.neutral(), base_tolerance))
+        all_goals = Constraints.AllGoalsFulfilled()
 
         # Set up two goals
         at_goal = Goals.At('At pos z', ToleratedPose(spatial.homogeneous([.1, .1, .5])),
@@ -311,7 +319,8 @@ class TestSolution(unittest.TestCase):
                                  constraints=[constraint_joints])
 
         # Combine the goals in a new task (without obstacles for now)
-        task = Task.Task(self.task_header, goals=[at_goal, reach_goal], constraints=[constraint_base])
+        task = Task.Task(self.task_header, goals=[at_goal, reach_goal], constraints=[constraint_base, all_goals])
+        task_without_all_goals = Task.Task(self.task_header, goals=[at_goal, reach_goal], constraints=[constraint_base])
 
         # This random trajectory certainly will not be valid - nevertheless, times at which goals are supposedly
         #  achieved must be stated
@@ -331,6 +340,9 @@ class TestSolution(unittest.TestCase):
                                                       task,
                                                       ModuleAssembly.from_monolithic_robot(self.robot),
                                                       cost_whitman)
+        random_solution_without_all_goals = Solution.SolutionTrajectory(
+            random_trajectory, self.solution_header, task_without_all_goals,
+            ModuleAssembly.from_monolithic_robot(self.robot), cost_whitman)
 
         # Make sure lazy variables are not evaluated without explicitly calling them
         self.assertIsNone(random_solution._valid.value)
@@ -338,6 +350,7 @@ class TestSolution(unittest.TestCase):
 
         # Check whether the trajectory solves the solution
         self.assertFalse(random_solution.valid)
+        self.assertTrue(random_solution_without_all_goals.valid)  # Should be fine even if one goal missed
         self.assertTrue(random_solution.cost > 0)
 
         # Lazy variables should be evaluated now
