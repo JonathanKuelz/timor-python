@@ -103,7 +103,7 @@ class GoalBase(ABC):
     def _valid(self, solution: 'task.Solution.SolutionBase') -> bool:
         """Checks all goal-level constraints"""
         t = solution.t_goals[self.id]
-        return all(c.is_valid_at(solution, t) for c in self.constraints)
+        return all(c.is_valid_until(solution, t) for c in self.constraints)
 
     def achieved(self, solution: 'task.Solution.SolutionBase') -> bool:
         """Calls the custom _achieved method and checks that constraints are held"""
@@ -188,7 +188,8 @@ class GoalWithDuration(GoalBase, ABC):
 
     def _valid(self, solution: 'task.Solution.SolutionBase') -> bool:
         """A goal with duration needs to ensure that its constraints hold at all time-steps within this duration."""
-        return all(c.is_valid_at(solution, t) for c in self.constraints for t in self._get_time_range_goal(solution)[0])
+        return all(c.is_valid_until(solution, t) for c in self.constraints
+                   for t in self._get_time_range_goal(solution)[0])
 
 
 class At(GoalBase):
