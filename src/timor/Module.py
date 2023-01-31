@@ -942,7 +942,7 @@ class ModuleAssembly:
         from timor.parameterized import ParameterizableModule  # local import necessary to avoid circular imports
         if any(isinstance(mod, ParameterizableModule) for mod in self.module_instances):
             logging.info("An assembly with parameterized modules must be re-evaluated every time it is used.")
-            return self._robot.reset()
+            return self._robot.func()
         return self._robot()
 
     def add(self,
