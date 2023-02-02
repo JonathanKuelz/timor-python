@@ -21,6 +21,7 @@ from timor.utilities import logging
 from timor.utilities.dtypes import SingleSet, hppfcl_collision2pin_geometry
 import timor.utilities.errors as err
 from timor.utilities.json_serialization_formatting import possibly_nest_as_list
+from timor.utilities.jsonable import JSONable_mixin
 from timor.utilities.transformation import Transformation, TransformationLike
 
 
@@ -58,7 +59,7 @@ class Gender(Enum):
             return self is not other
 
 
-class Connector:
+class Connector(JSONable_mixin):
     """
     A connector is the interface defining where a body can be attached to another body.
 
@@ -93,16 +94,6 @@ class Connector:
         self.size: Union[int, float, np.ndarray] = size
 
     @classmethod
-    def from_json_string(cls, s: str) -> Connector:
-        """
-        Maps the serialized connector json string to an instance of this class.
-
-        :param s: The json string
-        :return: An instantiated connector
-        """
-        return cls.from_json_data(json.loads(s))
-
-    @classmethod
     def from_json_data(cls, d: Dict) -> Connector:
         """
         Maps the serialized connector description to an instance of this class.
@@ -128,12 +119,6 @@ class Connector:
         if not isinstance(size, bool):  # Which is the case when size is an array
             size = all(size)
         return self.type == other.type and size and self.gender.connects(other.gender)
-
-    def to_json_string(self) -> str:
-        """
-        :return: Returns the connector specification in a json-ready string
-        """
-        return json.dumps(self.to_json_data(), indent=2)
 
     def to_json_data(self) -> Dict[str, any]:
         """
@@ -193,7 +178,7 @@ class ConnectorSet(SingleSet):
         return item.id in (con.id for con in self)
 
 
-class BodyBase(abc.ABC):
+class BodyBase(abc.ABC, JSONable_mixin):
     """
     A body describes a rigid robot element with kinematic, dynamic, geometric, and connection properties.
 
@@ -287,12 +272,6 @@ class BodyBase(abc.ABC):
                            sorted(self.connectors, key=lambda con: con.id)],
             **geometry
         }
-
-    def to_json_string(self) -> str:
-        """
-        :return: Returns the body specification in a json string
-        """
-        return json.dumps(self.to_json_data(), indent=2)
 
     @abc.abstractmethod
     def __copy__(self):

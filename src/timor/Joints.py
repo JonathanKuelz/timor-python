@@ -12,6 +12,7 @@ import pinocchio as pin
 from timor.Bodies import BodyBase, ConnectorSet
 from timor.utilities.dtypes import SingleSet, fuzzy_dict_key_matching
 import timor.utilities.errors as err
+from timor.utilities.jsonable import JSONable_mixin
 from timor.utilities.transformation import Transformation, TransformationLike
 
 
@@ -39,7 +40,7 @@ class TimorJointType(Enum):
         return defaults[self.value]
 
 
-class Joint:
+class Joint(JSONable_mixin):
     """
     A joint is a bodyless axis.
 
@@ -198,12 +199,6 @@ class Joint:
             'frictionCoulomb': self.friction_coulomb,
             'frictionViscous': self.friction_viscous
         }
-
-    def to_json_string(self) -> str:
-        """
-        :return: Returns the join specification in a json-ready dictionary
-        """
-        return json.dumps(self.to_json_data(), indent=2)
 
     @property
     def all_connectors(self) -> ConnectorSet:

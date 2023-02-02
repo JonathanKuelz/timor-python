@@ -11,12 +11,13 @@ import jsonschema.exceptions
 import numpy as np
 import pinocchio as pin
 
-from timor import compress_json_vectors
 from timor.Module import ModuleAssembly
 from timor.Robot import RobotBase
 from timor.task import Constraints, CostFunctions, Goals, Task
 from timor.utilities.dtypes import Lazy, Trajectory, TypedHeader, fuzzy_dict_key_matching, map2path  # noqa: F401
 from timor.utilities.file_locations import schema_dir
+from timor.utilities.json_serialization_formatting import compress_json_vectors
+from timor.utilities.jsonable import JSONable_mixin
 from timor.utilities.schema import DEFAULT_DATE_FORMAT, get_schema_validator
 from timor.utilities.transformation import Transformation, TransformationLike
 from timor.utilities.visualization import MeshcatVisualizerWithAnimation, animation
@@ -37,7 +38,7 @@ class SolutionHeader(TypedHeader):
     processorName: str = ''
 
 
-class SolutionBase(abc.ABC):
+class SolutionBase(abc.ABC, JSONable_mixin):
     """A solution describes an assembly and a trajectory it follows in order to reach all goals in a task"""
 
     def __init__(self,

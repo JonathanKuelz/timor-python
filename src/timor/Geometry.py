@@ -16,6 +16,7 @@ import numpy as np
 import pinocchio as pin
 
 from timor.utilities import logging
+from timor.utilities.jsonable import JSONable_mixin
 from timor.utilities.spatial import rotX
 from timor.utilities.transformation import Transformation, TransformationLike
 
@@ -85,7 +86,7 @@ def _geometry_type2class(geometry_type: GeometryType) -> Type[Geometry]:
         return mapping[GeometryType[geometry_type]]
 
 
-class Geometry(abc.ABC):
+class Geometry(abc.ABC, JSONable_mixin):
     """A class describing geometries.
 
     A geometry is defined by a type (see GeometryType), an expansion (defined by custom parameters) and a
@@ -123,23 +124,22 @@ class Geometry(abc.ABC):
         return json.dumps(self.serialized, indent=2)
 
     @classmethod
-    def from_json_data(cls, description: Union[List, Dict[str, any]],
-                       package_dir: Optional[Path] = None) -> Geometry:
+    def from_json_data(cls, d: Union[List, Dict[str, any]], package_dir: Optional[Path] = None) -> Geometry:
         """
         Takes a serialized geometry specification and returns the according Geometry instance.
 
-        :param description: A serialized geometry
+        :param d: A serialized geometry
         :param package_dir: The top directory to which the mesh file paths are relative to. Necessary for meshes (only).
         """
-        if isinstance(description, (list, tuple, set)):
-            if len(description) == 1:
-                description = description[0]
+        if isinstance(d, (list, tuple, set)):
+            if len(d) == 1:
+                d = d[0]
             else:
-                return ComposedGeometry((cls.from_json_data(d, package_dir) for d in description))
+                return ComposedGeometry((cls.from_json_data(d, package_dir) for d in d))
 
         if cls is not Geometry:
             raise AttributeError("Class {} does not support this method. Call it on the Geometry class.".format(cls))
-        desc = description.copy()
+        desc = d.copy()
         class_ref = _geometry_type2class(desc.pop('type'))
 
         if class_ref is Mesh:
