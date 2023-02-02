@@ -1,7 +1,7 @@
 from __future__ import annotations
+
 from abc import ABC, abstractmethod
 import inspect
-import json
 from typing import Dict, List, Optional, Tuple, Union
 
 import meshcat.geometry
@@ -11,11 +11,12 @@ from pinocchio.visualize import MeshcatVisualizer
 from timor import task
 from timor.task import Constraints, Tolerance
 from timor.utilities.dtypes import fuzzy_dict_key_matching
+from timor.utilities.jsonable import JSONable_mixin
 import timor.utilities.logging as logging
 from timor.utilities.tolerated_pose import ToleratedPose
 
 
-class GoalBase(ABC):
+class GoalBase(ABC, JSONable_mixin):
     """The base implementation for a task goal."""
 
     green_material = meshcat.geometry.MeshBasicMaterial(color=0x90ee90)  # for visualization of goals
@@ -73,21 +74,12 @@ class GoalBase(ABC):
     def from_json_data(cls, d: Dict[str, any]):
         """Deserializes a goal from a dictionary"""
 
-    @classmethod
-    def from_json_string(cls, s: str):
-        """Deserializes a goal from a string"""
-        return cls.from_json_data(json.loads(s))
-
     @abstractmethod
     def to_json_data(self) -> Dict[str, any]:
         """
         Returns a json-compatible dictionary representation of the goal.
         """
         pass
-
-    def to_json_string(self) -> str:
-        """Serializes the goal to a json string"""
-        return json.dumps(self.to_json_data(), indent=2)
 
     @abstractmethod
     def visualize(self, viz: MeshcatVisualizer, scale: float = .33) -> None:
@@ -239,7 +231,7 @@ class At(GoalBase):
             'ID': self.id,
             'type': 'at',
             'constraints': self._constraints_serialized(),
-            'goalPose': self.goal_pose.serialized,
+            'goalPose': self.goal_pose.to_json_data(),
         }
 
     def _achieved(self, solution: 'task.Solution.SolutionBase') -> bool:
@@ -290,7 +282,7 @@ class Reach(At):
             'ID': self.id,
             'type': 'reach',
             'constraints': self._constraints_serialized(),
-            'goalPose': self.goal_pose.serialized,
+            'goalPose': self.goal_pose.to_json_data(),
         }
 
     def _achieved(self, solution: 'task.Solution.SolutionBase') -> bool:

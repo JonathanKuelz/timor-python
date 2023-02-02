@@ -1,16 +1,16 @@
 from __future__ import annotations
 
-import json
 from typing import Dict, List, Optional, Union
 
 from pinocchio.visualize import MeshcatVisualizer
 
 from timor.task import Tolerance
 from timor.utilities import logging
+from timor.utilities.jsonable import JSONable_mixin
 from timor.utilities.transformation import Transformation, TransformationLike
 
 
-class ToleratedPose:
+class ToleratedPose(JSONable_mixin):
     """Defines a desired nominal placement/pose in world coordinates with a tolerance around."""
 
     nominal: Transformation  # The desired/nominal placement
@@ -40,15 +40,15 @@ class ToleratedPose:
         return self.tolerance.valid(self.nominal, other)
 
     @classmethod
-    def from_json_data(cls, description: Dict[str, any]) -> ToleratedPose:
+    def from_json_data(cls, d: Dict[str, any]) -> ToleratedPose:
         """Create a ToleratedPose from a json description.
 
-        :param description: A json description as defined in the task documentation.
+        :param d: A json description as defined in the task documentation.
         :return: A ToleratedPose.
         """
-        nominal = description['nominal']
-        projections = description.get('toleranceProjection', ())
-        tolerance_values = description.get('tolerance', ())
+        nominal = d['nominal']
+        projections = d.get('toleranceProjection', ())
+        tolerance_values = d.get('tolerance', ())
         if not len(projections) == len(tolerance_values):
             raise ValueError("The number of tolerance projections must match "
                              "the number of given tolerances (lower+upper).")
@@ -56,17 +56,7 @@ class ToleratedPose:
                                         for p, v in zip(projections, tolerance_values)])
         return cls(nominal, tolerance)
 
-    @classmethod
-    def from_json_string(cls, description: str) -> ToleratedPose:
-        """Create a ToleratedPose from a json string.
-
-        :param description: A json string as defined in the task documentation.
-        :return: A ToleratedPose.
-        """
-        return cls.from_json_data(json.loads(description))
-
-    @property
-    def serialized(self) -> Dict[str, Union[List, str]]:
+    def to_json_data(self) -> Dict[str, Union[List, str]]:
         """The json-compatible serialization of a placement with tolerance"""
         return {'nominal': self.nominal.serialized, **self.tolerance.to_projection()}
 
@@ -74,10 +64,6 @@ class ToleratedPose:
     def tolerance(self) -> Tolerance.ToleranceBase:
         """The tolerances of the placement."""
         return self._tolerance
-
-    def to_json_string(self) -> str:
-        """Returns the json string representation of this placement."""
-        return json.dumps(self.serialized, indent=2)
 
     def visualize(self, viz: MeshcatVisualizer, name: str,
                   scale: float = 1., text: Optional[str] = None):

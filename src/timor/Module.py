@@ -30,6 +30,7 @@ from timor.utilities.dtypes import Lazy, SingleSet, TypedHeader, map2path, rando
 import timor.utilities.errors as err
 from timor.utilities.file_locations import get_module_db_files
 from timor.utilities.json_serialization_formatting import compress_json_vectors, possibly_nest_as_list
+from timor.utilities.jsonable import JSONable_mixin
 from timor.utilities.schema import DEFAULT_DATE_FORMAT
 from timor.utilities.transformation import Transformation, TransformationLike
 
@@ -47,7 +48,7 @@ class ModuleHeader(TypedHeader):
     cost: float = 0.
 
 
-class ModuleBase(abc.ABC):
+class ModuleBase(abc.ABC, JSONable_mixin):
     """Base class for any robot module."""
 
     def __init__(self,
@@ -242,14 +243,6 @@ class ModuleBase(abc.ABC):
             'joints': [joint.to_json_data() for joint in sorted(self.joints, key=lambda j: j.id)]
         }
 
-    def to_json_string(self) -> str:
-        """
-        Write a json in that fully describes this module.
-
-        :return: Returns the module specification in a json-ready dictionary
-        """
-        return json.dumps(self.to_json_data(), indent=2)
-
 
 class AtomicModule(ModuleBase):
     """
@@ -342,7 +335,7 @@ class AtomicModule(ModuleBase):
         return cls.from_json_data(json.loads(s), package_dir)
 
 
-class ModulesDB(SingleSet):
+class ModulesDB(SingleSet, JSONable_mixin):
     """
     A Database of Modules. The inheritance from SingleSet ensures no duplicates are within one DB.
 
@@ -603,7 +596,7 @@ class ModulesDB(SingleSet):
         return viz
 
 
-class ModuleAssembly:
+class ModuleAssembly(JSONable_mixin):
     """
     A combination of modules with defined connections between each another.
 
@@ -1028,11 +1021,11 @@ class ModuleAssembly:
         plt.show()
 
     @classmethod
-    def from_json_data(cls, description: Dict[str, any], module_db: Optional[ModulesDB] = None) -> ModuleAssembly:
+    def from_json_data(cls, d: Dict[str, any], module_db: Optional[ModulesDB] = None) -> ModuleAssembly:
         """
         Create an assembly from description found in serialized solutions.
 
-        :param description: dictionary with keys from solution that allow to reconstruct a module assembly.
+        :param d: dictionary with keys from solution that allow to reconstruct a module assembly.
           Always needs moduleSet field if no additional module_db given.
           Always needs moduleOrder.
           Supported combinations:
@@ -1041,23 +1034,22 @@ class ModuleAssembly:
             - default: moduleOrder + moduleConnection + baseConnection
         :param module_db: Optional db if generated adhoc or to recycle already loaded
         """
-        db = module_db if module_db else ModulesDB.from_name(description["moduleSet"])
+        db = module_db if module_db else ModulesDB.from_name(d["moduleSet"])
 
-        if 'moduleConnection' not in description:
+        if 'moduleConnection' not in d:
             warnings.warn("Module Order should be replaced by proper module arrangement definition",
                           DeprecationWarning)
-            assembly = cls.from_serial_modules(db, tuple(map(str, description['moduleOrder'])))
+            assembly = cls.from_serial_modules(db, tuple(map(str, d['moduleOrder'])))
         else:
-            if 'baseConnection' not in description or len(description['baseConnection']) == 0:
+            if 'baseConnection' not in d or len(d['baseConnection']) == 0:
                 warnings.warn("Complete assembly specification should include baseConnection; trying to find open ...")
-                assembly = cls(db, description['moduleOrder'], description['moduleConnection'])
-            elif len(description['baseConnection']) > 1:
+                assembly = cls(db, d['moduleOrder'], d['moduleConnection'])
+            elif len(d['baseConnection']) > 1:
                 raise NotImplementedError("Can only instantiate robot with single base connection")
             else:
-                assembly = cls(db, description['moduleOrder'], description['moduleConnection'],
-                               description['baseConnection'][0][:2])
+                assembly = cls(db, d['moduleOrder'], d['moduleConnection'], d['baseConnection'][0][:2])
 
-        assembly.robot.set_base_placement(Transformation(description['basePose'][0]))
+        assembly.robot.set_base_placement(Transformation(d['basePose'][0]))
         return assembly
 
     def to_json_data(self) -> Dict[str, any]:
@@ -1075,14 +1067,6 @@ class ModuleAssembly:
                 # For now assumed only one base
                 'baseConnection': [(self.internal_module_ids.index(self.base_module.id), self.base_connector.id[2], 0)],
                 'basePose': [self.robot.placement.homogeneous]}
-
-    def to_json_string(self) -> str:
-        """
-        Writes the ModulesAssembly to a json string.
-
-        :return: The json string
-        """
-        return json.dumps(self.to_json_data(), indent=2)
 
     def to_pin_robot(self,
                      base_placement: TransformationLike = Transformation.neutral(),

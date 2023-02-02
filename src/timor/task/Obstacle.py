@@ -3,7 +3,6 @@
 # Date: 17.01.22
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Dict, Optional, Union
 
@@ -12,9 +11,10 @@ import meshcat.geometry
 import pinocchio as pin
 
 from timor import Geometry
+from timor.utilities.jsonable import JSONable_mixin
 
 
-class Obstacle:
+class Obstacle(JSONable_mixin):
     """
     A wrapper class to integrate hppfcl obstacles in custom Environments.
     """
@@ -65,16 +65,6 @@ class Obstacle:
             visual_geometry = None
 
         return cls(ID, collision_geometry, visual_geometry, name=d.get('name', None))
-
-    @classmethod
-    def from_json_string(cls, json_string: str) -> Obstacle:
-        """
-        Create an obstacle from a json string.
-
-        :param json_string: The json string
-        :return: The obstacle
-        """
-        return cls.from_json_data(json.loads(json_string))
 
     @classmethod
     def from_hppfcl(cls, ID: str, fcl: hppfcl.CollisionObject,
@@ -131,14 +121,6 @@ class Obstacle:
         if self._visual is not None:
             serialized['visual'] = self._visual.serialized
         return serialized
-
-    def to_json_string(self) -> str:
-        """
-        Serialize the obstacle to a json string.
-
-        :return: The json string
-        """
-        return json.dumps(self.to_json_data())
 
     def visualize(self, viz: pin.visualize.MeshcatVisualizer,
                   material: Optional[meshcat.geometry.Material] = None):

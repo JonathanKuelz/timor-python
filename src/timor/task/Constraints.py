@@ -1,8 +1,8 @@
 from __future__ import annotations
+
 from abc import ABC, abstractmethod
-import json
 import math
-from typing import Dict, Iterable, List, Optional, Tuple, Union
+from typing import Dict, Iterable, Optional, Tuple, Union
 from warnings import warn
 
 import numpy as np
@@ -10,26 +10,27 @@ import pinocchio
 
 from timor.task import Solution, Tolerance
 from timor.utilities import logging
+from timor.utilities.jsonable import JSONable_mixin
 from timor.utilities.tolerated_pose import ToleratedPose
 from timor.utilities.transformation import Transformation
 
 
-class ConstraintBase(ABC):
+class ConstraintBase(ABC, JSONable_mixin):
     """Base class defining the interface all Constraints must implement."""
 
     global_only: bool = False  # If this is True, the constraint cannot be used as a local goal constraint.
 
     @classmethod
-    def from_json_data(cls, description: Dict[str, any]) -> ConstraintBase:
+    def from_json_data(cls, d: Dict[str, any]) -> ConstraintBase:
         """
         Converts a description (string, parsed from json) to a constraint
 
         :param description: A description, mapping a constraint name to one or more constraint specifications
         """
         try:
-            constraint_type = description.pop('type')
+            constraint_type = d.pop('type')
         except KeyError:
-            if len(description) == 0:
+            if len(d) == 0:
                 return AlwaysTrueConstraint()
             raise KeyError("Any constraint description must contain type information.")
 
@@ -49,14 +50,14 @@ class ConstraintBase(ABC):
         # Shortcut to _from_json_data if used on subclasses to return Error or expected type if possible
         if cls is not ConstraintBase:
             if cls is type2class[constraint_type]:
-                return cls._from_json_data(description)
+                return cls._from_json_data(d)
             raise ValueError(f"Want to create {type(cls)} with description of type {constraint_type}.")
         try:
             class_ref = type2class[constraint_type]
         except KeyError as e:
             raise NotImplementedError(f"Unknown constraint of type {constraint_type}!") from e
 
-        return class_ref._from_json_data(description)
+        return class_ref._from_json_data(d)
 
     @classmethod
     def _from_json_data(cls, description: Dict[str, any]) -> ConstraintBase:
@@ -66,15 +67,6 @@ class ConstraintBase(ABC):
         Can be overwritten by children if more complex unpacking needed.
         """
         return cls(**description)
-
-    @classmethod
-    def from_json_string(cls, description: str) -> Union[List[ConstraintBase], ConstraintBase]:
-        """
-        Converts a description (string, parsed from json) to a constraint
-
-        :param description: A description, mapping a constraint name to one or more constraint specifications
-        """
-        return cls.from_json_data(json.loads(description))
 
     @abstractmethod
     def is_valid_until(self, solution: Solution.SolutionBase, t: float) -> bool:
@@ -89,10 +81,6 @@ class ConstraintBase(ABC):
     @abstractmethod
     def to_json_data(self) -> Dict[str, any]:
         """Should be implemented to convert the constraint to a json-serializable dictionary"""
-
-    def to_json_string(self) -> str:
-        """Returns a json-serialized string of the constraint"""
-        return json.dumps(self.to_json_data(), indent=2)
 
     def visualize(self, viz: pinocchio.visualize.MeshcatVisualizer, scale: float = 1.) -> None:
         """Visualize the constraint in an existing meshcat window.
@@ -328,7 +316,7 @@ class BasePlacement(ConstraintBase):
         """Dumps this constraint to a dictionary"""
         return {
             "type": "basePlacement",
-            "pose": self.base_pose.serialized
+            "pose": self.base_pose.to_json_data()
         }
 
     def visualize(self, viz: pinocchio.visualize.MeshcatVisualizer, scale: float = 1.) -> None:
@@ -496,5 +484,5 @@ class EndEffector(ConstraintBase):
             if abs(v) < math.inf:
                 data[k] = v
         if self.pose is not None:
-            data['pose'] = self.pose.serialized
+            data['pose'] = self.pose.to_json_data()
         return data
