@@ -1388,3 +1388,12 @@ class ModuleAssembly(JSONable_mixin):
             raise ValueError(f"Not every module in the assembly seems to be connect!\n"
                              f"Connected: {len(seen_modules)}\n"
                              f"Modules in the assembly: {len(self.module_instances)}")
+
+    def __getstate__(self):
+        """Used for pickling"""
+        return self.to_json_data()
+
+    def __setstate__(self, state):
+        """Used for pickling"""
+        cpy = self.__class__.from_json_data(state)
+        self.__dict__ = cpy.__dict__

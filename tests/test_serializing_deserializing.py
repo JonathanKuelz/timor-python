@@ -209,7 +209,8 @@ class SerializationTests(unittest.TestCase):
         self.constraints = [goal_order, joint_constraints, base_placement, collision, eef_constraint_pose,
                             eef_constraint_v, eef_constraint_all]
 
-    def test_assembly_to_json(self):
+    def test_assembly_to_serialized(self):
+        """Tests both, assembly to pickle and to json"""
         for db_name in ('IMPROV', 'PROMODULAR', 'modrob-gen2'):
             logging.debug(f"Testing with {db_name}")
             db = ModulesDB.from_name(db_name)
@@ -223,16 +224,17 @@ class SerializationTests(unittest.TestCase):
                 self.assertEqual(assembly_description['moduleSet'], db_name)
 
                 reconstructed_assembly = ModuleAssembly.from_json_data(assembly_description, db)
-                new_json = reconstructed_assembly.to_json_data()
+                reconstructed_pickle = pickle.loads(pickle.dumps(assembly))
+                new_jsons = [reconstructed_assembly.to_json_data(), reconstructed_pickle.to_json_data()]
                 for key in assembly_description.keys():
-                    print(key, end=': ')
-                    if key == 'basePose':
-                        np_test.assert_array_equal(new_json[key][0], assembly_description[key][0])
-                    elif key == 'moduleConnection':
-                        # JSON doesn't know sets, but the order of connections doesn't matter
-                        self.assertEqual(set(new_json[key]), set(assembly_description[key]))
-                    else:
-                        self.assertEqual(new_json[key], assembly_description[key])
+                    for new_json in new_jsons:
+                        if key == 'basePose':
+                            np_test.assert_array_equal(new_json[key][0], assembly_description[key][0])
+                        elif key == 'moduleConnection':
+                            # JSON doesn't know sets, but the order of connections doesn't matter
+                            self.assertEqual(set(new_json[key]), set(assembly_description[key]))
+                        else:
+                            self.assertEqual(new_json[key], assembly_description[key])
 
                 np_test.assert_array_equal(assembly.adjacency_matrix, reconstructed_assembly.adjacency_matrix)
                 self.assertEqual(assembly.base_module.id, reconstructed_assembly.base_module.id)
