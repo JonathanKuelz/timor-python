@@ -107,6 +107,9 @@ class TestSpatialTransformations(unittest.TestCase):
             self.assertAlmostEqual(Transformation.from_translation(translation).norm.translation_euclidean,
                                    np.linalg.norm(translation),
                                    msg=f"Translation was {translation}")
+            self.assertAlmostEqual(Transformation.from_translation(translation).norm.translation_maximum,
+                                   np.max(np.abs(translation)),
+                                   msg=f"Translation was {translation}")
             self.assertAlmostEqual(Transformation.from_translation(translation).norm.rotation_angle, 0.0)
             # Rotation only
             rot = math.pi * (random() - 0.5)
