@@ -185,6 +185,14 @@ def mat2euler(R: np.ndarray, seq: str = 'xyz') -> np.ndarray:
     :param seq: Any ordering of {xyz}[intrinsic] or {XYZ}[extrinsic] axes. Defaults to roll-pitch-yaw
     :return: The rotations around the axes specified in seq that lead to R
     """
+    if seq == 'xyz':
+        shortcuts = (
+            (NO_ROTATION, np.zeros(3)),
+            (np.array([[1, 0, 0], [0, -1, 0], [0, 0, -1]]), np.array([np.pi, 0, 0])),
+        )
+        for shortcut, angles in shortcuts:  # This saves a lot of time for the common cases
+            if (R == shortcut).all():
+                return angles
     return Rotation.from_matrix(R.copy()).as_euler(seq)  # Calling copy to being able working with read-only arrays
 
 

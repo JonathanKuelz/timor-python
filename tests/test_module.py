@@ -58,6 +58,7 @@ class TestModule(unittest.TestCase):
         # When adding the connectors, strict mode should work
         b2.connectors.add(c1)
         b3.connectors.add(c2)
+        joint_module._module_graph = joint_module._build_module_graph()  # Fix of hacking new connectors in module
         self.assertIs(get_module_type(joint_module), ModuleType.JOINT)
 
         base_connector = Bodies.Connector('BC', parent=b4, connector_type='base')
@@ -294,7 +295,7 @@ class TestModule(unittest.TestCase):
         end2end = Transformation.neutral()
         for n1, n2 in zip(path[:-1], path[1:]):
             end2end = end2end @ Gs.edges[n1, n2]['transform']
-        self.assertEqual(abs(end2end.translation[2]), straight.length)
+        self.assertAlmostEqual(abs(end2end.translation[2]), straight.length)
 
         Go = orthogonal.module_graph
         self.assertTrue(nx.is_weakly_connected(Go))

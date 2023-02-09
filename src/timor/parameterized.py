@@ -4,6 +4,7 @@ import abc
 import copy
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple, Type, Union
 
+import networkx as nx
 import numpy as np
 import pinocchio as pin
 
@@ -426,6 +427,7 @@ class ParameterizableModule(ModuleBase, abc.ABC):
         :param parameters: The extension-defining parameters of this module
         """
         super().__init__(header, bodies, joints)
+        del self._module_graph  # This has to be dynamic for parameterized modules
         self.resize(parameters)
 
     @staticmethod
@@ -436,6 +438,11 @@ class ParameterizableModule(ModuleBase, abc.ABC):
                              ) -> Tuple[Connector, ...]:
         """Generates the connectors for this module."""
         return tuple(Connector(ids[i], gender=genders[i], connector_type=types[i], size=sizes[i]) for i in range(2))
+
+    @property
+    def module_graph(self) -> nx.DiGraph:
+        """The module graph for a parameterizable module has to be recomputed with every resize."""
+        return self._build_module_graph()
 
     def copy(self, suffix: str) -> ModuleBase:
         """Copies the module and returns the copy."""
