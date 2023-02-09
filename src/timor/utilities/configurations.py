@@ -5,6 +5,16 @@ import configparser
 from pathlib import Path
 
 
-CONFIG_FILE = Path(__file__).parent.parent.parent.parent.joinpath('timor.config')
+this_file = Path(__file__).absolute()
+parent_dir = this_file
+while parent_dir.name != 'timor-python':
+    parent_dir = parent_dir.parent
+    if parent_dir.name == '':
+        print("Could not find the timor-python directory that comes with installation.")
+        break
 TIMOR_CONFIG = configparser.ConfigParser()
-TIMOR_CONFIG.read(CONFIG_FILE)
+if parent_dir.name == 'timor-python':
+    CONFIG_FILE = parent_dir.joinpath('timor.config')
+    TIMOR_CONFIG.read(CONFIG_FILE)
+else:
+    CONFIG_FILE = None
