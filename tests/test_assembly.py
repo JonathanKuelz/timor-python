@@ -107,8 +107,8 @@ class TestModuleAssembly(unittest.TestCase):
         move_up = .3
         rob.update_configuration(np.array((move_up, 0)))
         self.assertAlmostEqual(fk[2, 3], rob.fk()[2, 3] - move_up)
-        self.assertTrue(np.all(fk[:2, 3] == rob.fk()[:2, 3]))
-        self.assertTrue(np.all(fk[:3, :3] == rob.fk()[:3, :3]))
+        self.assertTrue(np.allclose(fk[:2, 3], rob.fk()[:2, 3]))
+        self.assertTrue(np.allclose(fk[:3, :3], rob.fk()[:3, :3]))
 
         rob.update_configuration(np.array((0, np.pi)))
         self.assertAlmostEqual(fk[0, 3], rob.fk()[0, 3])

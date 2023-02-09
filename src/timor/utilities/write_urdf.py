@@ -7,7 +7,7 @@ import numpy as np
 import pinocchio as pin
 
 from timor import Geometry
-from timor.utilities.spatial import homogeneous, mat2euler
+from timor.utilities.spatial import mat2euler
 from timor.utilities.transformation import Transformation
 
 
@@ -60,9 +60,10 @@ def from_pin_inertia(i: pin.Inertia, link_frame: np.ndarray = Transformation.neu
         concept of a distinct body/link frame, so we have to change the positioning accordingly.
     """
     inertial = ET.Element('inertial')
-    origin = link_frame @ homogeneous(translation=i.lever)
-    ET.SubElement(inertial, 'origin', {'xyz': ' '.join(map(str, origin[:3, 3])),
-                                       'rpy': ' '.join(map(str, mat2euler(origin[:3, :3], 'xyz')))
+    orientation = link_frame[:3, :3]
+    origin = orientation @ i.lever + link_frame[:3, 3]
+    ET.SubElement(inertial, 'origin', {'xyz': ' '.join(map(str, origin)),
+                                       'rpy': ' '.join(map(str, mat2euler(orientation, 'xyz')))
                                        })
     ET.SubElement(inertial, 'mass', {'value': str(i.mass)})
     str_idx = 'xyz'

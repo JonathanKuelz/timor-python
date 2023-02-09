@@ -77,6 +77,7 @@ class ModuleBase(abc.ABC, JSONable_mixin):
             joint.in_module = self
         self._joints: JointSet = JointSet(joints)
         self._check_unique_connectors()
+        self._module_graph: nx.DiGraph = self._build_module_graph()
 
     def __copy__(self):
         """Disable builtin copy, there should be no use case for two instances of a module with the same ID."""
@@ -106,23 +107,7 @@ class ModuleBase(abc.ABC, JSONable_mixin):
         anti-parallel, s.t. for every edge between two nodes (u, v), there exists an edge between (v, u) for which
         the transform attribute is the inverse of the first edge's transform.
         """
-        G_m = nx.DiGraph()
-        for body in self.bodies:
-            G_m.add_node(body)
-        for jnt in self.joints:
-            G_m.add_node(jnt)
-            # If a node is defined twice, networkx just interprets it as the same node
-            G_m.add_edge(jnt.parent_body, jnt, transform=jnt.parent2joint)
-            G_m.add_edge(jnt, jnt.child_body, transform=jnt.joint2child)
-
-        for connector_id, connector in self.available_connectors.items():
-            G_m.add_edge(connector.parent, connector, transform=connector.body2connector)
-
-        for u, v, t in G_m.edges.data('transform'):
-            # Generate the edges in opposing directing
-            G_m.add_edge(v, u, transform=t.inv)
-
-        return G_m
+        return self._module_graph
 
     @property
     def available_connectors(self) -> Dict[Tuple[str, str, str], Connector]:
@@ -169,6 +154,26 @@ class ModuleBase(abc.ABC, JSONable_mixin):
     def name(self) -> str:
         """Returns the unique name of this module."""
         return self.header.name
+
+    def _build_module_graph(self) -> nx.DiGraph:
+        """Builds the directed graph of atomic module elements. See module_graph property for more information."""
+        G_m = nx.DiGraph()
+        for body in self.bodies:
+            G_m.add_node(body)
+        for jnt in self.joints:
+            G_m.add_node(jnt)
+            # If a node is defined twice, networkx just interprets it as the same node
+            G_m.add_edge(jnt.parent_body, jnt, transform=jnt.parent2joint)
+            G_m.add_edge(jnt, jnt.child_body, transform=jnt.joint2child)
+
+        for connector_id, connector in self.available_connectors.items():
+            G_m.add_edge(connector.parent, connector, transform=connector.body2connector)
+
+        for u, v, t in G_m.edges.data('transform'):
+            # Generate the edges in opposing directing
+            G_m.add_edge(v, u, transform=t.inv)
+
+        return G_m
 
     def _check_unique_connectors(self):
         """Sanity check that all connectors are unique"""
@@ -1094,7 +1099,7 @@ class ModuleAssembly(JSONable_mixin):
         if ignore_collisions not in ['rigid', 'via_joint', 'rigid_via_joint']:
             raise ValueError("Invalid collision mode: " + ignore_collisions)
         G = self.assembly_graph
-        edges = self.assembly_graph.edges
+        edges = G.edges
         robot = Robot.PinRobot(wrapper=pin.RobotWrapper(pin.Model()))
         body_collision_geometries = dict()
 
@@ -1209,14 +1214,12 @@ class ModuleAssembly(JSONable_mixin):
         :param replace_wrl: Whether to replace wrl geometries with visual geometry (if available).
         """
         G = self.assembly_graph
-        edges = self.assembly_graph.edges
+        edges = G.edges
         if name is None:
             name = 'Auto-Generated: ' + uuid.uuid4().hex  # Random Name
 
         def get_urdf_joint_type(joint_instance: Joint) -> str:
             pin2urdf = {pin.JointModelRZ: 'revolute', pin.JointModelPZ: 'prismatic'}
-            if joint_instance.pin_joint_type not in pin2urdf:
-                raise NotImplementedError()
             return pin2urdf[joint_instance.pin_joint_type]
 
         urdf = ET.Element('robot', {'name': name})
@@ -1226,7 +1229,7 @@ class ModuleAssembly(JSONable_mixin):
         transforms = {self.base_connector.id: spatial.rotX(np.pi)}
         for node, successors in nx.bfs_successors(G, self.base_connector):
             for successor in successors:
-                transform = transforms[node.id] @ edges[node, successor]['transform'].homogeneous
+                transform = (transforms[node.id] @ edges[node, successor]['transform'].homogeneous).round(14)
                 transforms[successor.id] = transform
                 if isinstance(successor, BodyBase):
                     if not isinstance(successor, Body):
