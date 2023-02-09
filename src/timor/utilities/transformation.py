@@ -54,6 +54,11 @@ class Norm:
         """The manhattan / absolute / L1 norm of this transformation's translation"""
         return np.linalg.norm(self.transformation.translation, ord=1)
 
+    @property
+    def translation_maximum(self) -> float:
+        """The maximum / infinity norm of the transformation't translation."""
+        return np.max(np.abs(self.transformation.translation))
+
 
 class Projection:
     """A namespace for transformation projections"""
