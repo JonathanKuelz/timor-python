@@ -10,6 +10,7 @@ from typing import Dict, List, Tuple, Union
 import jsonschema.exceptions
 import numpy as np
 import pinocchio as pin
+import scipy.interpolate
 
 from timor.Module import ModuleAssembly
 from timor.Robot import RobotBase
@@ -69,7 +70,7 @@ class SolutionBase(abc.ABC, JSONable_mixin):
 
     def __str__(self):
         """String representation of the solution"""
-        return f"Solution for task {self.header.ID}"
+        return f"Solution for task {self.header.taskID}"
 
     @staticmethod
     def from_json_file(json_path: Union[Path, str], package_dir: Path, tasks: Dict[str, 'Task.Task']) -> SolutionBase:
@@ -252,7 +253,8 @@ class SolutionBase(abc.ABC, JSONable_mixin):
         return self.robot.tcp_acceleration
 
     def visualize(self,
-                  viz: Union[pin.visualize.MeshcatVisualizer, MeshcatVisualizerWithAnimation] = None) \
+                  viz: Union[pin.visualize.MeshcatVisualizer, MeshcatVisualizerWithAnimation] = None,
+                  fps: float = 30.) \
             -> pin.visualize.MeshcatVisualizer:
         """Visualize a solution trajectory"""
         if viz is None:
@@ -266,8 +268,10 @@ class SolutionBase(abc.ABC, JSONable_mixin):
         for goal in self.task.goals:
             goal.visualize(viz)
 
-        dt = (self.time_steps[-1] - self.time_steps[0]) / len(self.time_steps)
-        animation(self.robot, self.q, dt, visualizer=viz)
+        # resample to capture statics better
+        q_new = scipy.interpolate.interp1d(
+            self.time_steps, self.q, axis=0)(np.arange(self.time_steps[0], self.time_steps[-1], 1 / fps))
+        animation(self.robot, q_new, 1 / fps, visualizer=viz)
 
         return viz
 
