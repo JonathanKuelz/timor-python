@@ -300,7 +300,7 @@ class TestSolution(unittest.TestCase):
                 Solution.SolutionTrajectory(bad_trajectory_outside_joint_limits, {'taskID': task.id}, task=task,
                                             assembly=ModuleAssembly.from_monolithic_robot(robot),
                                             cost_function=cost_function)
-            self.assertFalse(pause_goal._valid(bad_sol_outside_joint_limits))
+            self.assertFalse(pause_goal._valid(bad_sol_outside_joint_limits, 0., 0))  # time / index ignored anyway
 
     def test_instantiation(self):
         """Instantiate Solutions, Goals, Constraints"""

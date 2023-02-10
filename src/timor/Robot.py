@@ -257,6 +257,7 @@ class RobotBase(abc.ABC):
     def visualize(self, viz: pin.visualize.MeshcatVisualizer, *args, **kwargs) -> pin.visualize.MeshcatVisualizer:
         """Interface to plot the robot in a meshcat visualizer"""
         return self.plot(viz, *args, **kwargs)
+
     # ---------- Properties and Aliases----------
 
     @property
@@ -608,9 +609,8 @@ class PinRobot(RobotBase):
         rotation_error = current.distance(goal).rotation_angle
         translation_weight = 1.
         rotation_weight = .5 / np.pi  # .5 meter displacement ~ 180 degree orientation error
-        return (translation_weight * translation_error + rotation_weight * rotation_error) / (
-            translation_weight + rotation_weight
-        )
+        return (translation_weight * translation_error + rotation_weight * rotation_error) / \
+            (translation_weight + rotation_weight)
 
     def _update_geometry_placement(self):
         """Updates the collision (for collision detection) and visual (for plotting) geometry placements."""
@@ -856,6 +856,10 @@ class PinRobot(RobotBase):
             i += 1
 
         if not self.q_in_joint_limits(q):
+            if not kwargs.get('allow_wrapping_joint_angle', True):
+                logging.debug("Wrapping forbidden; retry solving ik.")
+                return self.ik_jacobian(eef_pose, self.random_configuration(), gain, damp, max_iter - i, kind, **kwargs)
+
             q[rot_join_mask] = spatial.rotation_in_bounds(q[rot_join_mask], self.joint_limits[:, rot_join_mask])
             if self.q_in_joint_limits(q):
                 # We're good to go
@@ -1101,7 +1105,8 @@ class PinRobot(RobotBase):
 
     def plot(self,
              visualizer: pin.visualize.BaseVisualizer = None,
-             coordinate_systems: Union[str, None] = None
+             coordinate_systems: Union[str, None] = None,
+             show_collision_data: Optional[bool] = True
              ) -> pin.visualize.MeshcatVisualizer:
         """
         Displays the robot in its current environment using a Meshcat Visualizer in the browser
@@ -1115,24 +1120,29 @@ class PinRobot(RobotBase):
             raise ValueError("Invalid Value for coordinate system argument: {}".format(coordinate_systems))
 
         if visualizer is None:
-            visualizer = pin.visualize.MeshcatVisualizer(self.model, self.collision, self.visual,
-                                                         copy_models=False,
-                                                         data=self.data,
-                                                         collision_data=self.collision_data,
-                                                         visual_data=self.visual_data)
+            visualizer = pin.visualize.MeshcatVisualizer(
+                self.model, self.collision, self.visual,
+                copy_models=False,
+                data=self.data,
+                collision_data=self.collision_data if show_collision_data else None,
+                visual_data=self.visual_data)
         elif visualizer.model is not self.model:
             # Copy everything, s.t. robot updates are transferred to the visualizer!
             visualizer.model = self.model
             visualizer.collision_model = self.collision
             visualizer.visual_model = self.visual
             visualizer.data = self.data
-            visualizer.collision_data = self.collision_data
+            visualizer.collision_data = self.collision_data if show_collision_data else None
             visualizer.visual_data = self.visual_data
 
         if not hasattr(visualizer, 'viewer'):
             visualizer.initViewer()
 
         visualizer.loadViewerModel(rootNodeName=self.name)
+        # Force update of collision meshes; otherwise toggle shows them not at current configuration
+        if show_collision_data:
+            visualizer.updatePlacements(pin.COLLISION)
+
         visualizer.display(self.configuration)
         if coordinate_systems is not None:
             if coordinate_systems == 'tcp':
@@ -1141,6 +1151,9 @@ class PinRobot(RobotBase):
                 names = self.joints if coordinate_systems == 'joints' else (fr.name for fr in self.model.frames)
                 for transform, name in zip(self.fk(kind=coordinate_systems), names):
                     transform.visualize(visualizer, name=name, scale=.3)
+
+        if not show_collision_data:
+            logging.debug("Collisions toggle in meshcat interface will show collision meshes only at origin.")
 
         return visualizer
 
@@ -1197,10 +1210,11 @@ class PinRobot(RobotBase):
 
     def visualize(self,
                   visualizer: pin.visualize.BaseVisualizer = None,
-                  coordinate_systems: Union[str, None] = None
+                  coordinate_systems: Union[str, None] = None,
+                  show_collision_data: Optional[bool] = True
                   ) -> pin.visualize.MeshcatVisualizer:
         """An alias for plot"""
-        return self.plot(visualizer, coordinate_systems)
+        return self.plot(visualizer, coordinate_systems, show_collision_data)
 
     # ---------- Morphology / Configuration changes ----------
     def _add_body(self,

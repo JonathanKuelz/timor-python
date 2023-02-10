@@ -205,6 +205,16 @@ class GoalsFulfilled(CostFunctionBase):
         return reward
 
 
+class GoalsFulfilledFraction(GoalsFulfilled):
+    """Cost proportional to the fraction of fulfilled goals."""
+
+    default_weight = 1.
+
+    def _evaluate(self, solution: 'Solution.SolutionBase') -> float:
+        """The fraction of goals fulfilled"""
+        return super()._evaluate(solution) / len(solution.task.goals)
+
+
 class MechanicalEnergy(CostFunctionBase):
     """Increases with the mechanical energy used by a solution"""
 
@@ -260,5 +270,6 @@ abbreviations = {"cyc": CycleTime,
                  "effort": Effort,
                  "mass": RobotMass,
                  "numJ": NumJoints,
-                 "fulfillN": GoalsFulfilled}
+                 "fulfillN": GoalsFulfilled,
+                 "fulfillP": GoalsFulfilledFraction}
 abbreviations_inverse = {v: k for k, v in abbreviations.items()}
