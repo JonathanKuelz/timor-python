@@ -65,7 +65,7 @@ class GoalBase(ABC, JSONable_mixin):
         return self._id
 
     @abstractmethod
-    def _achieved(self, solution: 'task.Solution.SolutionBase') -> bool:
+    def _achieved(self, solution: 'task.Solution.SolutionBase', t_goal: float, idx_goal: int) -> bool:
         """Needs to be implemented by children according to the goal"""
         pass
 
@@ -92,14 +92,18 @@ class GoalBase(ABC, JSONable_mixin):
         """
         pass
 
-    def _valid(self, solution: 'task.Solution.SolutionBase') -> bool:
+    def _valid(self, solution: 'task.Solution.SolutionBase', t_goal: float, idx_goal: int) -> bool:
         """Checks all goal-level constraints"""
-        t = solution.t_goals[self.id]
-        return all(c.is_valid_until(solution, t) for c in self.constraints)
+        return all(c.is_valid_until(solution, t_goal) for c in self.constraints)
 
     def achieved(self, solution: 'task.Solution.SolutionBase') -> bool:
         """Calls the custom _achieved method and checks that constraints are held"""
-        return self._achieved(solution) and self._valid(solution)
+        try:
+            t_goal, idx_goal = self._get_t_idx_goal(solution)
+        except KeyError:
+            logging.debug(f"Goal {self.id} not in solution trajectory and therefore not achieved.")
+            return False
+        return self._achieved(solution, t_goal, idx_goal) and self._valid(solution, t_goal, idx_goal)
 
     def _assert_constraints_local(self):
         """Checks that the constraints of this goal have a "local meaning".
@@ -178,7 +182,7 @@ class GoalWithDuration(GoalBase, ABC):
             "Solution should be sampled every timeStepSize"
         return ts, range(id_start, id_goal + 1)  # id_goal should be included in goal range
 
-    def _valid(self, solution: 'task.Solution.SolutionBase') -> bool:
+    def _valid(self, solution: 'task.Solution.SolutionBase', t_goal: float, idx_goal: int) -> bool:
         """A goal with duration needs to ensure that its constraints hold at all time-steps within this duration."""
         return all(c.is_valid_until(solution, t) for c in self.constraints
                    for t in self._get_time_range_goal(solution)[0])
@@ -234,14 +238,13 @@ class At(GoalBase):
             'goalPose': self.goal_pose.to_json_data(),
         }
 
-    def _achieved(self, solution: 'task.Solution.SolutionBase') -> bool:
+    def _achieved(self, solution: 'task.Solution.SolutionBase', t_goal: float, idx_goal: int) -> bool:
         """
         Returns true, if the solution satisfies this goal.
 
         :param solution: Any solution instance that must contain a time at which this goal was solved
         :return: True if the end effector placement at time t is within the defined tolerances for the desired pose
         """
-        t_goal, id_goal = self._get_t_idx_goal(solution)
         is_pose = solution.tcp_pose_at(t_goal)
         return self.goal_pose.valid(is_pose)
 
@@ -285,12 +288,13 @@ class Reach(At):
             'goalPose': self.goal_pose.to_json_data(),
         }
 
-    def _achieved(self, solution: 'task.Solution.SolutionBase') -> bool:
+    def _achieved(self, solution: 'task.Solution.SolutionBase', t_goal: float, idx_goal: int) -> bool:
         """
         Returns true, if position and velocity are within the defined tolerances
         """
-        at_achieved = super()._achieved(solution)
-        t_goal, id_goal = self._get_t_idx_goal(solution)
+        at_achieved = super()._achieved(solution, t_goal, idx_goal)
+        if not at_achieved:
+            return False
         is_velocity = solution.tcp_velocity_at(t_goal)
         return at_achieved and self.velocity_tolerance.valid(np.zeros(is_velocity.shape), is_velocity)
 
@@ -340,11 +344,10 @@ class ReturnTo(GoalBase):
         """Shows an error pointing towards the desired position"""
         logging.info("ReturnTo Goals cannot be visualized (yet)")
 
-    def _achieved(self, solution: 'task.Solution.SolutionBase') -> bool:
+    def _achieved(self, solution: 'task.Solution.SolutionBase', t_goal: float, idx_goal: int) -> bool:
         """
         Returns true, if position, velocity and acceleration are (almost) equal to those at t=return_to_t
         """
-        t_goal, id_goal = self._get_t_idx_goal(solution)
         goal_idx = solution.get_time_id(t_goal)
         other_idx = solution.get_time_id(solution.t_goals[self.return_to_goal]) if self.return_to_goal is not None \
             else solution.get_time_id(0)
@@ -389,14 +392,14 @@ class Pause(GoalWithDuration):
             'constraints': self._constraints_serialized()
         }
 
-    def _achieved(self, solution: 'task.Solution.SolutionBase') -> bool:
+    def _achieved(self, solution: 'task.Solution.SolutionBase', t_goal: float, idx_goal: int) -> bool:
         """
         Returns true, if the robot does not move for a preconfigured duration, starting at t_goal.
         """
         try:
             sol_times, sol_idx = self._get_time_range_goal(solution)
         except ValueError as e:
-            logging.info(f"Duration not covered by trajectory; {e}")
+            logging.debug(f"Duration not covered by trajectory; {e}")
             return False
         return all((solution.q[sol_idx[0]] == solution.q[idx]).all()
                    and not solution.dq[idx].any()

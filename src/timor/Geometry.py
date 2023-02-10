@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import abc
 from enum import Enum, EnumMeta
+import importlib.util
 from inspect import isclass
 import io
 import itertools
@@ -416,6 +417,7 @@ class Mesh(Geometry):
     _filepath: Path
     _scale: Union[float, np.ndarray]
     package_dir: Optional[Path]
+    _colors: Optional[np.ndarray] = None
 
     @classmethod
     def from_hppfcl(cls, fcl: hppfcl.CollisionObject) -> Geometry:
@@ -468,6 +470,14 @@ class Mesh(Geometry):
             return geom
         else:
             mesh_loader = hppfcl.MeshLoader()
+            if self.abs_filepath.suffix == ".ply":
+                if importlib.util.find_spec("trimesh"):
+                    import trimesh
+                    m = trimesh.load(self.abs_filepath)
+                    # Map uint8 to 0. .. 1. float value; cut of alpha
+                    self._colors = m.visual.vertex_colors[:, :3] / 255
+                else:
+                    logging.info("Install trimesh / timor full to enable color meshes.")
             return mesh_loader.load(str(self.abs_filepath), self.scale)
 
     @property
@@ -502,7 +512,13 @@ class Mesh(Geometry):
     @property
     def viz_object(self) -> Tuple[meshcat.geometry.Geometry, Transformation]:
         """Returns a meshcat mesh"""
-        return pin.visualize.meshcat_visualizer.loadMesh(self.collision_geometry), self.placement
+        geom = pin.visualize.meshcat_visualizer.loadMesh(self.collision_geometry), self.placement
+        if self._colors is not None:
+            if geom[0].vertices.shape == self._colors.shape:
+                geom[0].color = self._colors
+            else:
+                logging.warning("Color shape seems to not fit vertices.")
+        return geom
 
     @property
     def volume(self) -> float:
@@ -525,6 +541,12 @@ class Mesh(Geometry):
         if isinstance(self._scale, float) or self._scale.size == 1:
             return np.array([self._scale, self._scale, self._scale])
         return self._scale
+
+    def __deepcopy__(self, memodict={}):
+        """Must be implemented for Geometries, as hppfcl does not natively support it."""
+        params = self.parameters
+        params['package_dir'] = self.package_dir
+        return self.__class__(params, self.placement)
 
 
 class ComposedGeometry(Geometry):

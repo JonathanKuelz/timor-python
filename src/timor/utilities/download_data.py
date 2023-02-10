@@ -12,21 +12,27 @@ from timor.utilities import logging
 def download_schemata(schema_dir: Path) -> Dict[str, Path]:
     """Download schemata from CoBRA; return dict from schema short name to paths where stored."""
     schemata = {}
-    if len(tuple(schema_dir.iterdir())) < 4:
-        # --- Begin download schemata ---
-        tld = "https://cobra.cps.cit.tum.de/api/schemas/"
-        for schema in ('PoseSchema', 'TaskSchema', 'ModuleSchema', 'SolutionSchema'):
-            url = tld + schema + '.json'
-            logging.info(f"Downloading schema from {url}")
-            try:
-                r = requests.get(url)
-                schema_file_name = schema_dir.joinpath(schema + '.json')
-                with open(schema_file_name, 'wb') as f:
-                    f.write(r.content)
-                schemata[schema] = schema_file_name
-            except Exception as e:
-                logging.warning(f"Could not download from {url}: {e}")
-        # --- End download schemata ---
+    wanted_schemas = ('PoseSchema', 'TaskSchema', 'ModuleSchema', 'SolutionSchema')
+    for s in schema_dir.iterdir():
+        if s.suffix != ".json":
+            continue
+        if s.stem in wanted_schemas:
+            schemata[s.stem] = s
+
+    # --- Begin download schemata ---
+    tld = "https://cobra.cps.cit.tum.de/api/schemas/"
+    for schema in ('PoseSchema', 'TaskSchema', 'ModuleSchema', 'SolutionSchema') - schemata.keys():
+        url = tld + schema + '.json'
+        logging.info(f"Downloading schema from {url}")
+        try:
+            r = requests.get(url)
+            schema_file_name = schema_dir.joinpath(schema + '.json')
+            with open(schema_file_name, 'wb') as f:
+                f.write(r.content)
+            schemata[schema] = schema_file_name
+        except Exception as e:
+            logging.warning(f"Could not download from {url}: {e}")
+    # --- End download schemata ---
     return schemata
 
 

@@ -1,19 +1,21 @@
-from copy import copy
+from copy import copy, deepcopy
+import logging
 import pickle
 import unittest
 
 from hppfcl import CollisionRequest, CollisionResult, collide
 import meshcat
 import numpy as np
+import pinocchio as pin
+import pytest
 
 from timor import Bodies, Geometry, Obstacle, Transformation
 from timor.Geometry import Mesh
 from timor.parameterized import ParameterizableBody, ParameterizableBoxBody, ParameterizableCylinderBody, \
     ParameterizableMultiBody, \
     ParameterizableSphereBody
-from timor.utilities import file_locations
 import timor.utilities.errors as err
-from timor.utilities.file_locations import robots
+from timor.utilities.file_locations import robots, test_data
 
 
 class TestBodiesAndGeometries(unittest.TestCase):
@@ -43,13 +45,14 @@ class TestBodiesAndGeometries(unittest.TestCase):
             # Cannot connect bodies with same ID
             another_body.possible_connections_with(same_id_body)
 
-    def test_geometry_volume(self):
+    def test_geometry(self):
         box = Geometry.Box({'x': 1, 'y': 1, 'z': 1})
         cylinder = Geometry.Cylinder({'r': 1, 'z': 5})
         sphere = Geometry.Sphere({'r': 1})
-        mesh = Geometry.Mesh({'file': 'sample_tasks/assets/DMU_125P.stl', 'package_dir': file_locations.test_data,
+        mesh = Geometry.Mesh({'file': 'sample_tasks/assets/DMU_125P.stl', 'package_dir': test_data,
                               'scale': 0.001})
 
+        # Volumes
         self.assertEqual(box.volume, 1)
         self.assertAlmostEqual(cylinder.volume, 5 * np.pi * 1 ** 2)
         self.assertAlmostEqual(sphere.volume, 4 / 3 * np.pi * 1 ** 3)
@@ -60,6 +63,12 @@ class TestBodiesAndGeometries(unittest.TestCase):
         self.assertEqual(composed.volume, box.volume + cylinder.volume + sphere.volume + mesh.volume)
         composed._composing_geometries.append(empty)
         self.assertEqual(composed.volume, box.volume + cylinder.volume + sphere.volume + mesh.volume)
+
+        # Deepcopy
+        for g in (box, cylinder, sphere, mesh):
+            g_new = deepcopy(g)
+            self.assertEqual(g.volume, g_new.volume)
+            self.assertDictEqual(g.parameters, g_new.parameters)
 
     def test_parameterizable_body(self):
         num_params = {Geometry.GeometryType.BOX: 3, Geometry.GeometryType.CYLINDER: 2, Geometry.GeometryType.SPHERE: 1}
@@ -183,6 +192,32 @@ class TestBodiesAndGeometries(unittest.TestCase):
                 self.assertTrue(collide(test_cube.collision.as_hppfcl_collision_object[0],
                                         mesh_wrl.as_hppfcl_collision_object[0], request, result),
                                 f"Overapprox. wrl did not collide @ x = {x}")
+
+    @pytest.mark.full
+    def test_mesh_color(self):
+        """
+        Cannot check that actual intended colors are used as we cannot get data back from the meshcat viewer.
+
+        Just tests API; correct render must be checked manually.
+        """
+        mesh_ply = Mesh({'file': test_data.joinpath('sample_tasks').joinpath('assets').
+                        joinpath('IWB Hermle UWF 900_only.ply'),
+                         'package_dir': test_data.joinpath('sample_tasks').joinpath('assets')})
+
+        self.assertTupleEqual(mesh_ply.viz_object[0].vertices.shape, mesh_ply._colors.shape)
+        self.assertTupleEqual(mesh_ply.viz_object[0].vertices.shape, mesh_ply.viz_object[0].color.shape)
+
+        v = pin.visualize.MeshcatVisualizer()
+        v.initViewer()
+        v.viewer["test_ply"].set_object(mesh_ply.viz_object[0], meshcat.geometry.MeshPhongMaterial(vertexColors=True))
+
+        obstacle = Obstacle.Obstacle("test", mesh_ply)
+        obstacle.visualize(v)
+
+        obstacle_red = Obstacle.Obstacle("test_red", mesh_ply)
+        obstacle_red.visualize(v, meshcat.geometry.MeshPhongMaterial(color=0xFF0000))
+
+        logging.info("Colors need to be checked manually.")
 
 
 if __name__ == '__main__':

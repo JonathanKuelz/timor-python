@@ -113,18 +113,30 @@ pip_py_311:
       - pyproject.toml
     - if: $CI_PIPELINE_SOURCE == "schedule"  # run atleast with nightly run to make sure no external stuff changed
 
-
 unittests:
   stage: unittest
   script:
     - pip install .[dev]
     - cd src
-    - coverage run -p --rcfile=.coveragerc -m pytest -m "not imports" ../tests
+    - coverage run -p --rcfile=.coveragerc -m pytest -m "not imports and not full" ../tests
   artifacts:
     expose_as: 'coverage_base'
     when: always
     paths:
       - ci/coverage/
+
+unittests full:
+  stage: unittest
+  script:
+    - pip install .[full]
+    - cd src
+    - coverage run -p --rcfile=.coveragerc -m pytest -m "not imports and full" ../tests
+  artifacts:
+    expose_as: 'coverage_base'
+    when: always
+    paths:
+      - ci/coverage/
+  allow_failure: true  # These only test optional features and is ok if they fail once in a while e.g. updated libraries
 
 unittests imports:
   stage: unittest

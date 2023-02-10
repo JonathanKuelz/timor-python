@@ -20,6 +20,7 @@ class Obstacle(JSONable_mixin):
     """
 
     mesh_material = meshcat.geometry.MeshLambertMaterial(color=0xECA19D, reflectivity=.8)
+    mesh_material_vertex_color = meshcat.geometry.MeshLambertMaterial(vertexColors=True, reflectivity=.8)
 
     def __init__(self,
                  ID: str,
@@ -128,18 +129,27 @@ class Obstacle(JSONable_mixin):
         A custom visualization should be implemented by children.
 
         :param viz: MeshcatVisualizer to add this obstacle to.
-        :param material: Material to use for this obstacle; default: light red
+        :param material: Material to use for this obstacle; default: light red / mesh color if provided
         """
+        overwrite_mesh_color = False
         if material is None:
             material = self.mesh_material
+        else:
+            overwrite_mesh_color = True
         if isinstance(self.visual, Geometry.ComposedGeometry):
             for i, geom in enumerate(self.visual.composing_geometries):
                 viz_geometry, transform = geom.viz_object
-                viz.viewer[self.display_name + f'_{i}'].set_object(viz_geometry, material)
+                if viz_geometry.color is None or overwrite_mesh_color:
+                    viz.viewer[self.display_name + f'_{i}'].set_object(viz_geometry, material)
+                else:
+                    viz.viewer[self.display_name + f'_{i}'].set_object(viz_geometry, self.mesh_material_vertex_color)
                 viz.viewer[self.display_name + f'_{i}'].set_transform(transform.homogeneous)
         else:
             viz_geometry, transform = self.visual.viz_object
-            viz.viewer[self.display_name].set_object(viz_geometry, material)
+            if viz_geometry.color is None or overwrite_mesh_color:
+                viz.viewer[self.display_name].set_object(viz_geometry, material)
+            else:
+                viz.viewer[self.display_name].set_object(viz_geometry, self.mesh_material_vertex_color)
             viz.viewer[self.display_name].set_transform(transform.homogeneous)
 
     @property
