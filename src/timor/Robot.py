@@ -216,10 +216,6 @@ class RobotBase(abc.ABC):
         """
 
     @abc.abstractmethod
-    def plot(self, viz: pin.visualize.MeshcatVisualizer, *args, **kwargs) -> pin.visualize.MeshcatVisualizer:
-        """Interface to plot the robot in a meshcat visualizer"""
-
-    @abc.abstractmethod
     def random_configuration(self) -> np.ndarray:
         """
         Returns a random configuration for the robot
@@ -256,7 +252,6 @@ class RobotBase(abc.ABC):
     @abc.abstractmethod
     def visualize(self, viz: pin.visualize.MeshcatVisualizer, *args, **kwargs) -> pin.visualize.MeshcatVisualizer:
         """Interface to plot the robot in a meshcat visualizer"""
-        return self.plot(viz, *args, **kwargs)
 
     # ---------- Properties and Aliases----------
 
@@ -1103,11 +1098,11 @@ class PinRobot(RobotBase):
         """Updates the placement of visual geometry objects"""
         pin.updateGeometryPlacements(self.model, self.data, self.visual, self.visual_data)
 
-    def plot(self,
-             visualizer: pin.visualize.BaseVisualizer = None,
-             coordinate_systems: Union[str, None] = None,
-             show_collision_data: Optional[bool] = True
-             ) -> pin.visualize.MeshcatVisualizer:
+    def visualize(self,
+                  visualizer: pin.visualize.BaseVisualizer = None,
+                  coordinate_systems: Union[str, None] = None,
+                  show_collision_data: Optional[bool] = True
+                  ) -> pin.visualize.MeshcatVisualizer:
         """
         Displays the robot in its current environment using a Meshcat Visualizer in the browser
 
@@ -1157,8 +1152,8 @@ class PinRobot(RobotBase):
 
         return visualizer
 
-    def plot_self_collisions(self,
-                             visualizer: pin.visualize.MeshcatVisualizer = None) -> pin.visualize.MeshcatVisualizer:
+    def visualize_self_collisions(self, visualizer: pin.visualize.MeshcatVisualizer = None) \
+            -> pin.visualize.MeshcatVisualizer:
         """
         Computes all collisions and visualizes them in a different color for every collision pair in contact.
 
@@ -1207,14 +1202,6 @@ class PinRobot(RobotBase):
             visualizer.loadViewerGeometryObject(cp[1], pin.GeometryType.COLLISION)
 
         return visualizer
-
-    def visualize(self,
-                  visualizer: pin.visualize.BaseVisualizer = None,
-                  coordinate_systems: Union[str, None] = None,
-                  show_collision_data: Optional[bool] = True
-                  ) -> pin.visualize.MeshcatVisualizer:
-        """An alias for plot"""
-        return self.plot(visualizer, coordinate_systems, show_collision_data)
 
     # ---------- Morphology / Configuration changes ----------
     def _add_body(self,

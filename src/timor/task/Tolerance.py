@@ -575,7 +575,7 @@ class CartesianSpheric(Cartesian):
         """
         super().__init__(r, theta, phi_sph)
         if not all(np.array(r) >= 0):
-            raise ValueError("Can only accept positive radius in cylinder coordinates")
+            raise ValueError("Can only accept positive radius in spherical coordinates")
         if not theta[0] >= 0 and theta[1] <= np.pi:
             raise ValueError("Theta must be between 0 and pi")
         if not phi_sph[0] >= -np.pi and phi_sph[1] <= np.pi:

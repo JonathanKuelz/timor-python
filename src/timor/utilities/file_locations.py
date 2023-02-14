@@ -50,7 +50,7 @@ else:
 download_additional_robots(cache_robot_dir, robots)
 module_DBs = robots  # alias
 
-DEFAULT_TASK_FILTER = re.compile(".*(PTP_1|PTP_2|PTP_2_cycle|PTP_3|Empty)+.json")
+DEFAULT_TASK_FILTER = re.compile(".*(PTP_1|PTP_2|PTP_2_cycle|PTP_3|Empty|traj_1|traj_window)+.json")
 
 
 def get_test_tasks(task_name: re.Pattern = DEFAULT_TASK_FILTER) -> Dict[str, Union[Path, List[Path]]]:

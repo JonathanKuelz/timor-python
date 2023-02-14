@@ -14,11 +14,12 @@ from timor import Geometry, Transformation
 from timor import Robot
 from timor.Module import ModuleAssembly, ModulesDB
 from timor.task import Constraints, CostFunctions, Obstacle, Solution, Task, Tolerance
-from timor.utilities import dtypes, file_locations, prebuilt_robots, logging
+from timor.utilities import file_locations, prebuilt_robots, logging
 from timor.utilities.file_locations import get_module_db_files, schema_dir
 from timor.utilities.prebuilt_robots import random_assembly
 from timor.utilities.schema import get_schema_validator
 from timor.utilities.tolerated_pose import ToleratedPose
+from timor.utilities.trajectory import Trajectory
 
 
 class DummyTask:
@@ -278,24 +279,22 @@ class SerializationTests(unittest.TestCase):
 
         for constraint in self.constraints:
             as_json = json.dumps(constraint.to_json_data())
-            from_json = json.loads(as_json)
-            new = Constraints.ConstraintBase.from_json_data(from_json)
+            new = Constraints.ConstraintBase.from_json_data(json.loads(as_json))
+            # Also ensure 1-time readable Iterators are parsed
             from_string = Constraints.ConstraintBase.from_json_string(constraint.to_json_string())
-            self.assertIs(type(new), type(constraint))
-            self.assertIs(type(from_string), type(constraint))
-            for key in constraint.__dict__:
-                if isinstance(constraint.__dict__[key], np.ndarray):
-                    np_test.assert_array_equal(constraint.__dict__[key], new.__dict__[key])
-                    np_test.assert_array_equal(constraint.__dict__[key], from_string.__dict__[key])
-                else:
-                    self.assertEqual(constraint.__dict__[key], new.__dict__[key])
-                    self.assertEqual(constraint.__dict__[key], from_string.__dict__[key])
+            for n in (new, from_string):
+                self.assertIs(type(n), type(constraint))
+                for key in constraint.__dict__:
+                    if isinstance(constraint.__dict__[key], np.ndarray):
+                        np_test.assert_array_equal(constraint.__dict__[key], n.__dict__[key])
+                    else:
+                        self.assertEqual(constraint.__dict__[key], n.__dict__[key])
 
-            if isinstance(constraint, Constraints.BasePlacement):  # Test that redirect for from_json_string works
-                from_string_2 = Constraints.BasePlacement.from_json_string(constraint.to_json_string())
-                self.assertIsNotNone(from_string_2)
-                with self.assertRaises(ValueError):
-                    Constraints.EndEffector.from_json_string(constraint.to_json_string())
+                if isinstance(constraint, Constraints.BasePlacement):  # Test that redirect for from_json_string works
+                    from_string_2 = Constraints.BasePlacement.from_json_string(constraint.to_json_string())
+                    self.assertIsNotNone(from_string_2)
+                    with self.assertRaises(ValueError):
+                        Constraints.EndEffector.from_json_string(constraint.to_json_string())
 
     def test_de_serialize_solution_and_task(self):
         assembly = prebuilt_robots.get_six_axis_assembly()
@@ -313,7 +312,7 @@ class SerializationTests(unittest.TestCase):
         )
         cost_function = CostFunctions.CycleTime(0.2) + CostFunctions.MechanicalEnergy(0.5)
         solution = Solution.SolutionTrajectory(
-            trajectory=dtypes.Trajectory(np.asarray((0., 1.)), np.asarray((q1, q2)), {"1": 0., "2": 1.}),
+            trajectory=Trajectory(t=np.asarray((0., 1.)), q=np.asarray((q1, q2)), goal2time={"1": 0., "2": 1.}),
             header=Solution.SolutionHeader(1),
             task=task,
             assembly=assembly,
