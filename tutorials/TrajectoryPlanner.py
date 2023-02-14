@@ -6,7 +6,7 @@ import numpy as np
 from timor.Robot import RobotBase
 from timor.task import Constraints, Goals
 from timor.task.Task import Task
-from timor.utilities.dtypes import Trajectory
+from timor.utilities.trajectory import Trajectory
 
 
 class TrajectoryPlanner:
@@ -138,8 +138,8 @@ class TrajectoryPlanner:
                                               qdf=dq_end)
 
             if type(self.task.goals_by_id[goal_id]) is Goals.Reach:
-                traj = traj + Trajectory.stationary(traj.q[-1, :], 0.1)
-            traj.goals[goal_id] = traj.t[-1]
+                traj = traj + Trajectory.stationary(time=0.1, q=traj.q[-1, :])
+            traj.goal2time[goal_id] = traj.t[-1]
 
             trajectory = trajectory + traj
         return trajectory

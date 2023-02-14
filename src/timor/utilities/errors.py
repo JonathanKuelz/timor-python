@@ -34,6 +34,10 @@ class RotationVolumeError(ValueError):
     """Raised when a rotation matrix is not volume preserving"""
 
 
+class TimeNotFoundError(IndexError):
+    """Raised when a time step t can not be found in a trajectory, solution, etc. that is indexed at this time t."""
+
+
 def assert_has_3d_point(p: np.ndarray):
     """
     Checks whether the input can be interpreted as a point in cartesian space

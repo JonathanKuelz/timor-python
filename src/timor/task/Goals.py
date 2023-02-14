@@ -9,11 +9,13 @@ import numpy as np
 from pinocchio.visualize import MeshcatVisualizer
 
 from timor import task
-from timor.task import Constraints, Tolerance
+from timor.task import Constraints, Solution, Tolerance
 from timor.utilities.dtypes import fuzzy_dict_key_matching
+from timor.utilities.errors import TimeNotFoundError
 from timor.utilities.jsonable import JSONable_mixin
 import timor.utilities.logging as logging
 from timor.utilities.tolerated_pose import ToleratedPose
+from timor.utilities.trajectory import Trajectory
 
 
 class GoalBase(ABC, JSONable_mixin):
@@ -46,7 +48,8 @@ class GoalBase(ABC, JSONable_mixin):
             'reach': Reach,
             'ReturnTo': ReturnTo,
             'returnTo': ReturnTo,
-            'pause': Pause
+            'pause': Pause,
+            'follow': Follow
         }
         class_ref = type2class[description['type']]
 
@@ -54,10 +57,7 @@ class GoalBase(ABC, JSONable_mixin):
         keywords = fuzzy_dict_key_matching(description, {},
                                            desired_only=tuple(inspect.signature(class_ref.__init__).parameters.keys()))
 
-        if 'goalPose' in keywords:
-            keywords['goalPose'] = ToleratedPose.from_json_data(keywords['goalPose'])
-
-        return class_ref(**keywords)
+        return class_ref.from_json_data(keywords)
 
     @property
     def id(self) -> str:
@@ -65,7 +65,7 @@ class GoalBase(ABC, JSONable_mixin):
         return self._id
 
     @abstractmethod
-    def _achieved(self, solution: 'task.Solution.SolutionBase', t_goal: float, idx_goal: int) -> bool:
+    def _achieved(self, solution: task.Solution.SolutionBase, t_goal: float, idx_goal: int) -> bool:
         """Needs to be implemented by children according to the goal"""
         pass
 
@@ -92,11 +92,11 @@ class GoalBase(ABC, JSONable_mixin):
         """
         pass
 
-    def _valid(self, solution: 'task.Solution.SolutionBase', t_goal: float, idx_goal: int) -> bool:
+    def _valid(self, solution: task.Solution.SolutionBase, t_goal: float, idx_goal: int) -> bool:
         """Checks all goal-level constraints"""
         return all(c.is_valid_until(solution, t_goal) for c in self.constraints)
 
-    def achieved(self, solution: 'task.Solution.SolutionBase') -> bool:
+    def achieved(self, solution: Solution.SolutionBase) -> bool:
         """Calls the custom _achieved method and checks that constraints are held"""
         try:
             t_goal, idx_goal = self._get_t_idx_goal(solution)
@@ -128,7 +128,7 @@ class GoalBase(ABC, JSONable_mixin):
 
         return constraints
 
-    def _get_t_idx_goal(self, solution: 'task.Solution.SolutionBase') -> Tuple[float, int]:
+    def _get_t_idx_goal(self, solution: Solution.SolutionBase) -> Tuple[float, int]:
         """Finds the time t and the index within the time array idx at which the goal is achieved."""
         try:
             t_goal = solution.t_goals[self.id]
@@ -136,9 +136,9 @@ class GoalBase(ABC, JSONable_mixin):
             raise KeyError(f"Solution {solution} does not seem to include goal {self.id}.")
         try:
             id_goal = solution.get_time_id(t_goal)
-        except ValueError:
-            raise ValueError(f"Goal {self.id} seems to be achieved at t={t_goal}, "
-                             f"but could not find it in the {solution.__class__.__name__}'s time array.")
+        except TimeNotFoundError:
+            raise TimeNotFoundError(f"Goal {self.id} seems to be achieved at t={t_goal}, "
+                                    f"but could not find it in the {solution.__class__.__name__}'s time array.")
 
         return t_goal, id_goal
 
@@ -150,7 +150,7 @@ class GoalWithDuration(GoalBase, ABC):
     This also includes checking the goal constraints at any point of the goal's duration.
     """
 
-    epsilon: float = 1e-9  # Precision error: Pause is allowed to be epsilon shorter than self.duration
+    epsilon: float = 1e-9  # Precision error: Goal is allowed to be epsilon shorter than self.duration
 
     def __init__(self,
                  ID: Union[int, str],
@@ -159,9 +159,9 @@ class GoalWithDuration(GoalBase, ABC):
                  ):
         """Construct a goal with duration."""
         super().__init__(ID, constraints)
-        self.duration = duration
+        self._duration = duration  # Private as not every subtype has explicit duration
 
-    def _get_time_range_goal(self, solution: 'task.Solution.SolutionBase') -> Tuple[Tuple[float, ...], range]:
+    def _get_time_range_goal(self, solution: Solution.SolutionBase) -> Tuple[Tuple[float, ...], range]:
         """
         Get all time-steps in solution that belong to this goal's duration as list of times and indices.
 
@@ -171,7 +171,7 @@ class GoalWithDuration(GoalBase, ABC):
           - A range of indices into the solution's time array that fall into the duration of this goal
         """
         t_goal, id_goal = self._get_t_idx_goal(solution)
-        t_goal_starts = t_goal - self.duration + self.epsilon  # Expected start time
+        t_goal_starts = t_goal - self._duration + self.epsilon  # Expected start time
         try:  # Find index of time step before expected start time
             t_goal_starts = solution.time_steps[solution.time_steps <= t_goal_starts][-1]
         except IndexError:
@@ -182,7 +182,7 @@ class GoalWithDuration(GoalBase, ABC):
             "Solution should be sampled every timeStepSize"
         return ts, range(id_start, id_goal + 1)  # id_goal should be included in goal range
 
-    def _valid(self, solution: 'task.Solution.SolutionBase', t_goal: float, idx_goal: int) -> bool:
+    def _valid(self, solution: task.Solution.SolutionBase, t_goal: float, idx_goal: int) -> bool:
         """A goal with duration needs to ensure that its constraints hold at all time-steps within this duration."""
         return all(c.is_valid_until(solution, t) for c in self.constraints
                    for t in self._get_time_range_goal(solution)[0])
@@ -221,7 +221,7 @@ class At(GoalBase):
         return cls(
             ID=d['ID'],
             goalPose=ToleratedPose.from_json_data(d['goalPose']),
-            constraints=Constraints.ConstraintBase.from_json_data(d['constraints'])
+            constraints=[Constraints.ConstraintBase.from_json_data(c) for c in d.get('constraints', [])]
         )
 
     @property
@@ -238,7 +238,7 @@ class At(GoalBase):
             'goalPose': self.goal_pose.to_json_data(),
         }
 
-    def _achieved(self, solution: 'task.Solution.SolutionBase', t_goal: float, idx_goal: int) -> bool:
+    def _achieved(self, solution: task.Solution.SolutionBase, t_goal: float, idx_goal: int) -> bool:
         """
         Returns true, if the solution satisfies this goal.
 
@@ -276,7 +276,7 @@ class Reach(At):
             ID=d['ID'],
             goalPose=ToleratedPose.from_json_data(d['goalPose']),
             velocity_tolerance=Tolerance.Abs6dPoseTolerance.default(),
-            constraints=Constraints.ConstraintBase.from_json_data(d['constraints'])
+            constraints=[Constraints.ConstraintBase.from_json_data(c) for c in d.get('constraints', [])]
         )
 
     def to_json_data(self) -> Dict[str, any]:
@@ -288,7 +288,7 @@ class Reach(At):
             'goalPose': self.goal_pose.to_json_data(),
         }
 
-    def _achieved(self, solution: 'task.Solution.SolutionBase', t_goal: float, idx_goal: int) -> bool:
+    def _achieved(self, solution: task.Solution.SolutionBase, t_goal: float, idx_goal: int) -> bool:
         """
         Returns true, if position and velocity are within the defined tolerances
         """
@@ -327,7 +327,7 @@ class ReturnTo(GoalBase):
         return cls(
             ID=d['ID'],
             returnToGoal=d.get('returnToGoal', None),
-            constraints=Constraints.ConstraintBase.from_json_data(d['constraints'])
+            constraints=[Constraints.ConstraintBase.from_json_data(c) for c in d.get('constraints', [])]
         )
 
     def to_json_data(self) -> Dict[str, any]:
@@ -344,7 +344,7 @@ class ReturnTo(GoalBase):
         """Shows an error pointing towards the desired position"""
         logging.info("ReturnTo Goals cannot be visualized (yet)")
 
-    def _achieved(self, solution: 'task.Solution.SolutionBase', t_goal: float, idx_goal: int) -> bool:
+    def _achieved(self, solution: task.Solution.SolutionBase, t_goal: float, idx_goal: int) -> bool:
         """
         Returns true, if position, velocity and acceleration are (almost) equal to those at t=return_to_t
         """
@@ -368,11 +368,16 @@ class Pause(GoalWithDuration):
     This goal is achieved if the robot does not move for a preconfigured duration.
     """
 
-    epsilon: float = 1e-9  # Precision error: Pause is allowed to be epsilon shorter than self.duration
+    epsilon: float = 1e-9  # Precision error: Pause is allowed to be epsilon shorter than self._duration
 
     def visualize(self, viz: MeshcatVisualizer, scale: float = .33) -> None:
         """Pause goals cannot be visualized, but the method is kept for consistency"""
         logging.debug("Not visualizing a pause goal - there is no meaningful visualization.")
+
+    @property
+    def duration(self) -> float:
+        """Getter for explicit duration of Pause Goal."""
+        return self._duration
 
     @classmethod
     def from_json_data(cls, d: Dict[str, any]):
@@ -380,7 +385,7 @@ class Pause(GoalWithDuration):
         return cls(
             ID=d['ID'],
             duration=d['duration'],
-            constraints=Constraints.ConstraintBase.from_json_data(d['constraints'])
+            constraints=[Constraints.ConstraintBase.from_json_data(c) for c in d.get('constraints', [])]
         )
 
     def to_json_data(self) -> Dict[str, any]:
@@ -392,7 +397,7 @@ class Pause(GoalWithDuration):
             'constraints': self._constraints_serialized()
         }
 
-    def _achieved(self, solution: 'task.Solution.SolutionBase', t_goal: float, idx_goal: int) -> bool:
+    def _achieved(self, solution: task.Solution.SolutionBase, t_goal: float, idx_goal: int) -> bool:
         """
         Returns true, if the robot does not move for a preconfigured duration, starting at t_goal.
         """
@@ -405,3 +410,95 @@ class Pause(GoalWithDuration):
                    and not solution.dq[idx].any()
                    and not solution.ddq[idx].any()
                    for idx in sol_idx)
+
+
+class Follow(GoalWithDuration):
+    """
+    This goal is achieved if the robot follows a prescribed end-effector trajectory.
+    """
+
+    def __init__(self,
+                 ID: Union[int, str],
+                 trajectory: Trajectory,
+                 constraints: List[Constraints.ConstraintBase] = None,):
+        """
+        Follow a given trajectory.
+        """
+        if not trajectory.has_poses:
+            raise ValueError("Follow goal needs trajectory of workspace poses.")
+        if trajectory.is_timed:
+            duration = trajectory[-1].t - trajectory[0].t
+        else:
+            duration = float("inf")
+        super().__init__(ID=ID, duration=duration, constraints=constraints)
+        self._trajectory: Trajectory = trajectory
+
+    @property
+    def trajectory(self) -> Trajectory:
+        """The trajectory to follow along"""
+        return self._trajectory
+
+    @classmethod
+    def from_json_data(cls, d: Dict[str, any]):
+        """Loads the Follow goal from a dictionary description."""
+        return cls(
+            ID=d['ID'],
+            trajectory=Trajectory.from_json_data(d['trajectory']),
+            constraints=[Constraints.ConstraintBase.from_json_data(c) for c in d.get('constraints', [])]
+        )
+
+    def to_json_data(self) -> Dict[str, any]:
+        """Dumps the Follow goal to a dictionary description."""
+        return {
+            'ID': self.id,
+            'type': 'follow',
+            'trajectory': self.trajectory.to_json_data(),
+            'constraints': self._constraints_serialized()
+        }
+
+    def visualize(self, viz: MeshcatVisualizer, *,
+                  scale: float = .33,
+                  num_markers: Optional[int] = 2) -> None:
+        """
+        Shows the follow goal with num_markers triads to show desired orientation.
+
+        :param num_markers: How many triads to display along the desired trajectory
+          (2 = show at start and end of trajectory)
+        """
+        self._trajectory.visualize(viz, name_prefix=str(self.id), scale=scale, num_markers=num_markers)
+
+    def _achieved(self, solution: Solution.TrajectorySolution, t_goal: float, idx_goal: int) -> bool:
+        """
+        Implements check if goal achieved at claimed time
+
+        :note: Side-effect if desired trajectory is not timed: Will set `self.duration` such that the trajectory is
+          followed in the time-interval [t_goal-duration, t_goal]. This allows constraint checking in _valid to know
+          all time-steps within this goal.
+        """
+        if self.trajectory.is_timed:
+            # With timed trajectory we can just go over all time steps and make sure the desired pose is reached
+            t_start_follow = t_goal - self.trajectory[-1].t
+            for step in self.trajectory:
+                try:
+                    if not step.pose[0].valid(solution.tcp_pose_at(t_start_follow + step.t[0])):
+                        logging.info(
+                            f"Follow not fulfilled at time {step.t[0]} "
+                            f"after start of trajectory at time {t_start_follow}")
+                        return False
+                except TimeNotFoundError:  # e.g. happens if solution is shorter than the trajectories duration
+                    return False
+            return True
+
+        else:
+            # Without fixed trajectory times we need to go backwards from t_goal till either the solution starts or all
+            # trajectory poses have been fulfilled.
+            idx_goal_start = idx_goal  # at which solution index does this trajectory start
+            for p in self.trajectory[::-1].pose:
+                while not p.valid(solution.tcp_pose_at(solution.time_steps[idx_goal_start])):
+                    idx_goal_start -= 1
+                    if idx_goal_start < 0:
+                        logging.info(f"Followed trajectory till start; follow was not fulfilled for pose {p}.")
+                        self._duration = float('inf')
+                        return False
+            self._duration = solution.time_steps[idx_goal] - solution.time_steps[idx_goal_start]
+            return True

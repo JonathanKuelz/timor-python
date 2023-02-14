@@ -13,6 +13,7 @@ from timor import ModuleAssembly
 from timor.Robot import RobotBase
 from timor.task import Goals, Task
 from timor.utilities import dtypes
+from timor.utilities.trajectory import Trajectory
 
 GOALS_WITH_POSE = Union[Goals.At, Goals.Reach]
 
@@ -86,7 +87,7 @@ class IntermediateFilterResults:
     tau_static: EternalResult[str, float] = field(default_factory=lambda: EternalResult())
     # Maps a tuple of (first_goal, second_goal)-ID to a trajectory combining them
     #   or maps a Follow-goal id on a trajectory
-    trajectory: EternalResult[Union[Tuple[str, str], str], dtypes.Trajectory] = \
+    trajectory: EternalResult[Union[Tuple[str, str], str], Trajectory] = \
         field(default_factory=lambda: EternalResult())
     # RobotBase object created
     robot: RobotBase = None

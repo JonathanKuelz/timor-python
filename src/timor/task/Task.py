@@ -98,18 +98,10 @@ class Task(JSONable_mixin):
         obstacles = [Obstacle.from_json_data(
             {**specs, **{'package_dir': package_dir}}) for specs in content.pop('obstacles')]
         goals = [Goals.GoalBase.goal_from_json_data(goal) for goal in content.pop('goals', [])]
-        constraints = list()
         if 'Constraints' in content:
             logging.error("Constraints is written in upper case but should be lower case!")
             content['constraints'] = content.pop('Constraints')
-        for desc in content.pop('constraints'):
-            c = Constraints.ConstraintBase.from_json_data(desc)
-            if type(c) is Constraints.AlwaysTrueConstraint:
-                continue  # Just a placeholder for "basically no constraint"
-            elif isinstance(c, Constraints.ConstraintBase):
-                constraints.append(c)
-            else:  # Some descriptions can contain multiple constraints
-                constraints.extend([con for con in c if not isinstance(con, Constraints.AlwaysTrueConstraint)])
+        constraints = [Constraints.ConstraintBase.from_json_data(c) for c in content.pop('constraints', [])]
         if len(content) > 0:
             raise ValueError("Unresolved keys: {}".format(', '.join(content)))
         task = cls(header, obstacles, goals=goals, constraints=constraints)

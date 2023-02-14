@@ -95,3 +95,11 @@ class ToleratedPose(JSONable_mixin):
     def __getitem__(self, item):
         """Indexing a ToleratedPose defaults to indexing the nominal placement"""
         return self.nominal[item]
+
+    def __str__(self):
+        """Make human-readable."""
+        return f"Tolerated pose @ {self.nominal} with tolerance {self._tolerance}"
+
+    def __repr__(self):
+        """Make human-readable in debugger, etc."""
+        return str(self)

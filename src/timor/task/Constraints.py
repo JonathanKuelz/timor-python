@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 import math
-from typing import Dict, Iterable, Optional, Tuple, Union
+from typing import Any, Dict, Iterable, Optional, Tuple, Union
 from warnings import warn
 
 import numpy as np
@@ -21,11 +21,11 @@ class ConstraintBase(ABC, JSONable_mixin):
     global_only: bool = False  # If this is True, the constraint cannot be used as a local goal constraint.
 
     @classmethod
-    def from_json_data(cls, d: Dict[str, any]) -> ConstraintBase:
+    def from_json_data(cls, d: Dict[str, Any]) -> ConstraintBase:
         """
         Converts a description (string, parsed from json) to a constraint
 
-        :param description: A description, mapping a constraint name to one or more constraint specifications
+        :param d: A description, mapping a constraint name to one or more constraint specifications
         """
         try:
             constraint_type = d.pop('type')

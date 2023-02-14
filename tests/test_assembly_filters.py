@@ -7,7 +7,7 @@ from timor.Module import ModuleAssembly, ModulesDB
 from timor.Robot import PinRobot
 from timor.configuration_search import AssemblyFilter
 from timor.task import Goals, Task, Tolerance
-from timor.utilities.dtypes import Trajectory
+from timor.utilities.trajectory import Trajectory
 from timor.utilities.file_locations import get_test_tasks, robots
 from timor.utilities.prebuilt_robots import get_six_axis_assembly
 from timor.utilities.tolerated_pose import ToleratedPose

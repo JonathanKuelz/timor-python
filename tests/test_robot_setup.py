@@ -248,8 +248,8 @@ class PinocchioRobotSetup(unittest.TestCase):
     def test_robot_viz(self):
         wrapper = pin.RobotWrapper.BuildFromURDF(str(self.urdf), str(self.package_dir))
         robot = PinRobot(wrapper=wrapper)
-        self.assertIsNotNone(robot.plot())
-        self.assertIsNotNone(robot.plot_self_collisions())
+        self.assertIsNotNone(robot.visualize())
+        self.assertIsNotNone(robot.visualize_self_collisions())
 
 
 if __name__ == '__main__':

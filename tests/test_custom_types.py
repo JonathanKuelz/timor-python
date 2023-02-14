@@ -4,14 +4,14 @@ import random
 import unittest
 
 import numpy as np
-import numpy.testing as np_test
 
-from timor.utilities.dtypes import EternalDict, SingleSet, Trajectory, TypedHeader
+from timor.utilities.dtypes import EternalDict, SingleSet, TypedHeader
 import timor.utilities.errors as err
 
 
 class CustomTypeUnitTests(unittest.TestCase):
     """Tests dtypes in utilities."""
+
     def setUp(self) -> None:
         # Fix random seeds to have deterministic tests
         random.seed(123)
@@ -84,38 +84,6 @@ class CustomTypeUnitTests(unittest.TestCase):
         second_date = TestHeader(name='test', date='1970/1/1')
         self.assertEqual(header.date, first_date.date)
         self.assertEqual(header.date, second_date.date)
-
-    def test_Trajectory(self):
-        t = np.linspace(0, 1, 1001)
-        q = np.random.random((1001, 6))
-        t_goal = .51
-        goals = {'Epic': t_goal}
-
-        traj = Trajectory(t, q, goals)
-
-        self.assertEqual(traj.t.size, t.size)
-        self.assertEqual(traj.q.size, traj.dq.size)
-        self.assertEqual(traj.q.size, traj.ddq.size)
-
-        traj = Trajectory(1 / 1000, q.tolist(), goals)  # Not best practice, but giving a list should be possible
-        self.assertEqual(traj.t.size, t.size)
-        np_test.assert_array_equal(traj.t, t)
-
-        self.assertEqual(traj[0].t, t[0])
-        np_test.assert_array_equal(q, traj[:].q)
-        includes_goal = int(np.where(t == t_goal)[0])
-        self.assertEqual(dict(), traj[:includes_goal].goals)
-        self.assertIn('Epic', traj[includes_goal:].goals.keys())
-
-        with self.assertRaises(AssertionError):
-            traj = Trajectory(t * 0, q, goals)
-        with self.assertRaises(TypeError):
-            traj = Trajectory()
-        with self.assertRaises(IndexError):
-            traj = traj[len(t)]
-
-        empty = Trajectory([], [], {})
-        self.assertEqual(traj, traj + empty)
 
 
 if __name__ == '__main__':

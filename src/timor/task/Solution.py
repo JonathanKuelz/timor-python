@@ -15,12 +15,14 @@ import scipy.interpolate
 from timor.Module import ModuleAssembly
 from timor.Robot import RobotBase
 from timor.task import Constraints, CostFunctions, Goals, Task
-from timor.utilities.dtypes import Lazy, Trajectory, TypedHeader, fuzzy_dict_key_matching, map2path  # noqa: F401
+from timor.utilities.dtypes import Lazy, TypedHeader, fuzzy_dict_key_matching, map2path  # noqa: F401
+from timor.utilities.errors import TimeNotFoundError
 from timor.utilities.file_locations import schema_dir
 from timor.utilities.json_serialization_formatting import compress_json_vectors
 from timor.utilities.jsonable import JSONable_mixin
 from timor.utilities.schema import DEFAULT_DATE_FORMAT, get_schema_validator
 from timor.utilities.transformation import Transformation, TransformationLike
+from timor.utilities.trajectory import Trajectory
 from timor.utilities.visualization import MeshcatVisualizerWithAnimation, animation
 
 
@@ -44,9 +46,9 @@ class SolutionBase(abc.ABC, JSONable_mixin):
 
     def __init__(self,
                  header: Union[Dict, SolutionHeader],
-                 task: 'Task.Task',
+                 task: Task.Task,
                  assembly: ModuleAssembly,
-                 cost_function: 'CostFunctions.CostFunctionBase',
+                 cost_function: CostFunctions.CostFunctionBase,
                  base_pose: TransformationLike = Transformation.neutral(),
                  ):
         """
@@ -60,12 +62,12 @@ class SolutionBase(abc.ABC, JSONable_mixin):
         :param base_pose: The base placement of the assembly
         """
         self.header: SolutionHeader = header if isinstance(header, SolutionHeader) else SolutionHeader(**header)
-        self.cost_function: 'CostFunctions.CostFunctionBase' = cost_function
+        self.cost_function: CostFunctions.CostFunctionBase = cost_function
         self._module_assembly: ModuleAssembly = assembly
         self._base_pose: Transformation = Transformation(base_pose)
         self._cost: Union[Lazy, bool] = Lazy(self._evaluate_cost)
         self._valid: Union[Lazy, bool] = Lazy(self._check_valid)  # Will be evaluated when needed only
-        self._task: 'Task.Task' = task
+        self._task: Task.Task = task
         self.robot.set_base_placement(base_pose)
 
     def __str__(self):
@@ -73,7 +75,7 @@ class SolutionBase(abc.ABC, JSONable_mixin):
         return f"Solution for task {self.header.taskID}"
 
     @staticmethod
-    def from_json_file(json_path: Union[Path, str], package_dir: Path, tasks: Dict[str, 'Task.Task']) -> SolutionBase:
+    def from_json_file(json_path: Union[Path, str], package_dir: Path, tasks: Dict[str, Task.Task]) -> SolutionBase:
         """Factory method to load a class instance from a json file."""
         json_path = map2path(json_path)
         content = json.load(json_path.open('r'))
@@ -97,9 +99,7 @@ class SolutionBase(abc.ABC, JSONable_mixin):
             raise ValueError("Cannot handle assembly with multiple bases")
 
         if 'trajectory' in content:
-            _trajectory = fuzzy_dict_key_matching(content['trajectory'], {'goal2time': 'goals'},
-                                                  desired_only=tuple(Trajectory.__dataclass_fields__.keys()))
-            trajectory = Trajectory(**_trajectory)
+            trajectory = Trajectory.from_json_data(content['trajectory'])
             return SolutionTrajectory(trajectory, header, sol_task, assembly, cost_func, base_pose)
         else:
             raise NotImplementedError("Only trajectory from json so far ")
@@ -210,10 +210,10 @@ class SolutionBase(abc.ABC, JSONable_mixin):
 
     def get_time_id(self, t: float) -> int:
         """Get the index of the time step at which the given time is located"""
-        try:
-            return int(np.argwhere(np.isclose(self.time_steps, t)))
-        except TypeError:  # Casting empty array to int fails
-            raise ValueError(f"Time {t} is not in the time steps of the solution.")
+        idx_candidates = np.argwhere(np.isclose(self.time_steps, t))
+        if idx_candidates.shape[0] != 1:
+            raise TimeNotFoundError(f"Time {t} is found at index {idx_candidates}.")
+        return int(idx_candidates)
 
     def tcp_pose_at(self, t: float) -> Transformation:
         """
@@ -282,9 +282,9 @@ class SolutionTrajectory(SolutionBase):
     def __init__(self,
                  trajectory: Trajectory,
                  header: Union[Dict, SolutionHeader],
-                 task: 'Task.Task',
+                 task: Task.Task,
                  assembly: ModuleAssembly,
-                 cost_function: 'CostFunctions.CostFunctionBase',
+                 cost_function: CostFunctions.CostFunctionBase,
                  base_pose: TransformationLike = Transformation.neutral(),
                  ):
         """Build a solution based on a given trajectory
@@ -327,7 +327,7 @@ class SolutionTrajectory(SolutionBase):
     @property
     def t_goals(self) -> Dict[str, float]:
         """Mapping from goal ID to the time at which the goal was reached"""
-        return self.trajectory.goals
+        return self.trajectory.goal2time
 
     @property
     def time_steps(self) -> np.ndarray:
