@@ -28,12 +28,16 @@ if not cache_robot_dir.exists():
 # Get schemas
 schema_dir = Path(log_conf.get('schema_dir', cache_dir.joinpath("schemata")))
 if not schema_dir.exists():
-    schema_dir.mkdir()
+    schema_dir.mkdir(parents=True)
 schemata = download_schemata(schema_dir)
 
 # Find local robots
 if 'robots' in log_conf:
     robots = dict()
+    for r_dir in json.loads(log_conf['robots']):
+        if not Path(r_dir).exists():
+            raise ValueError(f"Configured robot directory {r_dir} does not exist.")
+
     for __r in chain.from_iterable(Path(d).iterdir() for d in json.loads(log_conf['robots'])):
         if __r.name in robots:
             logging.warning(f"Robot {__r.name} already loaded from different location. Ignoring {__r}!")
