@@ -139,14 +139,14 @@ class Obstacle(JSONable_mixin):
         if isinstance(self.visual, Geometry.ComposedGeometry):
             for i, geom in enumerate(self.visual.composing_geometries):
                 viz_geometry, transform = geom.viz_object
-                if viz_geometry.color is None or overwrite_mesh_color:
+                if not hasattr(viz_geometry, 'color') or viz_geometry.color is None or overwrite_mesh_color:
                     viz.viewer[self.display_name + f'_{i}'].set_object(viz_geometry, material)
                 else:
                     viz.viewer[self.display_name + f'_{i}'].set_object(viz_geometry, self.mesh_material_vertex_color)
                 viz.viewer[self.display_name + f'_{i}'].set_transform(transform.homogeneous)
         else:
             viz_geometry, transform = self.visual.viz_object
-            if viz_geometry.color is None or overwrite_mesh_color:
+            if not hasattr(viz_geometry, 'color') or viz_geometry.color is None or overwrite_mesh_color:
                 viz.viewer[self.display_name].set_object(viz_geometry, material)
             else:
                 viz.viewer[self.display_name].set_object(viz_geometry, self.mesh_material_vertex_color)
