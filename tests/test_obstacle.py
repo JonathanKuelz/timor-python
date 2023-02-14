@@ -2,6 +2,7 @@ import unittest
 
 import hppfcl
 import numpy as np
+import pinocchio as pin
 
 from timor.task.Obstacle import Obstacle
 from timor.utilities.file_locations import robots
@@ -42,3 +43,14 @@ class TestObstacles(unittest.TestCase):
             np.testing.assert_array_equal(coll_geom.vertices()[coll_geom.tri_indices(0)[0], :], firstVertex)
             np.testing.assert_array_equal(coll_geom.vertices()[coll_geom.tri_indices(0)[1], :], secondVertex)
             np.testing.assert_array_equal(coll_geom.vertices()[coll_geom.tri_indices(0)[2], :], thirdVertex)
+
+    def test_visualize(self):
+        geometry_desc = [{'type': 'mesh', 'parameters': {"file": self.demo_stl.name}},
+                         {'type': 'box', 'parameters': {'x': 1, 'y': 2, 'z': 3}},
+                         {'type': 'cylinder', 'parameters': {'r': 2, 'z': 3}},
+                         {'type': 'sphere', 'parameters': {'r': 3}}]
+        for desc in (geometry_desc, *geometry_desc):  # Check composed and each individually
+            obs = Obstacle.from_json_data(dict(ID='123', collision=desc, package_dir=self.demo_stl.parent))
+            vis = pin.visualize.MeshcatVisualizer()
+            vis.initViewer()
+            obs.visualize(vis)
