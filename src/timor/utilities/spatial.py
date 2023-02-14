@@ -118,6 +118,24 @@ def axis_angle2rot_mat(axis_angle: np.ndarray) -> np.ndarray:
 # ----- Projections End -----
 
 
+def axis_angle_rotation(vec: np.ndarray, axis_angle: np.ndarray) -> np.ndarray:
+    """
+    Rotates a vector by a given axis-angle representation.
+
+    Equivalent to spatial.axis_angle2rot_mat(axis_angle) @ vec, but computationally more efficient.
+    :source: https://en.wikipedia.org/wiki/Axis%E2%80%93angle_representation
+    """
+    if vec.squeeze().shape == (3,):
+        theta = np.linalg.norm(axis_angle)
+        axis = axis_angle / theta
+    else:
+        theta = axis_angle[3]
+        axis = axis_angle[:3]
+    if theta == 0:
+        return vec
+    return np.cos(theta) * vec + np.sin(theta) * np.cross(axis, vec) + (1 - np.cos(theta)) * np.dot(axis, vec) * axis
+
+
 def clone_collision_object(co: hppfcl.CollisionObject) -> hppfcl.CollisionObject:
     """Deep copy of a hppfcl collision object"""
     return hppfcl.CollisionObject(co.collisionGeometry().clone(), co.getTransform())

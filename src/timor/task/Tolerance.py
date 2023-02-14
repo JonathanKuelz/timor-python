@@ -4,12 +4,16 @@ import abc
 import itertools
 import logging
 import re
-from typing import Collection, Dict, List, Set, Tuple, Union
+from typing import Collection, Dict, List, Optional, Set, Tuple, Union
+import uuid
 from warnings import warn
 
+import meshcat
 import numpy as np
+from pinocchio.visualize import MeshcatVisualizer
 
 from timor.utilities import spatial
+from timor import Volume as TimorVolume
 from timor.utilities.transformation import Transformation, TransformationLike
 
 
@@ -17,6 +21,9 @@ class ToleranceBase(abc.ABC):
     """
     An interface on numeric tolerances between goals and states that can be expressed as np-arrays
     """
+
+    _visual_color = 0x00ff00
+    _visual_material = meshcat.geometry.MeshBasicMaterial(color=_visual_color, opacity=0.2, transparent=True)
 
     @classmethod
     @abc.abstractmethod
@@ -86,6 +93,39 @@ class ToleranceBase(abc.ABC):
         """Returns true if <real> is within <desired>'s tolerance (defined by self)"""
         pass
 
+    @property
+    def _visual_geometry(self) -> (meshcat.geometry.Geometry, Transformation):
+        """The geometry representing the tolerance in a visualization and the relative offset to the nominal position"""
+        return None, None
+
+    def visualize(self,
+                  viz: MeshcatVisualizer,
+                  transform: np.ndarray,
+                  name: Optional[str] = None,
+                  custom_material: Optional[meshcat.geometry.Material] = None):
+        """
+        Visualize the tolerance in a MeshcatVisualizer
+
+        :param viz: A meshcat visualizer instance to display the tolerance in.
+        :param transform: The nominal position for which the tolerance is specified
+        :param name: A display name for the tolerance. Will be set to a random name if not given.
+        :param custom_material: Tolerances are displayed in transparent green -- a custom material can change the
+          default appearance
+        """
+        geometry, offset = self._visual_geometry
+        if geometry is None:
+            logging.debug(f"{self.__class__} does not implement a visualization.")
+            return
+        if name is None:
+            name = f'tol_{self.__class__.__name__}_{uuid.uuid4().hex}'
+        if custom_material is None:
+            custom_material = self._visual_material
+        if hasattr(geometry, 'material'):
+            viz.viewer[name].set_object(geometry)
+        else:
+            viz.viewer[name].set_object(geometry, self._visual_material)
+        viz.viewer[name].set_transform(transform @ offset.homogeneous)
+
     def __add__(self, other: ToleranceBase) -> ToleranceBase:
         """Combine tolerances (logical AND operation)
 
@@ -128,6 +168,14 @@ class AlwaysValidTolerance(ToleranceBase):
               real: Union[np.ndarray, 'TransformationLike']) -> bool:
         """You don't say"""
         return True
+
+    def visualize(self,
+                  viz: MeshcatVisualizer,
+                  transform: np.ndarray,
+                  name: Optional[str] = None,
+                  custom_material: Optional[meshcat.geometry.Material] = None):
+        """AlwaysValidTolerance is always valid, so no visualization is needed"""
+        pass
 
     def __add__(self, other: ToleranceBase) -> ToleranceBase:
         """
@@ -221,6 +269,23 @@ class Composed(ToleranceBase):
               real: Union[np.ndarray, TransformationLike]) -> bool:
         """Is valid if all internal tolerances are valid"""
         return all(tol.valid(desired, real) for tol in self._internal)
+
+    def visualize(self,
+                  viz: MeshcatVisualizer,
+                  transform: np.ndarray,
+                  name: Optional[str] = None,
+                  custom_material: Optional[meshcat.geometry.Material] = None):
+        """Visualize all internal tolerances, with a slightly different color than the default to distinguish them"""
+        if custom_material is None:
+            random_color = np.random.randint(0, 0xFFFFFF)
+            default_color = self._visual_material.color
+            color = (random_color + 19 * default_color) / 20
+            custom_material = meshcat.geometry.MeshBasicMaterial(color=color, opacity=0.35, transparent=True)
+        if name is None:
+            name = f'tol_{self.__class__.__name__}_{uuid.uuid4().hex}'
+
+        for i, tol in enumerate(self._internal):
+            tol.visualize(viz, transform, name=f'{name}_{i}', custom_material=custom_material)
 
     def __eq__(self, other):
         """Two composed tolerances are equal if they contain the same tolerances"""
@@ -403,6 +468,12 @@ class CartesianXYZ(Cartesian):
             'tolerance': self.stacked
         }
 
+    @property
+    def _visual_geometry(self) -> (meshcat.geometry.Geometry, Transformation):
+        """That's a box"""
+        offset = Transformation.from_translation(np.mean(self.stacked, axis=1))
+        return meshcat.geometry.Box((self.stacked[:, 1] - self.stacked[:, 0]).tolist()), offset
+
 
 class CartesianCylindrical(Cartesian):
     """Cylindrical space tolerances (on positions).
@@ -466,6 +537,23 @@ class CartesianCylindrical(Cartesian):
             'tolerance': self.stacked
         }
 
+    @property
+    def _visual_geometry(self) -> (meshcat.geometry.Geometry, Transformation):
+        """Visualize (partial) cylinder"""
+        if self._a[0] != 0 or self._b[1] - self._b[0] != 2 * np.pi:
+            logging.debug("Visualizing cylindric tolerance as point cloud.")
+            N = 10000
+            v = TimorVolume.CylinderVolume(limits=self.stacked)
+            points = np.stack([v.sample_uniform() for _ in range(N)]).T
+            hex_color = '0' * (8 - len(hex(self._visual_color))) + hex(self._visual_color)[2:]
+            rgb = tuple(int(hex_color[i:i + 2], 16) for i in (0, 2, 4))
+            geometry = meshcat.geometry.PointCloud(points, np.stack((rgb,) * N, axis=1) / 255)
+            offset = Transformation.neutral()
+        else:
+            offset = Transformation(spatial.rotX(np.pi / 2))
+            geometry = meshcat.geometry.Cylinder(float(self._c[1] - self._c[0]), float(self._a[1]))
+        return geometry, offset
+
 
 class CartesianSpheric(Cartesian):
     """https://en.wikipedia.org/wiki/Spherical_coordinate_system"""
@@ -513,9 +601,27 @@ class CartesianSpheric(Cartesian):
             'tolerance': self.stacked
         }
 
+    @property
+    def _visual_geometry(self) -> (meshcat.geometry.Geometry, Transformation):
+        """Visualize a (partial) sphere. Meshcat has no support for this, so we use a Mesh to realize it"""
+        if self._a[0] != 0 or self._b[1] - self._b[0] != np.pi or self._c[1] - self._c[0] != 2 * np.pi:
+            logging.debug("Visualizing spheric tolerance as point cloud.")
+            N = 10000
+            v = TimorVolume.SphereVolume(limits=self.stacked)
+            points = np.stack([v.sample_uniform() for _ in range(N)]).T
+            hex_color = '0' * (8 - len(hex(self._visual_color))) + hex(self._visual_color)[2:]
+            rgb = tuple(int(hex_color[i:i + 2], 16) for i in (0, 2, 4))
+            geometry = meshcat.geometry.PointCloud(points, np.stack((rgb,) * N, axis=1) / 255)
+        else:
+            geometry = meshcat.geometry.Sphere(float(self._a[1]))
+        offset = Transformation.neutral()
+        return geometry, offset
+
 
 class Rotation(Spatial, abc.ABC):
     """Rotation tolerances based on projections of a 4x4 placement - implements projections."""
+
+    _visual_material = meshcat.geometry.PointsMaterial()
 
     def __init__(self,
                  a: Union[List[float], Tuple[float, float], np.ndarray],

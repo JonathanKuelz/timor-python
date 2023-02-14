@@ -1,11 +1,11 @@
 from __future__ import annotations
 
+import json
 from typing import Dict, List, Optional, Union
 
 from pinocchio.visualize import MeshcatVisualizer
 
 from timor.task import Tolerance
-from timor.utilities import logging
 from timor.utilities.jsonable import JSONable_mixin
 from timor.utilities.transformation import Transformation, TransformationLike
 
@@ -65,15 +65,18 @@ class ToleratedPose(JSONable_mixin):
         """The tolerances of the placement."""
         return self._tolerance
 
-    def visualize(self, viz: MeshcatVisualizer, name: str,
-                  scale: float = 1., text: Optional[str] = None):
+    def to_json_string(self) -> str:
+        """Returns the json string representation of this placement."""
+        return json.dumps(self.serialized, indent=2)
+
+    def visualize(self, viz: MeshcatVisualizer, name: str, scale: float = 1., text: Optional[str] = None):
         """
         Draws this placement inside the visualizer object
 
         For detailed parameters refer to Transformation::visualize
         """
         self.nominal.visualize(viz, name, scale, text)
-        logging.debug("Tolerated placement does not visualize tolerance yet")
+        self.tolerance.visualize(viz, self.nominal.homogeneous, name=name + '_tol')
 
     def __set_tolerance(self, value: Tolerance.ToleranceBase):
         """Type checking before setting the tolerance."""

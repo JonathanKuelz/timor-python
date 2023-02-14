@@ -6,6 +6,7 @@ import unittest
 
 import numpy as np
 import numpy.testing as np_test
+from pinocchio.visualize import MeshcatVisualizer
 
 from timor.task import Tolerance
 from timor.utilities import spatial
@@ -151,6 +152,30 @@ class TestTolerances(unittest.TestCase):
                    t_desired @ Transformation(spatial.rotX(.1)), t_desired @ Transformation(spatial.rotY(.1))]
         for transform in failing:
             self.assertFalse(tolerance.valid(t_desired, transform))
+
+    def test_visualization(self):
+        """This unittest is running the visual utilities, but it only tests that the code runs without crashing.
+
+        For correctness of visualization, human inspection is necessary.
+        """
+        viz = MeshcatVisualizer()
+        viz.initViewer()
+        box = Tolerance.CartesianXYZ(x=(0, .7), y=(0, .7), z=(0, .5))
+        cylinder = Tolerance.CartesianCylindrical(r=(0, 1 / 2), z=(-.3, .3))
+        partial_cylinder = Tolerance.CartesianCylindrical(r=(0, 1 / 2), z=(-.1, .1), phi_cyl=(np.pi / 4, np.pi / 2))
+        sphere = Tolerance.CartesianSpheric(r=(0, .33))
+        partial_sphere = Tolerance.CartesianSpheric(r=(0, .33), theta=(0, np.pi / 2), phi_sph=(-np.pi / 4, np.pi / 2))
+
+        composed = Tolerance.Composed([
+            Tolerance.CartesianXYZ(x=(0, .1), y=(0, .1), z=(0, .1)),
+            Tolerance.CartesianSpheric(r=(0, .1)),
+        ])
+
+        tolerances = (box, cylinder, sphere, partial_cylinder, partial_sphere, composed)
+        offsets = [Transformation.from_translation((0, y, 0)) for y in range(len(tolerances))]
+
+        for i, (tol, offset) in enumerate(zip(tolerances, offsets)):
+            tol.visualize(viz, offset.homogeneous, name='test_tolerance_{}'.format(i))
 
 
 if __name__ == '__main__':
