@@ -6,13 +6,13 @@ import numpy as np
 import numpy.testing as np_test
 
 from timor import AtomicModule, Body, Connector, Geometry, ModuleAssembly, ModuleHeader, ModulesDB, RobotBase, \
-    TimorJointType, \
     Transformation
 from timor.parameterized import ParameterizedCylinderLink, ParameterizedOrthogonalJoint, ParameterizedOrthogonalLink, \
     ParameterizedStraightJoint
 from timor.utilities import spatial
 import timor.utilities.errors as err
 from timor.utilities.file_locations import get_module_db_files
+from timor.Joints import TimorJointType
 
 
 class TestModuleAssembly(unittest.TestCase):

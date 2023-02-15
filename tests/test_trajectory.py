@@ -4,7 +4,9 @@ import unittest
 import numpy as np
 import numpy.testing as np_test
 
-from timor import Lazy, ToleratedPose, Transformation
+from timor import Transformation
+from timor.utilities.dtypes import Lazy
+from timor.utilities.tolerated_pose import ToleratedPose
 from timor.utilities.trajectory import Trajectory
 import timor.utilities.errors as err
 

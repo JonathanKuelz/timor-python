@@ -5,10 +5,11 @@ import unittest
 import networkx as nx
 import numpy as np
 
-from timor import Joint, ToleratedPose, Transformation
+from timor import Joint, Transformation
 from timor.Module import AtomicModule, ModuleAssembly, ModuleHeader, ModulesDB
 from timor.utilities import logging
 from timor.utilities.file_locations import get_module_db_files, robots
+from timor.utilities.tolerated_pose import ToleratedPose
 
 
 class TestModulesDB(unittest.TestCase):
