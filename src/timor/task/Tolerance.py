@@ -12,8 +12,8 @@ import meshcat
 import numpy as np
 from pinocchio.visualize import MeshcatVisualizer
 
-from timor.utilities import spatial
 from timor import Volume as TimorVolume
+from timor.utilities import spatial
 from timor.utilities.transformation import Transformation, TransformationLike
 
 

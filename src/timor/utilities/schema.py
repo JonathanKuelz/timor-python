@@ -6,7 +6,6 @@ import jsonschema
 
 from timor.utilities.file_locations import schemata
 
-
 DEFAULT_DATE_FORMAT = "%Y-%m-%d"
 
 

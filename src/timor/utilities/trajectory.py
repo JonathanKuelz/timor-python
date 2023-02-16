@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from dataclasses import dataclass, field
 import logging
 import string
@@ -10,9 +11,11 @@ import numpy as np
 from pinocchio.visualize import MeshcatVisualizer
 from roboticstoolbox import mstraj
 
-from timor import JSONable_mixin, ModuleAssembly, ToleratedPose
-from timor.utilities.errors import TimeNotFoundError
+from timor import ModuleAssembly
 from timor.utilities.dtypes import Lazy
+from timor.utilities.errors import TimeNotFoundError
+from timor.utilities.jsonable import JSONable_mixin
+from timor.utilities.tolerated_pose import ToleratedPose
 
 
 @dataclass

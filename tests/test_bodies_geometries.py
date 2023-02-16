@@ -1,4 +1,5 @@
 from copy import copy, deepcopy
+import importlib
 import logging
 import pickle
 import unittest
@@ -200,6 +201,8 @@ class TestBodiesAndGeometries(unittest.TestCase):
 
         Just tests API; correct render must be checked manually.
         """
+        if not importlib.util.find_spec("trimesh"):
+            raise unittest.SkipTest("trimesh not installed")
         mesh_ply = Mesh({'file': test_data.joinpath('sample_tasks').joinpath('assets').
                         joinpath('IWB Hermle UWF 900_only.ply'),
                          'package_dir': test_data.joinpath('sample_tasks').joinpath('assets')})

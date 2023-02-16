@@ -6,16 +6,15 @@ import networkx as nx
 import numpy as np
 import pinocchio as pin
 
-from timor import Bodies, Body, TimorJointType, Transformation
-from timor import Geometry
-from timor import Joints
+from timor import Bodies, Body, Geometry, Joint, Transformation
 from timor import AtomicModule, ModuleHeader, ModulesDB
+from timor.Joints import TimorJointType
 from timor.parameterized import ParameterizedCylinderLink, ParameterizedOrthogonalJoint, ParameterizedOrthogonalLink, \
     ParameterizedStraightJoint
 from timor.utilities import spatial
 import timor.utilities.errors as err
 from timor.utilities.module_classification import ModuleClassificationError, ModuleType, get_module_type, \
-    divide_db_in_types  # noqa: E501
+    divide_db_in_types
 
 
 class TestModule(unittest.TestCase):
@@ -30,7 +29,7 @@ class TestModule(unittest.TestCase):
                 Bodies.Body(body_id, collision=box)
             )
         b1, b2, b3, b4, b5 = bodies
-        jnt = Joints.Joint('joint', 'revolute', parent_body=b2, child_body=b3)
+        jnt = Joint('joint', 'revolute', parent_body=b2, child_body=b3)
 
         c1 = Bodies.Connector('con_1', parent=b2)
         c2 = Bodies.Connector('con_2', parent=b3)
@@ -127,9 +126,9 @@ class TestModule(unittest.TestCase):
         some_geometry = Geometry.EmptyGeometry({})
         parent = Bodies.Body('1', collision=some_geometry)
         child = Bodies.Body('2', collision=some_geometry)
-        joint = Joints.Joint('1', Joints.TimorJointType.revolute, parent, child,
-                             parent2joint=Transformation.random(),
-                             joint2child=Transformation.random())
+        joint = Joint('1', TimorJointType.revolute, parent, child,
+                      parent2joint=Transformation.random(),
+                      joint2child=Transformation.random())
 
         self.assertEqual(joint.parent2joint, joint.joint2parent.inv)
         self.assertEqual(joint.child2joint, joint.joint2child.inv)
@@ -141,7 +140,7 @@ class TestModule(unittest.TestCase):
         parent.connectors.add(c)
         child.connectors.add(c)
         with self.assertRaises(err.UniqueValueError):
-            joint = Joints.Joint(1, Joints.TimorJointType.revolute, parent, child)
+            joint = Joint(1, TimorJointType.revolute, parent, child)
 
     def test_module(self):
         """Tests a module on instantiation, uniqueness of contained elements, and hand-crafted IDs"""
@@ -162,11 +161,11 @@ class TestModule(unittest.TestCase):
         same_id_body = Bodies.Body('2', collision=box)
         standalone_body = Bodies.Body('100', collision=box, connectors=[c5])
 
-        jnt = Joints.Joint('1', Joints.TimorJointType.prismatic, parent_body=generic_body, child_body=box_body)
-        jnt_fails = Joints.Joint('1', Joints.TimorJointType.revolute,
-                                 parent_body=Bodies.Body('11', collision=box),
-                                 child_body=Bodies.Body('12', collision=box))
-        jnt_works = Joints.Joint('2', Joints.TimorJointType.revolute, parent_body=box_body, child_body=another_body)
+        jnt = Joint('1', TimorJointType.prismatic, parent_body=generic_body, child_body=box_body)
+        jnt_fails = Joint('1', TimorJointType.revolute,
+                          parent_body=Bodies.Body('11', collision=box),
+                          child_body=Bodies.Body('12', collision=box))
+        jnt_works = Joint('2', TimorJointType.revolute, parent_body=box_body, child_body=another_body)
 
         header_one = ModuleHeader('1', 'Test module one', author=['Jonathan'], email=['jonathan.kuelz@tum.de'],
                                   affiliation=['TUM'])
@@ -188,8 +187,8 @@ class TestModule(unittest.TestCase):
             mod = AtomicModule(header_one, [generic_body, box_body, jnt_fails.parent_body, jnt_fails.child_body],
                                [jnt, jnt_fails])
 
-        new_joint = Joints.Joint('5', Joints.TimorJointType.revolute, parent_body=Bodies.Body('1000', collision=box),
-                                 child_body=Bodies.Body('1001', collision=box))
+        new_joint = Joint('5', TimorJointType.revolute, parent_body=Bodies.Body('1000', collision=box),
+                          child_body=Bodies.Body('1001', collision=box))
         new = AtomicModule(header_two, [generic_body, box_body, new_joint.parent_body, new_joint.child_body],
                            [jnt, new_joint])
 

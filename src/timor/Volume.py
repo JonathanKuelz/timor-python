@@ -1,7 +1,7 @@
 import abc
 import itertools
 import math
-from typing import Union, Sequence
+from typing import Sequence, Union
 
 import numpy as np
 

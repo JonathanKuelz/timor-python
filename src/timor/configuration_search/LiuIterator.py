@@ -10,8 +10,8 @@ import numpy as np
 
 from timor.Bodies import Gender
 from timor.Module import AtomicModule, ModuleAssembly, ModulesDB
-from timor.utilities import module_classification
 from timor.configuration_search.AssemblyIterator import AssemblyIterator
+from timor.utilities import module_classification
 
 
 def alphanumeric_sort_db(db: ModulesDB) -> Tuple[AtomicModule, ...]:
