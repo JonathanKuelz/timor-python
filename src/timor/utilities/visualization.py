@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 # Author: Jonathan Külz
 # Date: 03.03.22
-from typing import Union
+import logging
+from typing import Dict, Union
 
 import meshcat.animation
 import meshcat.geometry
@@ -10,7 +11,16 @@ from pinocchio import COLLISION, VISUAL  # noqa: F401
 import pinocchio as pin
 from pinocchio.visualize.meshcat_visualizer import MeshcatVisualizer, isMesh
 
-from timor.utilities import spatial, transformation
+from timor import ModuleAssembly
+from timor.utilities import module_classification, spatial, transformation
+
+
+DEFAULT_COLOR_MAP = {  # Type enumeration from module_classification - import not possibility (circular import)
+    module_classification.ModuleType.BASE: np.array([165 / 255, 165 / 255, 165 / 255, 1.]),
+    module_classification.ModuleType.LINK: np.array([127 / 255, 127 / 255, 127 / 255, 1.]),
+    module_classification.ModuleType.JOINT: np.array([248 / 255, 135 / 255, 1 / 255, 1.]),
+    module_classification.ModuleType.END_EFFECTOR: np.array([250 / 255, 182 / 255, 1 / 255, 1.]),
+}
 
 
 class MeshcatVisualizerWithAnimation(MeshcatVisualizer):
@@ -60,6 +70,139 @@ class MeshcatVisualizerWithAnimation(MeshcatVisualizer):
             frame[visual_name].set_transform(T)
 
 
+class TextTexture(meshcat.geometry.Texture):
+    """
+    Forwarded from meshcat-py master branch
+
+    https://github.com/rdeits/meshcat-python/blob/master/src/meshcat/geometry.py
+    """
+
+    def __init__(self, text, font_size=100, font_face='sans-serif'):
+        """Create texture with text rendered."""
+        super(TextTexture, self).__init__()
+        self.text = text
+        # font_size will be passed to the JS side as is; however if the
+        # text width exceeds canvas width, font_size will be reduced.
+        self.font_size = font_size
+        self.font_face = font_face
+
+    def lower(self, object_data):
+        """Internal function used to create dict for underlying visualizer"""
+        return {
+            u"uuid": self.uuid,
+            u"type": u"_text",
+            u"text": self.text,
+            u"font_size": self.font_size,
+            u"font_face": self.font_face,
+        }
+
+
+def color_visualization(viz: MeshcatVisualizer,
+                        assembly: ModuleAssembly,
+                        color_map: Dict[Union[str, int, module_classification.ModuleType], np.ndarray] = None):
+    """
+    Adds colors to a visualized robot in viz, depending on module types.
+
+    :param viz: The visualizer to color
+    :param assembly: The assembly (that can already be visualized in viz) to color
+    :param color_map: A dictionary mapping module integer enumerated module types OR module IDs to colors. If color_map
+      maps module IDs to colors, this method first tries to interpret them as custom module IDs matching the internal
+      representation in the assembly. If this fails, it will interpret them as original module IDs.
+    """
+    if color_map is None:
+        color_map = DEFAULT_COLOR_MAP
+    if all(isinstance(k, str) for k in color_map.keys()):
+        cmap = color_map
+        by_type = False
+    else:
+        cmap = {int(k): v for k, v in color_map.items()}  # Make sure that both, enumerated types and integers, work
+        by_type = True
+    viz_cmap = dict()
+    for id_custom, id_original, m in zip(assembly.internal_module_ids,
+                                         assembly.original_module_ids,
+                                         assembly.module_instances):
+        if by_type:
+            key = int(module_classification.get_module_type(m))
+        elif id_custom in cmap:
+            key = id_custom
+        else:
+            key = id_original
+        if key in cmap:
+            color = cmap[key]
+        else:
+            color = None
+
+        for body in m.bodies:
+            viz_name = '.'.join(body.id)
+            viz_cmap[viz_name] = color
+
+    for go in assembly.robot.visual.geometryObjects:
+        stem = '.'.join(go.name.split('.')[:-1])
+        if stem in viz_cmap:
+            go.meshColor = viz_cmap[stem]
+        else:
+            logging.warning(f"Could not find color for robot geometry {go.name}.")
+    assembly.robot.visualize(viz)
+
+
+def animation(robot: 'Robot.PinRobot', q: np.ndarray, dt: float,  # pragma: no cover # noqa: F821
+              visualizer: Union[pin.visualize.MeshcatVisualizer,
+                                MeshcatVisualizerWithAnimation] = None) -> MeshcatVisualizerWithAnimation:
+    """
+    Creates an animation of a robot movement.
+
+    :param robot: The robot to animate
+    :param q: The joint angles to animate
+    :param dt: The time step between frames
+    :param visualizer: If given, the movie will be generated in the existing visualizer
+    """
+    if q.shape[1] != robot.njoints:
+        raise ValueError("The provided configurations must be of shape time steps x dof")
+
+    robot.update_configuration(q[0, :])
+    viz = MeshcatVisualizerWithAnimation.from_MeshcatVisualizer(robot.visualize(visualizer))
+    anim = meshcat.animation.Animation(default_framerate=1 / dt)
+    for i in range(0, q.shape[0]):
+        with anim.at_frame(viz.viewer, i) as frame:
+            robot.update_configuration(q[i, :])
+            viz.create_animation_frame(pin.VISUAL, frame)
+
+    viz.viewer.set_animation(anim)
+    return viz
+
+
+def drawable_coordinate_system(placement: transformation.TransformationLike,
+                               scale: float = 1.) -> meshcat.geometry:
+    """
+    A visual representation of the origin of a coordinate system.
+
+    The coordinate axis are drawn as three lines in red, green, and blue along the x, y, and z axes. The `scale`
+    parameter controls the length of the three lines.
+    Returns an `Object` which can be passed to `set_object()`
+    Other than meshcat.geometry.triad, this allows drawing the triad in any coordinate system, which is
+    defined by <original coordinate system @ transformation>.
+
+    :param placement: 4x4 homogeneous transformation
+    :param scale: Length of the drawn vectors for the coordinate system main axes
+    :return: A meshcat object that can be visualized via viewer[your_name].set_object(this)
+    """
+    placement = transformation.Transformation(placement)
+    p0 = (placement @ transformation.Transformation.neutral())[:3, 3]
+    x = (placement @ spatial.homogeneous(translation=[scale, 0, 0]))[:3, 3]
+    y = (placement @ spatial.homogeneous(translation=[0, scale, 0]))[:3, 3]
+    z = (placement @ spatial.homogeneous(translation=[0, 0, scale]))[:3, 3]
+    return meshcat.geometry.LineSegments(
+        geometry=meshcat.geometry.PointsGeometry(
+            position=np.array([p0, x, p0, y, p0, z], dtype=np.float32).T,
+            color=np.array([
+                [1, 0, 0], [1, 0.6, 0],
+                [0, 1, 0], [0.6, 1, 0],
+                [0, 0, 1], [0, 0.6, 1]]).astype(np.float32).T
+        ),
+        material=meshcat.geometry.LineBasicMaterial(vertexColors=True)
+    )
+
+
 def place_arrow(
         viz: MeshcatVisualizer,
         name: str,
@@ -102,91 +245,6 @@ def place_arrow(
     viz.viewer[name + '_arr_head'].set_object(head, material)
     head_transform = placement @ rot @ spatial.homogeneous(translation=[0, -.5 * head_length, 0])
     viz.viewer[name + '_arr_head'].set_transform(head_transform)
-
-
-def drawable_coordinate_system(placement: transformation.TransformationLike,
-                               scale: float = 1.) -> meshcat.geometry:
-    """
-    A visual representation of the origin of a coordinate system.
-
-    The coordinate axis are drawn as three lines in red, green, and blue along the x, y, and z axes. The `scale`
-    parameter controls the length of the three lines.
-    Returns an `Object` which can be passed to `set_object()`
-    Other than meshcat.geometry.triad, this allows drawing the triad in any coordinate system, which is
-    defined by <original coordinate system @ transformation>.
-
-    :param placement: 4x4 homogeneous transformation
-    :param scale: Length of the drawn vectors for the coordinate system main axes
-    :return: A meshcat object that can be visualized via viewer[your_name].set_object(this)
-    """
-    placement = transformation.Transformation(placement)
-    p0 = (placement @ transformation.Transformation.neutral())[:3, 3]
-    x = (placement @ spatial.homogeneous(translation=[scale, 0, 0]))[:3, 3]
-    y = (placement @ spatial.homogeneous(translation=[0, scale, 0]))[:3, 3]
-    z = (placement @ spatial.homogeneous(translation=[0, 0, scale]))[:3, 3]
-    return meshcat.geometry.LineSegments(
-        geometry=meshcat.geometry.PointsGeometry(
-            position=np.array([p0, x, p0, y, p0, z], dtype=np.float32).T,
-            color=np.array([
-                [1, 0, 0], [1, 0.6, 0],
-                [0, 1, 0], [0.6, 1, 0],
-                [0, 0, 1], [0, 0.6, 1]]).astype(np.float32).T
-        ),
-        material=meshcat.geometry.LineBasicMaterial(vertexColors=True)
-    )
-
-
-def animation(robot: 'Robot.PinRobot', q: np.ndarray, dt: float,  # pragma: no cover # noqa: F821
-              visualizer: Union[pin.visualize.MeshcatVisualizer,
-                                MeshcatVisualizerWithAnimation] = None) -> MeshcatVisualizerWithAnimation:
-    """
-    Creates an animation of a robot movement.
-
-    :param robot: The robot to animate
-    :param q: The joint angles to animate
-    :param dt: The time step between frames
-    :param visualizer: If given, the movie will be generated in the existing visualizer
-    """
-    if q.shape[1] != robot.njoints:
-        raise ValueError("The provided configurations must be of shape time steps x dof")
-
-    robot.update_configuration(q[0, :])
-    viz = MeshcatVisualizerWithAnimation.from_MeshcatVisualizer(robot.visualize(visualizer))
-    anim = meshcat.animation.Animation(default_framerate=1 / dt)
-    for i in range(0, q.shape[0]):
-        with anim.at_frame(viz.viewer, i) as frame:
-            robot.update_configuration(q[i, :])
-            viz.create_animation_frame(pin.VISUAL, frame)
-
-    viz.viewer.set_animation(anim)
-    return viz
-
-
-class TextTexture(meshcat.geometry.Texture):
-    """
-    Forwarded from meshcat-py master branch
-
-    https://github.com/rdeits/meshcat-python/blob/master/src/meshcat/geometry.py
-    """
-
-    def __init__(self, text, font_size=100, font_face='sans-serif'):
-        """Create texture with text rendered."""
-        super(TextTexture, self).__init__()
-        self.text = text
-        # font_size will be passed to the JS side as is; however if the
-        # text width exceeds canvas width, font_size will be reduced.
-        self.font_size = font_size
-        self.font_face = font_face
-
-    def lower(self, object_data):
-        """Internal function used to create dict for underlying visualizer"""
-        return {
-            u"uuid": self.uuid,
-            u"type": u"_text",
-            u"text": self.text,
-            u"font_size": self.font_size,
-            u"font_face": self.font_face,
-        }
 
 
 def scene_text(text: str, size: float = 1., **kwargs):

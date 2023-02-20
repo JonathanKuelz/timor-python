@@ -14,7 +14,7 @@ from timor.task import Constraints, CostFunctions, Goals, Solution, Task, Tolera
 from timor.task.CostFunctions import QDist
 from timor.task.Solution import SolutionHeader, SolutionTrajectory
 from timor.task.Task import TaskHeader
-from timor.utilities import prebuilt_robots, spatial
+from timor.utilities import prebuilt_robots, spatial, visualization
 from timor.utilities.file_locations import get_test_tasks, robots
 from timor.utilities.prebuilt_robots import get_six_axis_assembly
 from timor.utilities.tolerated_pose import ToleratedPose
@@ -489,13 +489,26 @@ class TestSolution(unittest.TestCase):
         q0 = pin.neutral(robot.model)
         q1 = pin.randomConfiguration(robot.model)
         q2 = pin.randomConfiguration(robot.model)
+        viz = None
+        color_viz = None
         for description in self.task_files:
             robot.update_configuration(q0)
             task = Task.Task.from_json_file(description, self.asset_dir)
             robot.update_configuration(q1)
-            viz = task.visualize(robots=robot)  # Machine should be red
+            viz = task.visualize(viz, robots=robot)  # Obstacle should be red
             robot.update_configuration(q2)
             self.assertIs(robot.data, viz.data)
+
+            assembly = get_six_axis_assembly()
+            assembly.robot.update_configuration(assembly.robot.random_configuration())
+            color_viz = task.visualize(color_viz, robots=assembly.robot)
+            visualization.color_visualization(color_viz, assembly)
+
+            id_cmap = {mid: np.random.rand(4) for mid in assembly.original_module_ids}
+            visualization.color_visualization(color_viz, assembly, color_map=id_cmap)
+
+            custom_id_cmap = {m.id: np.random.rand(4) for m in assembly.module_instances}
+            visualization.color_visualization(color_viz, assembly, color_map=custom_id_cmap)
 
 
 if __name__ == '__main__':
