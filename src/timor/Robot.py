@@ -1101,7 +1101,7 @@ class PinRobot(RobotBase):
     def visualize(self,
                   visualizer: pin.visualize.BaseVisualizer = None,
                   coordinate_systems: Union[str, None] = None,
-                  show_collision_data: Optional[bool] = True
+                  update_collision_visuals: Optional[bool] = True,
                   ) -> pin.visualize.MeshcatVisualizer:
         """
         Displays the robot in its current environment using a Meshcat Visualizer in the browser
@@ -1109,6 +1109,8 @@ class PinRobot(RobotBase):
         :param visualizer: A meshcat visualizer instance. If none, a new will be created
         :param coordinate_systems: Can be None, 'tcp', 'joints' or 'full' - the specified coordinates will be drawn
             (full means all frames, as in fk).
+        :param update_collision_visuals: If true, the collision geometry will be updated as well
+          (but not shown by default).
         :return: The meshcat visualizer instance used for plotting the robot
         """
         if coordinate_systems not in (None, 'joints', 'full', 'tcp'):
@@ -1119,7 +1121,7 @@ class PinRobot(RobotBase):
                 self.model, self.collision, self.visual,
                 copy_models=False,
                 data=self.data,
-                collision_data=self.collision_data if show_collision_data else None,
+                collision_data=self.collision_data if update_collision_visuals else None,
                 visual_data=self.visual_data)
         elif visualizer.model is not self.model:
             # Copy everything, s.t. robot updates are transferred to the visualizer!
@@ -1127,15 +1129,15 @@ class PinRobot(RobotBase):
             visualizer.collision_model = self.collision
             visualizer.visual_model = self.visual
             visualizer.data = self.data
-            visualizer.collision_data = self.collision_data if show_collision_data else None
+            visualizer.collision_data = self.collision_data if update_collision_visuals else None
             visualizer.visual_data = self.visual_data
 
         if not hasattr(visualizer, 'viewer'):
             visualizer.initViewer()
-
         visualizer.loadViewerModel(rootNodeName=self.name)
+
         # Force update of collision meshes; otherwise toggle shows them not at current configuration
-        if show_collision_data:
+        if update_collision_visuals:
             visualizer.updatePlacements(pin.COLLISION)
 
         visualizer.display(self.configuration)
@@ -1147,7 +1149,7 @@ class PinRobot(RobotBase):
                 for transform, name in zip(self.fk(kind=coordinate_systems), names):
                     transform.visualize(visualizer, name=name, scale=.3)
 
-        if not show_collision_data:
+        if not update_collision_visuals:
             logging.debug("Collisions toggle in meshcat interface will show collision meshes only at origin.")
 
         return visualizer

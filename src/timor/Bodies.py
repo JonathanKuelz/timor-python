@@ -15,8 +15,8 @@ from typing import Dict, Iterable, Optional, Tuple, Union
 import numpy as np
 import pinocchio as pin
 
-from timor import Robot
 from timor.Geometry import ComposedGeometry, EmptyGeometry, Geometry
+from timor.Robot import PinBody
 from timor.utilities import logging
 from timor.utilities.dtypes import SingleSet, hppfcl_collision2pin_geometry
 import timor.utilities.errors as err
@@ -211,7 +211,7 @@ class BodyBase(abc.ABC, JSONable_mixin):
         """Defaults to collision if not explicitly specified"""
         return self._visual if self._visual is not None else self.collision
 
-    def as_pin_body(self, placement: TransformationLike = Transformation.neutral()) -> Robot.PinBody:
+    def as_pin_body(self, placement: TransformationLike = Transformation.neutral()) -> PinBody:
         """
         Extracts the body properties that describe a body in a pinocchio robot.
 
@@ -227,7 +227,7 @@ class BodyBase(abc.ABC, JSONable_mixin):
         visual = [hppfcl_collision2pin_geometry(geo, t, '.'.join(self.id) + f'.v{i}', 0)
                   for i, (t, geo) in enumerate(self.visual.collision_data)]
 
-        return Robot.PinBody(
+        return PinBody(
             inertia=self.inertia,
             placement=pin.SE3(placement.homogeneous),
             name='.'.join(self.id),
