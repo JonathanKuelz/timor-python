@@ -1,10 +1,13 @@
+from copy import deepcopy
 import random
+from typing import Callable
 import unittest
 
 import numpy as np
 import numpy.testing as np_test
 
 from timor import Transformation
+from timor.utilities import logging
 from timor.utilities.dtypes import Lazy
 from timor.utilities.tolerated_pose import ToleratedPose
 from timor.utilities.trajectory import Trajectory
@@ -37,9 +40,11 @@ class TestTrajectoryClasses(unittest.TestCase):
         self.assertEqual(traj_with_lazy_dq.q.size, traj_with_lazy_dq.ddq.size)
 
         # test de-serialize pipeline
-        traj_with_dq_array = Trajectory.from_json_data(traj_with_lazy_dq.to_json_data())
-        self.assertEqual(traj_with_lazy_dq, traj_with_dq_array)
+        self.assertEqual(Trajectory.from_json_data(traj_with_lazy_dq.to_json_data()), traj_with_lazy_dq)
+        self.assertTrue("dq" not in traj_with_lazy_dq.to_json_data())
+        self.assertTrue("ddq" not in traj_with_lazy_dq.to_json_data())
 
+        traj_with_dq_array = Trajectory(traj_with_lazy_dq.t, q=traj_with_lazy_dq.q, dq=traj_with_lazy_dq.dq)
         self.assertIsInstance((traj_with_lazy_dq + traj_with_lazy_dq)._dq, Lazy)
         self.assertIsInstance((traj_with_lazy_dq + traj_with_dq_array)._dq, np.ndarray)
         self.assertIsInstance((traj_with_dq_array + traj_with_lazy_dq)._dq, np.ndarray)
@@ -76,6 +81,66 @@ class TestTrajectoryClasses(unittest.TestCase):
         empty = Trajectory(t=[], q=[], goal2time={})
         self.assertEqual(traj_with_lazy_dq, traj_with_lazy_dq + empty)
         self.assertEqual(traj_with_lazy_dq, empty + traj_with_lazy_dq)
+
+    def test_untimed(self):
+        """Based on issue #23."""
+        arr = np.random.rand(100, 1)
+        t = Trajectory(q=arr)
+        logging.debug(t.dq)
+        t.plot()
+        self.assertEqual(t, t)
+        self.assertEqual(t, Trajectory.from_json_data(t.to_json_data()))
+        t2 = t + t
+        self.assertEqual(len(t2), 2 * len(t))
+        self.assertFalse(t.has_dq)
+        self.assertFalse(t.has_ddq)
+
+    def test_scalar_t(self):
+        """Based on issue #24."""
+        q = np.random.rand(100)  # Should be 100 time-steps of 1 DoF trajectory
+        dt = .1
+        t = Trajectory(t=dt, q=q)
+        self.assertTupleEqual(t.q.shape, (len(q), 1))
+        self.assertTupleEqual(t.t.shape, (len(q),))
+        self.assertEqual(t.t[0], 0.)
+        self.assertEqual(t.t[-1], (q.shape[0] - 1) * dt)
+
+    def test_deepcopy(self):
+        """Based on issue #25."""
+        def _test_deepcopy(original: Trajectory, new: Trajectory, change_field: Callable, is_not_none_fields):
+            for f in is_not_none_fields:
+                self.assertIsNotNone(f)
+            self.assertEqual(original, new)
+            self.assertFalse(original is new)
+            change_field()
+            self.assertNotEqual(original, new)
+
+        def _inc_last_element(array):
+            array[-1] += 1
+
+        q = np.random.rand(100, 1)
+        t = np.arange(100)
+
+        traj = Trajectory(t, q, q, q)
+        traj_2 = deepcopy(traj)
+        self.assertIsInstance(traj_2._dq, np.ndarray)
+        self.assertIsInstance(traj_2._ddq, np.ndarray)
+        _test_deepcopy(traj, traj_2, lambda: _inc_last_element(traj_2.ddq),
+                       [traj_2.ddq, traj_2._ddq, traj_2.dq, traj_2._dq])
+
+        traj = Trajectory(t, q, q)
+        traj_2 = deepcopy(traj)
+        self.assertIsInstance(traj_2._dq, np.ndarray)
+        self.assertIsInstance(traj_2._ddq, Lazy)
+        _test_deepcopy(traj, traj_2, lambda: _inc_last_element(traj_2.dq),
+                       [traj_2.ddq, traj_2._ddq, traj_2.dq, traj_2._dq])
+
+        traj = Trajectory(t, q)
+        traj_2 = deepcopy(traj)
+        self.assertIsInstance(traj_2._dq, Lazy)
+        self.assertIsInstance(traj_2._ddq, Lazy)
+        _test_deepcopy(traj, traj_2, lambda: _inc_last_element(traj_2.dq),
+                       [traj_2.ddq, traj_2._ddq, traj_2.dq, traj_2._dq])
 
     def test_PoseTrajectory(self):
         example_pose_trajectory = Trajectory(pose=np.asarray([

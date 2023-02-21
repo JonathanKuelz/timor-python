@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-import logging
 import string
 from typing import Dict, Iterable, Optional, Union
 
@@ -12,6 +11,7 @@ from pinocchio.visualize import MeshcatVisualizer
 from roboticstoolbox import mstraj
 
 from timor import ModuleAssembly
+from timor.utilities import logging
 from timor.utilities.dtypes import Lazy
 from timor.utilities.errors import TimeNotFoundError
 from timor.utilities.jsonable import JSONable_mixin
@@ -43,6 +43,10 @@ class Trajectory(JSONable_mixin):
     def __post_init__(self):
         """Check consistency such as same size for t, q, dq, ddq, and / or pose."""
         self.q = None if self.q is None else np.asarray(self.q)
+        if self.has_q and len(self.q.shape) == 1:
+            logging.info(f"Assuming q with single dimension is multiple steps (shape = {self.q.shape}); "
+                         f"to force otherwise please give q as 1 x {self.q.shape[0]} array")
+            self.q = self.q[:, None]
         self.pose = None if self.pose is None else np.asarray(self.pose)
 
         if not self.has_q and not self.has_poses:
@@ -91,21 +95,25 @@ class Trajectory(JSONable_mixin):
 
             if isinstance(self.dq, Iterable):
                 self.dq = np.asarray(self.dq)
-            else:
+            elif self.is_timed:
                 if len(self) > 1:
                     self._dq = Lazy(lambda: np.gradient(self.q, self.t, axis=0))
                     logging.debug("Created dq by numeric gradient.")
                 else:
                     self._dq = Lazy(lambda: np.zeros_like(self.q))
+            else:
+                self._dq = None
 
             if isinstance(self.ddq, Iterable):
                 self.ddq = np.asarray(self.ddq)
-            else:
+            elif self.is_timed:
                 if len(self) > 1:
                     self._ddq = Lazy(lambda: np.gradient(self.dq, self.t, axis=0))
                     logging.debug("Created ddq by numeric gradient.")
                 else:
                     self._ddq = Lazy(lambda: np.zeros_like(self.q))
+            else:
+                self._ddq = None
 
         if self.has_poses and self.is_timed and self.pose.shape != self.t.shape:
             raise ValueError("t and pose must be same length")
@@ -169,8 +177,13 @@ class Trajectory(JSONable_mixin):
 
     @dq.setter
     def dq(self, dq: np.ndarray):
-        if isinstance(dq, np.ndarray) and dq.shape != self.q.shape:
-            raise ValueError("q and dq need same shape")
+        if isinstance(dq, np.ndarray):
+            if dq.shape != self.q.shape:
+                raise ValueError(f"q and dq need same shape {dq.shape} != {self.q.shape}")
+            if len(dq.shape) == 1:
+                logging.info(f"Assuming dq with single dimension is multiple steps (shape = {dq.shape}); "
+                             f"to force otherwise please give dq as 1 x {dq.shape[0]} array")
+                dq = dq[:, None]
         self._dq = dq
 
     @property
@@ -182,8 +195,13 @@ class Trajectory(JSONable_mixin):
 
     @ddq.setter
     def ddq(self, ddq: np.ndarray):
-        if isinstance(ddq, np.ndarray) and ddq.shape != self.q.shape:
-            raise ValueError("q and dq need same shape")
+        if isinstance(ddq, np.ndarray):
+            if ddq.shape != self.q.shape:
+                raise ValueError(f"q and ddq need same shape {ddq.shape} != {self.q.shape}")
+            if len(ddq.shape) == 1:
+                logging.info(f"Assuming ddq with single dimension is multiple steps (shape = {ddq.shape}); "
+                             f"to force otherwise please give dq as 1 x {ddq.shape[0]} array")
+                ddq = ddq[:, None]
         self._ddq = ddq
 
     @property
@@ -202,6 +220,16 @@ class Trajectory(JSONable_mixin):
         return self.q is not None
 
     @property
+    def has_dq(self) -> bool:
+        """Does this trajectory enforce a configuration"""
+        return self.has_q and self._dq is not None
+
+    @property
+    def has_ddq(self) -> bool:
+        """Does this trajectory enforce a configuration"""
+        return self.has_q and self._ddq is not None
+
+    @property
     def has_goals(self) -> bool:
         """Does this trajectory refer to goal2time"""
         return len(self.goal2time) > 0
@@ -217,14 +245,27 @@ class Trajectory(JSONable_mixin):
         if not self.has_q:
             raise NotImplementedError("Plot for trajectory with pose not yet implemented")
 
+        if show_goals_reached and not self.is_timed:
+            raise NotImplementedError("Cannot show goals if untimed trajectory")
+
+        if self.is_timed:
+            x = self.t
+        else:
+            x = range(len(self))
+
         f, (ax1, ax2, ax3) = plt.subplots(3, 1, sharex='all')
-        ax1.plot(self.t, self.q)
-        ax2.plot(self.t, self.dq)
-        ax3.plot(self.t, self.ddq)
+        ax1.plot(x, self.q)
+        if self.has_dq:
+            ax2.plot(x, self.dq)
+        if self.has_ddq:
+            ax3.plot(x, self.ddq)
 
         ax1.set(ylabel="Configuration q")
         ax2.set(ylabel="Velocity dq")
-        ax3.set(xlabel="Time [s]", ylabel="Acceleration ddq")
+        if self.is_timed:
+            ax3.set(xlabel="Time [s]", ylabel="Acceleration ddq")
+        else:
+            ax3.set(xlabel="Sample", ylabel="Acceleration ddq")
 
         if show_goals_reached:
             t_offset = 0.01 * (max(self.t) - min(self.t))
@@ -311,6 +352,12 @@ class Trajectory(JSONable_mixin):
         for k, v in self.__dict__.items():
             assert k in ret.keys() or k[0] == "_" or v is None or len(v) == 0, \
                 "Serialization should mention all non-None, non-private parts"
+
+        if isinstance(self._dq, Lazy):
+            ret.pop("dq", None)
+        if isinstance(self._ddq, Lazy):
+            ret.pop("ddq", None)
+
         return ret
 
     def __add__(self, other) -> Trajectory:
@@ -368,18 +415,18 @@ class Trajectory(JSONable_mixin):
     def __eq__(self, other) -> bool:
         """Check if two trajectories are equal."""
         if isinstance(other, self.__class__):
-            return len(self) == len(other) and \
-                self.has_q == other.has_q and \
-                self.has_poses == other.has_poses and \
-                self.is_timed == other.is_timed and \
-                (np.allclose(self.t, other.t) if self.is_timed else True) and \
-                (np.allclose(self.q, other.q) if self.has_q else True) and \
-                (np.allclose(self.dq, other.dq) if self.has_q else True) and \
-                (np.allclose(self.ddq, other.ddq) if self.has_q else True) and \
-                (all(p_self == p_other for p_self, p_other in zip(self.pose, other.pose))
-                    if self.has_poses else True) and \
-                self.goal2time.keys() == other.goal2time.keys() and \
-                all(abs(self.goal2time[k] - other.goal2time[k]) < 1e-5 for k in self.goal2time.keys())
+            return len(self) == len(other) \
+                and self.has_q == other.has_q \
+                and self.has_poses == other.has_poses \
+                and self.is_timed == other.is_timed \
+                and (np.allclose(self.t, other.t) if self.is_timed else True) \
+                and (np.allclose(self.q, other.q) if self.has_q else True) \
+                and (np.allclose(self.dq, other.dq) if self.has_dq else True) \
+                and (np.allclose(self.ddq, other.ddq) if self.has_ddq else True) \
+                and (all(p_self == p_other for p_self, p_other in zip(self.pose, other.pose))
+                     if self.has_poses else True)\
+                and self.goal2time.keys() == other.goal2time.keys() \
+                and all(abs(self.goal2time[k] - other.goal2time[k]) < 1e-5 for k in self.goal2time.keys())
         return NotImplemented
 
     def __getitem__(self, item: Union[int, Iterable[int], slice]) -> Trajectory:
@@ -395,8 +442,8 @@ class Trajectory(JSONable_mixin):
         return self.__class__(
             t=(self.t[item] if self.is_timed else None),
             q=(self.q[item, :] if self.has_q else None),
-            dq=(self.dq[item, :] if self.has_q else None),
-            ddq=(self.ddq[item, :] if self.has_q else None),
+            dq=(self.dq[item, :] if self.has_dq else None),
+            ddq=(self.ddq[item, :] if self.has_ddq else None),
             goal2time={goal_id: t_g for goal_id, t_g in self.goal2time.items() if (t_min <= t_g <= t_max)},
             pose=(self.pose[item] if self.has_poses else None)
         )
@@ -414,3 +461,12 @@ class Trajectory(JSONable_mixin):
         if self.has_poses:
             return len(self.pose)
         raise ValueError("No length determining part set for this trajectory")
+
+    def __getstate__(self):
+        """Custom get state, e.g. for pickle / deepcopy."""
+        return self.to_json_data()
+
+    def __setstate__(self, state: Dict):
+        """Custom set state, e.g. for pickle / deepcopy."""
+        cpy = self.__class__.from_json_data(state)
+        self.__dict__ = cpy.__dict__
