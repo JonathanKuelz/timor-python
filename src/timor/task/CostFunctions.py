@@ -222,8 +222,9 @@ class MechanicalEnergy(CostFunctionBase):
 
     def _evaluate(self, solution: 'Solution.SolutionBase') -> float:
         """The integral of mechanical energy over time in the solution"""
-        return np.sum(np.abs(np.einsum("ij,ij->i", solution.torques, solution.trajectory.dq))) * \
-            (solution.time_steps[1] - solution.time_steps[0])
+        return np.sum(
+            np.abs(np.einsum("ij,ij->i", solution.torques, solution.trajectory.dq))[:-1]  # Power at each time-step
+            * (solution.time_steps[1:] - solution.time_steps[:-1]))  # Time increment
         # TODO: Implement for solutions where no trajectory is given, but the torque input is
         #  -> (solution.trajecory not available);
         #  suggestion: solution should integrate to get q, dq, ddq on demand as it does for torques already
