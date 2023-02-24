@@ -28,6 +28,8 @@ class TestCollisionUtilities(unittest.TestCase):
     def test_assembly_to_robot_collisions(self):
         improv_db = ModulesDB.from_name('IMPROV')
         improv_assembly = ModuleAssembly.from_serial_modules(improv_db, ('1', '21', '4', '21', '5', '23', '7', '12'))
+        improv_assembly_2 = ModuleAssembly.from_serial_modules(improv_db, ('1', '21', '4', '21', '5', '23', '7', '12'),
+                                                               ignore_collisions='rigid_via_joint')
 
         simple_modules = ('base', 'J2', 'i_30', 'J1', 'l_15', 'eef')
         simple_assembly = ModuleAssembly.from_serial_modules(self.modules, simple_modules)
@@ -57,6 +59,7 @@ class TestCollisionUtilities(unittest.TestCase):
             self.assertTrue(robot_all.has_self_collision(conf))
             self.assertTrue(robot_neighbor.has_self_collision(conf))
             self.assertFalse(robot_no_collisions.has_self_collision(conf))
+            self.assertFalse(improv_assembly_2.robot.has_self_collision(conf))
 
         # Make sure there still are possibilities to collide for the no_collision robot
         for i in range(1000):

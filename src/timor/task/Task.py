@@ -32,7 +32,7 @@ class TaskHeader(TypedHeader):
     """The header every task contains"""
 
     ID: str
-    version: str = 'Py'
+    version: str = "2022"
     taskName: str = ""
     tags: List = field(default_factory=list)
     date: datetime.datetime = datetime.datetime(1970, 1, 1)

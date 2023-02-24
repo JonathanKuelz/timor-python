@@ -483,6 +483,20 @@ class TestSolution(unittest.TestCase):
         self.assertFalse(follow_goal_with_constraint._valid(
             invalid_sol, invalid_sol.t_goals["0"], len(invalid_sol.trajectory)))
 
+    def test_solution_derived_properties(self, num_test=10, epsilon=1e-12):
+        assembly = get_six_axis_assembly()  # Use IMPROV with significant joint inertia and friction
+        for _ in range(num_test):
+            qs = np.asarray((assembly.robot.random_configuration(), assembly.robot.random_configuration()))
+            sol = SolutionTrajectory(Trajectory.from_mstraj(qs, 0.01, 1., 1.), SolutionHeader("tmp"),
+                                     Task.Task(TaskHeader("tmp")), assembly, CostFunctions.RobotMass(),
+                                     assembly.robot.placement)
+
+            np_test.assert_array_less(np.abs(sol.link_side_torques), np.abs(sol.torques) + epsilon)
+            np_test.assert_array_less(sol._get_torques(False, True), sol.torques + epsilon)
+            np_test.assert_array_less(sol._get_torques(True, False), sol.torques + epsilon)
+            np_test.assert_array_less(sol.get_power(False, False), sol.get_power() + epsilon)
+            self.assertLess(sol.get_mechanical_energy(False, False), sol.get_mechanical_energy() + epsilon)
+
     def test_task_visuals(self):
         """Needs manual inspection for the plots"""
         robot = Robot.PinRobot.from_urdf(self.panda_urdf, robots['panda'].parent)
