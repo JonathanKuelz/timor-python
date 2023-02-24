@@ -28,10 +28,10 @@ With Timor you can:
 - Define robot tasks and evaluate solutions based on various cost functions
 - Get started working with modular robots!
 
-.. image:: https://gitlab.lrz.de/tum-cps/timor-python/-/raw/main/img/animations/two_robots_moving.gif
-    :alt: Animation of two module assemblies
+.. image:: https://gitlab.lrz.de/tum-cps/timor-python/-/raw/main/img/animations/demo_animation.gif
+    :alt: Animation of a robot assembly moving between two goals
     :align: center
-    :target: https://gitlab.lrz.de/tum-cps/timor-python/-/raw/main/img/animations/two_robots_moving.gif
+    :target: https://gitlab.lrz.de/tum-cps/timor-python/-/raw/main/img/animations/demo_animation.gif
 
 
 Installation
