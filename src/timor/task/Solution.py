@@ -31,7 +31,7 @@ class SolutionHeader(TypedHeader):
     """The header every solution contains"""
 
     taskID: str  # This is NOT the Solution ID, but identifies the task the solution was crafted for!
-    version: str = "Py2022"
+    version: str = "2022"
     author: List[str] = field(default_factory=lambda: [''])
     email: List[str] = field(default_factory=lambda: [''])
     affiliation: List[str] = field(default_factory=lambda: [''])
@@ -299,6 +299,7 @@ class SolutionTrajectory(SolutionBase):
         super().__init__(header, task, assembly, cost_function, base_pose)
         self.trajectory: Trajectory = trajectory
         self._torques = Lazy(self._get_torques)
+        self._link_side_torques = Lazy(lambda: self._get_torques(motor_inertia=False, friction=False))
 
     def to_json_data(self) -> Dict[str, any]:
         """
@@ -317,12 +318,31 @@ class SolutionTrajectory(SolutionBase):
         data['date'] = data['date'].strftime(DEFAULT_DATE_FORMAT)
         return data
 
-    def _get_torques(self) -> np.ndarray:
-        """Utility method to calculate joint torques based on the trajectory"""
+    def _get_torques(self, motor_inertia: bool = True, friction: bool = True) -> np.ndarray:
+        """
+        Utility method to calculate joint torques to command based on the trajectory.
+
+        :param motor_inertia: Include motor side inertia in torque calculations to compensate them
+          (details see robot.id)
+        :param friction: Include joint friction in torque calculations to compensate for them (details see robot.id)
+        :note: Disabling both motor_inertia and friction will lead to the torques provided to the physical links by
+          the motor-gearbox subsystem.
+        :note: Motor inertia and friction can be the dominating parts of the required torques espacially for robots with
+          high gear ratios.
+        """
         torques = np.zeros_like(self.q)
         for i, (q, dq, ddq) in enumerate(zip(self.q, self.dq, self.ddq)):
-            torques[i, :] = self.robot.id(q, dq, ddq)
+            torques[i, :] = self.robot.id(q, dq, ddq, motor_inertia=motor_inertia, friction=friction)
         return torques
+
+    @property
+    def link_side_torques(self):
+        """
+        Method to calculate the torques acting from the motor-gearbox unit on the different links.
+
+        In comparison to self.torques excludes the torques required to counteract joint friction and rotor inertia
+        """
+        return self._link_side_torques()
 
     @property
     def t_goals(self) -> Dict[str, float]:
@@ -367,3 +387,34 @@ class SolutionTrajectory(SolutionBase):
         self._valid.value = None
         self._cost.value = None
         self._trajectory = t
+
+    def get_power(self, motor_inertia: bool = True, friction: bool = True):
+        """
+        Get mechanical power used in all joints for each time step.
+
+        :param motor_inertia: Include power needed to overcome motor side inertia.
+        :param friction: Include power needed to overcome joint friction.
+        :note: If both options enabled this is the mechanical power produced by all motors in the robot; if both options
+          are disabled it is the mechanical power acting on all robot links.
+        """
+        if motor_inertia and friction:
+            torques = self.torques
+        elif not motor_inertia and not friction:
+            torques = self.link_side_torques
+        else:
+            torques = self._get_torques(motor_inertia, friction)
+
+        steps = np.abs(np.einsum("ij,ij->i", torques, self.dq))[:-1] * (self.time_steps[1:] - self.time_steps[:-1])
+
+        return np.hstack((steps, [0.]))
+
+    def get_mechanical_energy(self, motor_inertia: bool = True, friction: bool = True):
+        """
+        Get mechanical energy needed to follow this solution.
+
+        :param motor_inertia: Include energy to overcome motor side inertia.
+        :param friction: Include energy to overcome joint friction.
+        :note: If both options enabled this is the mechanical energy expanded by all motors in the robot to follow this
+          solution; if both options are disabled it is the mechanical energy expanded on moving all robot links.
+        """
+        return np.sum(self.get_power(motor_inertia, friction))

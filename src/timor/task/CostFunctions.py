@@ -1,3 +1,4 @@
+from __future__ import annotations
 import abc
 
 import numpy as np
@@ -62,11 +63,11 @@ class CostFunctionBase(abc.ABC):
             return ComposedCost(self, -other)
 
     @abc.abstractmethod
-    def _evaluate(self, solution: 'Solution.SolutionBase') -> float:
+    def _evaluate(self, solution: Solution.SolutionBase) -> float:
         """Interface to define class-level evaluate functions"""
         pass
 
-    def evaluate(self, solution: 'Solution.SolutionBase') -> float:
+    def evaluate(self, solution: Solution.SolutionBase) -> float:
         """Calculates the cost of the solution for its internally stored task"""
         return self.weight * self._evaluate(solution)
 
@@ -152,7 +153,7 @@ class ComposedCost(CostFunctionBase):
         """Negate all internal cost functions."""
         return self.__class__(*self._internal, weight=-self.weight)
 
-    def _evaluate(self, solution: 'Solution.SolutionBase') -> float:
+    def _evaluate(self, solution: Solution.SolutionBase) -> float:
         """The evaluation of the composed cost function is the sum of all internal cost functions"""
         return sum(cost.evaluate(solution) for cost in self._internal)
 
@@ -175,7 +176,7 @@ class CycleTime(CostFunctionBase):
 
     default_weight = 1.
 
-    def _evaluate(self, solution: 'Solution.SolutionBase') -> float:
+    def _evaluate(self, solution: Solution.SolutionBase) -> float:
         """The total time needed by the solution"""
         return solution.trajectory.t[-1]
 
@@ -185,7 +186,7 @@ class Effort(CostFunctionBase):
 
     default_weight = 1.
 
-    def _evaluate(self, solution: 'Solution.SolutionBase') -> float:
+    def _evaluate(self, solution: Solution.SolutionBase) -> float:
         """The integral of effort over time in the solution"""
         return np.sum(np.abs(solution.torques)) * (solution.time_steps[1] - solution.time_steps[0])
         # TODO : No field for sample time? -or- move scale by time into sum
@@ -196,7 +197,7 @@ class GoalsFulfilled(CostFunctionBase):
 
     default_weight = -1.
 
-    def _evaluate(self, solution: 'Solution.SolutionBase') -> float:
+    def _evaluate(self, solution: Solution.SolutionBase) -> float:
         """The number of goals fulfilled"""
         reward = 0
         for goal in solution.task.goals:
@@ -210,25 +211,33 @@ class GoalsFulfilledFraction(GoalsFulfilled):
 
     default_weight = 1.
 
-    def _evaluate(self, solution: 'Solution.SolutionBase') -> float:
+    def _evaluate(self, solution: Solution.SolutionBase) -> float:
         """The fraction of goals fulfilled"""
         return super()._evaluate(solution) / len(solution.task.goals)
 
 
 class MechanicalEnergy(CostFunctionBase):
-    """Increases with the mechanical energy used by a solution"""
+    """
+    Calculate the energy provided by the motors to move the robot along the solution trajectory.
+
+    Includes the energy to overcome joint friction, rotor inertia and all link inertias.
+    """
 
     default_weight = 1.
 
-    def _evaluate(self, solution: 'Solution.SolutionBase') -> float:
-        """The integral of mechanical energy over time in the solution"""
-        return np.sum(
-            np.abs(np.einsum("ij,ij->i", solution.torques, solution.trajectory.dq))[:-1]  # Power at each time-step
-            * (solution.time_steps[1:] - solution.time_steps[:-1]))  # Time increment
-        # TODO: Implement for solutions where no trajectory is given, but the torque input is
-        #  -> (solution.trajecory not available);
-        #  suggestion: solution should integrate to get q, dq, ddq on demand as it does for torques already
-        # TODO : No field for sample time? -or- move scale by time into sum
+    def _evaluate(self, solution: Solution.SolutionBase) -> float:
+        """The integral of mechanical power over time in the solution."""
+        return solution.get_mechanical_energy(motor_inertia=True, friction=True)
+
+
+class LinkSideMechanicalEnergy(CostFunctionBase):
+    """Calculate the energy used in the link side movement EXCLUDING joint friction and rotor inertia."""
+
+    default_weight = 1.
+
+    def _evaluate(self, solution: Solution.SolutionBase) -> float:
+        """The integral of mechanical power (excl. joint friction and inertia) over the solution times."""
+        return solution.get_mechanical_energy(motor_inertia=False, friction=False)
 
 
 class NumJoints(CostFunctionBase):
@@ -236,7 +245,7 @@ class NumJoints(CostFunctionBase):
 
     default_weight = .1
 
-    def _evaluate(self, solution: 'Solution.SolutionBase') -> float:
+    def _evaluate(self, solution: Solution.SolutionBase) -> float:
         """The number of actuated joints in the solution robot"""
         return solution.robot.njoints
 
@@ -246,7 +255,7 @@ class RobotMass(CostFunctionBase):
 
     default_weight = .05
 
-    def _evaluate(self, solution: 'Solution.SolutionBase') -> float:
+    def _evaluate(self, solution: Solution.SolutionBase) -> float:
         """The total mass of the solution robot"""
         return solution.robot.mass
 
@@ -256,7 +265,7 @@ class QDist(CostFunctionBase):
 
     default_weight = 1.
 
-    def _evaluate(self, solution: 'Solution.SolutionBase') -> float:
+    def _evaluate(self, solution: Solution.SolutionBase) -> float:
         """The integral over time for all joint parameters (mixes up radian and meters!)"""
         return float(np.sum(np.abs(solution.trajectory.q[1:, :]  # All but first q
                                    - solution.trajectory.q[:-1, :])))  # All but last q
@@ -267,6 +276,7 @@ class QDist(CostFunctionBase):
 # "CoBRA: A Composable Benchmark for Robotics Applications" - https://arxiv.org/abs/2203.09337
 abbreviations = {"cyc": CycleTime,
                  "mechEnergy": MechanicalEnergy,
+                 "linkMechEnergy": LinkSideMechanicalEnergy,
                  "qDist": QDist,
                  "effort": Effort,
                  "mass": RobotMass,

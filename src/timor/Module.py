@@ -788,15 +788,18 @@ class ModuleAssembly(JSONable_mixin):
         return assembly
 
     @classmethod
-    def from_serial_modules(cls, db: ModulesDB, module_chain: Iterable[str]) -> ModuleAssembly:
+    def from_serial_modules(cls, db: ModulesDB,
+                            module_chain: Iterable[str], **model_generation_kwargs) -> ModuleAssembly:
         """
         This function works on the assumption that the assembly modules are arranged in a chain.
 
         :param db: The database used to build the assembly
         :param module_chain: The series of modules in the assembly, referring to the module ids in the db.
+        :param model_generation_kwargs: Additional arguments passed to the generating method for the kinematic/dynamic
+          model of the assembly.
         """
         by_id = db.by_id
-        assembly = cls(db)
+        assembly = cls(db, **model_generation_kwargs)
         for i, module_id in enumerate(module_chain):
             if i == 0:
                 assembly._add_module(module_id, set_base=True)
