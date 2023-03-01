@@ -11,7 +11,7 @@ import math
 from pathlib import Path
 import random
 import re
-from typing import Callable, Collection, Dict, Iterable, List, Optional, Set, Tuple, Union
+from typing import Any, Callable, Collection, Dict, Iterable, List, Optional, Set, Tuple, Union
 import uuid
 import warnings
 import xml.etree.ElementTree as ET
@@ -354,20 +354,25 @@ class ModulesDB(SingleSet, JSONable_mixin):
     connection_type = Tuple[ModuleBase, Connector, ModuleBase, Connector]  # More specific than in Assembly!
     _name: Optional[str]  # Optional name of the database, i.e. for referencing them in the CoBRA API
     _package_dir: Optional[Path]  # Optional package directory relative to which mesh file paths are defined
+    _model_generation_kwargs: dict[str, Any]  # Default arguments to create a robot model from this ModulesDB with
 
-    def __init__(self, *modules: Iterable[ModuleBase], name: Optional[str] = None, package_dir: Optional[Path] = None):
+    def __init__(self, *modules: Iterable[ModuleBase], name: Optional[str] = None, package_dir: Optional[Path] = None,
+                 **model_generation_kwargs):
         """
         Initializes the database from any number of modules.
 
         :param modules: Any iterable over modules to be within the database
         :param name: Optional name of the database, i.e. for referencing them in the CoBRA API
         :param package_dir: Optional package directory relative to which mesh file paths are defined
+        :param model_generation_kwargs: Key-word arguments to pass to the robot model generation; esp. for setting
+          ignore_collisions
 
         :source: Get selected ModulesDBs using the API: https://cobra.cps.cit.tum.de/api/robots
         """
         super().__init__(*modules)
         self._name = name
         self._package_dir = package_dir
+        self._model_generation_kwargs = model_generation_kwargs
 
     def __contains__(self, item: ModuleBase) -> bool:
         """
@@ -449,9 +454,14 @@ class ModulesDB(SingleSet, JSONable_mixin):
         :param name: Referencing name for the database
         :return: A ModulesDB
         """
-        db = cls(package_dir=package_dir, name=name)
+        data = json.loads(json_string)
+        if not isinstance(data, dict):
+            logging.warning("Deprecated modules.json."
+                            "Please update to include properties modules and model_generation_kwargs")
+            data = {"modules": data}
+        db = cls(package_dir=package_dir, name=name, **{k: data[k] for k in data if k != "modules"})
 
-        for module_data in json.loads(json_string):
+        for module_data in data["modules"]:
             db.add(AtomicModule.from_json_data(module_data, package_dir))
         return db
 
@@ -472,13 +482,14 @@ class ModulesDB(SingleSet, JSONable_mixin):
         with Path(save_at).open('w') as savefile:
             savefile.write(content)
 
-    def to_json_string(self) -> str:
+    def to_json_data(self) -> dict[str, list[Any]]:
         """
-        Writes the ModulesDB to a json string.
+        Turn modulesDB into jsonable dict.
 
         :return: The json string
         """
-        return json.dumps([mod.to_json_data() for mod in sorted(self, key=lambda mod: mod.id)], indent=2)
+        return {**self._model_generation_kwargs,
+                "modules": [mod.to_json_data() for mod in sorted(self, key=lambda mod: mod.id)]}
 
     @property
     def all_module_names(self) -> Set[str]:
@@ -535,6 +546,11 @@ class ModulesDB(SingleSet, JSONable_mixin):
         """Returns all modules containing at least one base connector"""
         return self.__class__((mod for mod in self if any(c.type == 'base' for c in mod.available_connectors.values())),
                               package_dir=self._package_dir)
+
+    @property
+    def default_model_generation_kwargs(self):
+        """A default set of model generation kwargs to use with this modules db."""
+        return self._model_generation_kwargs
 
     @property
     def end_effectors(self) -> ModulesDB[ModuleBase]:
@@ -639,7 +655,8 @@ class ModuleAssembly(JSONable_mixin):
         self.db: ModulesDB = database
         self.module_instances: List[ModuleBase] = []
         self.connections: Set[Tuple[ModuleBase, Connector, ModuleBase, Connector]] = set()
-        self._robot_kwargs = dict() if model_generation_kwargs is None else model_generation_kwargs
+        self._robot_kwargs = copy.copy(database.default_model_generation_kwargs)
+        self._robot_kwargs.update(model_generation_kwargs)
         self._robot: Lazy[Robot.PinRobot] = Lazy(lambda: self.to_pin_robot(**self._robot_kwargs))
 
         self._module_copies: Dict[str, str] = dict()
@@ -799,7 +816,10 @@ class ModuleAssembly(JSONable_mixin):
           model of the assembly.
         """
         by_id = db.by_id
+        if model_generation_kwargs is None:
+            model_generation_kwargs = {}
         assembly = cls(db, **model_generation_kwargs)
+
         for i, module_id in enumerate(module_chain):
             if i == 0:
                 assembly._add_module(module_id, set_base=True)
