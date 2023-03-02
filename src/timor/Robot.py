@@ -773,7 +773,8 @@ class PinRobot(RobotBase):
         :param eef_pose: The desired 4x4 placement of the end effector
         :param q_init: The joint configuration to start with. If not given, will start the iterative optimization at the
             current configuration.
-        :param gain: Gain Matrix K for closed "control" of q. Higher K leads to faster, but instable solutions.
+        :param gain: Gain Matrix K for closed "control" of q. Higher K leads to faster, but instable solutions. This is
+            only used for "transpose" or "pseudo_inverse" methods.
         :param damp: Damping for the damped least squares pseudoinverse method
         :param max_iter: The maximum number of iterations before the algorithm fails.
             (The default value 1000 is very conservative and can often be reduced by orders of magnitude;
@@ -808,9 +809,7 @@ class PinRobot(RobotBase):
             if kind == 'transpose':
                 return J.T
             elif kind == 'pseudo_inverse':
-                return J.T @ np.linalg.inv(J @ J.T)
-            elif kind == 'damped_ls_inverse':
-                return J.T.dot(np.linalg.inv(J.dot(J.T) + damp ** 2 * np.eye(J.shape[0], dtype=float)))
+                return np.linalg.pinv(J)
             else:
                 raise ValueError("Unknown argument, kind={}".format(kind))
 
@@ -825,14 +824,17 @@ class PinRobot(RobotBase):
             if (abs_translational_distance > closest_translation.distance) and self.q_in_joint_limits(q) and \
                     not self.has_self_collision(q):
                 closest_translation = IntermediateIkResult(q, abs_translational_distance)
+            J = pin.computeJointJacobian(self.model, self.data, q, joint_idx_pin)
             try:
-                J = pin.computeJointJacobian(self.model, self.data, q, joint_idx_pin)
-                J_inv = inv(J)  # Analytical Jacobian "pseudo inverse" (or transpose)
+                if kind == 'damped_ls_inverse':
+                    q_dot = np.linalg.lstsq(J, error_twist, rcond=damp)[0]  # Damped least squares
+                else:
+                    J_inv = inv(J)  # Analytical Jacobian "pseudo inverse" (or transpose)
+                    q_dot = J_inv.dot(gain).dot(error_twist)
             except np.linalg.LinAlgError:
                 logging.debug(f"Jacobian ik break due to singularity after {i} iter for q={q}. Trying again.")
                 kwargs['closest_translation_q'] = closest_translation
                 return self.ik_jacobian(eef_pose, self.random_configuration(), gain, damp, max_iter - i, kind, **kwargs)
-            q_dot = J_inv.dot(gain).dot(error_twist)
             q = pin.integrate(self.model, q, q_dot)
             # Python modolo defaults to positive values, but we want to preserve q sign
             sign_preserve = np.ones_like(q) * 2 * np.pi
