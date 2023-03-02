@@ -179,7 +179,9 @@ class SerializationTests(unittest.TestCase):
         self.assets = file_locations.get_test_tasks()["asset_dir"]
         self.task_files = file_locations.get_test_tasks()['task_files']
         panda_loc = file_locations.robots['panda']
-        self.robot = Robot.PinRobot.from_urdf(panda_loc.joinpath('urdf').joinpath('panda.urdf'), panda_loc.parent)
+        self.panda_urdf = panda_loc.joinpath('urdf').joinpath('panda.urdf')
+        self.panda_assets = panda_loc.parent
+        self.robot = Robot.PinRobot.from_urdf(self.panda_urdf, self.panda_assets)
 
         # Set up some Obstacles
         random_homogeneous = Transformation.random()
@@ -449,6 +451,23 @@ class SerializationTests(unittest.TestCase):
         self.assertTrue(robot_io_equal(modular_complex, fresh_robot))
         self.assertLess(pin_geometry_models_functionally_equal(modular_complex, fresh_robot, iterations=1000), 0.01)
         self.assertTrue(pin_geometry_models_structurally_equal(modular_complex.visual, fresh_robot.visual))
+
+    def test_urdf2json(self):
+        assembly = ModuleAssembly.from_monolithic_robot(self.robot, self.panda_urdf)
+        db_data = assembly.db.to_json_data()
+        reconstructed_db = ModulesDB.from_json_data(db_data, self.panda_assets, "panda")
+        assembly_from_json = ModuleAssembly.from_serial_modules(reconstructed_db, ("panda",))
+        with tempfile.NamedTemporaryFile() as f:
+            assembly.to_urdf(write_to=Path(f.name))
+            f.flush()
+            assembly_from_urdf = ModuleAssembly.from_monolithic_robot(
+                Robot.PinRobot.from_urdf(Path(f.name), self.panda_assets))
+
+        for recreated_assembly in (assembly_from_json, assembly_from_urdf):
+            self.assertTrue(pin_models_functionally_equal(self.robot.model, recreated_assembly.robot.model))
+            self.assertTrue(robot_io_equal(self.robot, recreated_assembly.robot))
+            self.assertTrue(pin_geometry_models_structurally_equal(self.robot.visual, recreated_assembly.robot.visual))
+            self.assertLess(pin_geometry_models_functionally_equal(self.robot, recreated_assembly.robot, 1000), 0.01)
 
 
 if __name__ == '__main__':
