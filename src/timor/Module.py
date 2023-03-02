@@ -454,7 +454,18 @@ class ModulesDB(SingleSet, JSONable_mixin):
         :param name: Referencing name for the database
         :return: A ModulesDB
         """
-        data = json.loads(json_string)
+        return cls.from_json_data(json.loads(json_string), package_dir, name)
+
+    @classmethod
+    def from_json_data(cls, data: Iterable[dict], package_dir: Path, name: Optional[str] = None) -> ModulesDB:
+        """
+        Loads a modules Database from a json string.
+
+        :param data: Set of dicts describing the individual modules in the DB.
+        :param package_dir: Package directory relative to which mesh file paths are defined
+        :param name: Referencing name for the database
+        :return: A ModulesDB
+        """
         if not isinstance(data, dict):
             logging.warning("Deprecated modules.json."
                             "Please update to include properties modules and model_generation_kwargs")
@@ -486,7 +497,7 @@ class ModulesDB(SingleSet, JSONable_mixin):
         """
         Turn modulesDB into jsonable dict.
 
-        :return: The json string
+        :return: The jsonable data.
         """
         return {**self._model_generation_kwargs,
                 "modules": [mod.to_json_data() for mod in sorted(self, key=lambda mod: mod.id)]}
@@ -725,7 +736,7 @@ class ModuleAssembly(JSONable_mixin):
             self._base_connector = base_connector
 
     @classmethod
-    def from_monolithic_robot(cls, robot: Robot.PinRobot) -> ModuleAssembly:
+    def from_monolithic_robot(cls, robot: Robot.PinRobot, urdf: Optional[Path] = None) -> ModuleAssembly:
         """
         Wraps a kinematic/dynamic robot model into a single module which will be the full assembly.
 
@@ -734,12 +745,17 @@ class ModuleAssembly(JSONable_mixin):
         returned by this method will as well.
 
         :param robot: A pinocchio robot model to be wrapped in an assembly.
+        :param urdf: Optional urdf to try to reconstruct mesh file paths with.
+
         :returns: A module assembly consisting of exactly one module: The robot given as input.
         """
         child_bodies = dict()
         joints = set()
         zero_inertia = pin.Inertia()
         zero_inertia.setZero()
+
+        if urdf is not None:
+            urdf = ET.parse(urdf)
 
         # First, parse the geometries and add them to fresh bodies
         if len(robot.collision.geometryObjects) != len(robot.visual.geometryObjects):
@@ -755,6 +771,38 @@ class ModuleAssembly(JSONable_mixin):
                 child_bodies[collision.parentJoint]._visual = \
                     ComposedGeometry((child_bodies[collision.parentJoint].visual, vg))
                 continue
+
+            def find_unique_child(tree, search_term):
+                candidates = tree.findall(search_term)
+                if len(candidates) != 1:
+                    raise IndexError(f"Search term \"{search_term}\" not unique: {candidates}")
+                return candidates[0]
+
+            if urdf is not None:
+                if not collision.name[-2:] == "_0":  # Pinocchio adds index if multiple visual / collision tags per link
+                    raise ValueError("Can only use URDF if there is a single collision geometry")
+
+                link_name_urdf = collision.name[:-2]
+                link_candidate = find_unique_child(urdf, f".//link[@name='{link_name_urdf}']")
+
+                if isinstance(vg, Geometry.Mesh):
+                    visual_candidate = find_unique_child(link_candidate, "visual/geometry")
+                    try:
+                        visual_mesh_candidate = find_unique_child(visual_candidate, "mesh")
+                    except IndexError:
+                        raise ValueError(f"No unique mesh found for visual geometry {vg}.")
+                    if "filename" in visual_mesh_candidate.attrib:
+                        vg._filepath = visual_mesh_candidate.attrib["filename"].replace("package://", "")
+
+                if isinstance(cg, Geometry.Mesh):
+                    collision_candidate = find_unique_child(link_candidate, "collision/geometry")
+                    try:
+                        collision_mesh_candidate = find_unique_child(collision_candidate, "mesh")
+                    except IndexError:
+                        raise ValueError(f"No unique mesh found for collision geometry {cg}.")
+                    if "filename" in collision_mesh_candidate.attrib:
+                        cg._filepath = collision_mesh_candidate.attrib["filename"].replace("package://", "")
+
             inertia = robot.model.inertias[collision.parentJoint]
             child_bodies[collision.parentJoint] = Body(body_id=collision.name, collision=cg, visual=vg, inertia=inertia)
 
@@ -1250,6 +1298,8 @@ class ModuleAssembly(JSONable_mixin):
         joints = []
 
         transforms = {self.base_connector.id: spatial.rotX(np.pi)}
+        # self.connections contains (module, connector, module, connector)
+        connected_connetors_ids = set(c.id for cs in self.connections for c in cs[1::2])
         for node, successors in nx.bfs_successors(G, self.base_connector):
             for successor in successors:
                 transform = (transforms[node.id] @ edges[node, successor]['transform'].homogeneous).round(14)
@@ -1311,6 +1361,19 @@ class ModuleAssembly(JSONable_mixin):
                         ET.SubElement(joint, 'child', {'link': '.'.join(successor.parent.id)})
                         joints.append(joint)
                         transforms[successor.id] = Transformation.neutral().homogeneous
+                    # Capture offset eef last body
+                    elif isinstance(node, Body) and successor.id not in connected_connetors_ids:
+                        joint = ET.Element('joint', {'name': '.'.join(successor.id),
+                                                     'type': 'fixed'})
+                        eef_link = ET.Element('link', {'name': '.'.join(successor.id + ("body",))})
+                        ET.SubElement(joint, 'origin', {'xyz': ' '.join(map(str, transform[:3, 3])),
+                                                        'rpy': ' '.join(map(str, spatial.mat2euler(transform[:3, :3])))
+                                                        })
+                        ET.SubElement(joint, 'parent', {'link': '.'.join(node.id)})
+                        ET.SubElement(joint, 'child', {'link': '.'.join(successor.id + ("body",))})
+                        joints.append(joint)
+                        links.append(eef_link)
+
                 elif isinstance(successor, Joint) and successor.type is TimorJointType.fixed:
                     assert False, "Did not think about that yet"
                 else:
