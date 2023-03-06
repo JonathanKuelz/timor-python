@@ -10,6 +10,15 @@ from timor.utilities.json_serialization_formatting import compress_json_vectors
 class JSONable_mixin:
     """JSONable_mixin is a mixin for any class that can be serialized with a json string."""
 
+    def __getstate__(self):
+        """Return objects which will be pickled and saved."""
+        return self.to_json_data()
+
+    def __setstate__(self, state):
+        """Take object from parameter and use it to retrieve class state."""
+        cpy = self.__class__.from_json_data(state)
+        self.__dict__ = cpy.__dict__
+
     @classmethod
     def from_json_data(cls, d: Dict, *args, **kwargs):
         """Create from a json description."""
