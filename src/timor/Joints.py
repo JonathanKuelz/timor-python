@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 # Author: Jonathan Külz
 # Date: 17.02.22
+from __future__ import annotations
+
 from enum import Enum
 import inspect
 import json
@@ -115,7 +117,7 @@ class Joint(JSONable_mixin):
         return f"Joint: {self.id}"
 
     @classmethod
-    def from_json_data(cls, d: Dict, body_id_to_instance: Dict = None) -> 'Joint':
+    def from_json_data(cls, d: Dict, body_id_to_instance: Dict) -> Joint:
         """
         Maps the serialized json description to an instance of this class.
 
@@ -123,11 +125,8 @@ class Joint(JSONable_mixin):
         :param body_id_to_instance: A mapping from body IDs to the python instance of this body
         :return: An instantiated joint
         """
-        parent = d['parent']
-        child = d['child']
-        if body_id_to_instance is not None:
-            parent = body_id_to_instance[str(parent)]
-            child = body_id_to_instance[str(child)]
+        parent = body_id_to_instance[str(d['parent'])]
+        child = body_id_to_instance[str(d['child'])]
 
         if d.get('passive', False) in (True, 'True', 'true'):
             raise NotImplementedError("Passive joints not yet implemented")
@@ -255,6 +254,17 @@ class Joint(JSONable_mixin):
             raise TypeError("Pinocchio does not have fixed joints. They are represented as frames")
         elif (self.type is TimorJointType.revolute_passive) or (self.type is TimorJointType.prismatic_passive):
             raise TypeError("Pinocchio does not have passive joints. They are represented as frames")
+
+    def __getstate__(self):
+        """Returns the state of this object as a dictionary"""
+        state = self.to_json_data()
+        state['body_id_to_instance'] = {body._id: body for body in (self.parent_body, self.child_body)}
+        return state
+
+    def __setstate__(self, state):
+        """Sets the state of this object from a dictionary"""
+        cpy = self.__class__.from_json_data(state, state.pop('body_id_to_instance'))
+        self.__dict__ = cpy.__dict__
 
 
 class JointSet(SingleSet):

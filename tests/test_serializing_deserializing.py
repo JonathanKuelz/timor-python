@@ -281,6 +281,7 @@ class SerializationTests(unittest.TestCase):
 
         for constraint in self.constraints:
             as_json = json.dumps(constraint.to_json_data())
+
             new = Constraints.ConstraintBase.from_json_data(json.loads(as_json))
             # Also ensure 1-time readable Iterators are parsed
             from_string = Constraints.ConstraintBase.from_json_string(constraint.to_json_string())
@@ -324,6 +325,7 @@ class SerializationTests(unittest.TestCase):
 
         solution_dict = solution.to_json_data()
         self.assertIsNotNone(json.dumps(solution_dict))
+        self.assertIsNotNone(pickle.dumps(solution_dict))
         _, validator = get_schema_validator(schema_dir.joinpath("SolutionSchema.json"))
         # make sure is storable
         with tempfile.NamedTemporaryFile(mode="w+") as t:
@@ -376,21 +378,31 @@ class SerializationTests(unittest.TestCase):
         for obstacle in self.obstacles:
             as_json = json.dumps(obstacle.to_json_data())
             from_json = json.loads(as_json)
-            new = Obstacle.Obstacle.from_json_data(dict(
+            as_pickle = pickle.dumps(obstacle.to_json_data())
+            from_pickle = pickle.loads(as_pickle)
+            new_json = Obstacle.Obstacle.from_json_data(dict(
                 collision=from_json['collision'],
                 package_dir=package_dir,
                 ID=from_json['ID'],
                 name=from_json['name']))
+            new_pickle = Obstacle.Obstacle.from_json_data(dict(
+                collision=from_pickle['collision'],
+                package_dir=package_dir,
+                ID=from_pickle['ID'],
+                name=from_pickle['name']))
             new_from_string = Obstacle.Obstacle.from_json_string(obstacle.to_json_string())
-            self.assertIs(type(new), type(obstacle))
+            self.assertIs(type(new_json), type(obstacle))
+            self.assertIs(type(new_pickle), type(obstacle))
             self.assertIs(type(new_from_string), type(obstacle))
-            new_dict = new.__dict__.copy()
+            new_dict_json = new_json.__dict__.copy()
+            new_dict_pickle = new_pickle.__dict__.copy()
             newfs_dict = new_from_string.__dict__.copy()
             comp_dict = obstacle.__dict__.copy()
             for key in comp_dict:
                 if key in ('_children', 'collision'):
                     continue
-                np_test.assert_array_equal(new_dict[key], comp_dict[key])
+                np_test.assert_array_equal(new_dict_json[key], comp_dict[key])
+                np_test.assert_array_equal(new_dict_pickle[key], comp_dict[key])
                 np_test.assert_array_equal(newfs_dict[key], comp_dict[key])
 
     def test_serial_module_assembly(self):
@@ -407,15 +419,26 @@ class SerializationTests(unittest.TestCase):
         for tolerance in self.tolerances:
             as_json = json.dumps(tolerance.to_projection())
             from_json = json.loads(as_json)
-            new = Tolerance.AlwaysValidTolerance()
+            as_pickle = pickle.dumps(tolerance.to_projection())
+            from_pickle = pickle.loads(as_pickle)
+            new_json = Tolerance.AlwaysValidTolerance()
+            new_pickle = Tolerance.AlwaysValidTolerance()
             for proj, val in zip(from_json['toleranceProjection'], from_json['tolerance']):
-                new = new + Tolerance.ToleranceBase.from_projection(proj, val)
-            self.assertIs(type(new), type(tolerance))
+                new_json = new_json + Tolerance.ToleranceBase.from_projection(proj, val)
+            self.assertIs(type(new_json), type(tolerance))
             for key in tolerance.__dict__:
                 if isinstance(tolerance.__dict__[key], np.ndarray):
-                    np_test.assert_array_equal(new.__dict__[key], tolerance.__dict__[key])
+                    np_test.assert_array_equal(new_json.__dict__[key], tolerance.__dict__[key])
                 else:
-                    self.assertEqual(new.__dict__[key], tolerance.__dict__[key])
+                    self.assertEqual(new_json.__dict__[key], tolerance.__dict__[key])
+            for proj, val in zip(from_pickle['toleranceProjection'], from_pickle['tolerance']):
+                new_pickle = new_pickle + Tolerance.ToleranceBase.from_projection(proj, val)
+            self.assertIs(type(new_pickle), type(tolerance))
+            for key in tolerance.__dict__:
+                if isinstance(tolerance.__dict__[key], np.ndarray):
+                    np_test.assert_array_equal(new_pickle.__dict__[key], tolerance.__dict__[key])
+                else:
+                    self.assertEqual(new_pickle.__dict__[key], tolerance.__dict__[key])
 
     def test_wrap_monolithic_robot(self):
         panda = self.robot

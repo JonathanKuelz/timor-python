@@ -175,6 +175,14 @@ class ParameterizableBody(BodyBase, abc.ABC):
         return self.__class__(self._id, self.parameters, self.parameter_limits, self.mass_density, in_module=None,
                               connectors=[copy.copy(con) for con in self.connectors])
 
+    def __getstate__(self):
+        """For parameterized bodies, we can rely on the python builtin actually"""
+        return self.__dict__
+
+    def __setstate__(self, state):
+        """For parameterized bodies, we can rely on the python builtin actually"""
+        self.__dict__ = state
+
 
 class ParameterizableSphereBody(ParameterizableBody):
     """A module body composed of a sphere with a parameterizable radius"""
@@ -484,6 +492,14 @@ class ParameterizableModule(ModuleBase, abc.ABC):
     def __copy__(self):
         """Deactivates the builtin copy method."""
         super().__copy__()
+
+    def __getstate__(self):
+        """For a parameterizable module, we can rely on the default pickling."""
+        return self.__dict__
+
+    def __setstate__(self, state):
+        """For a parameterizable module, we can rely on the default pickling."""
+        self.__dict__.update(state)
 
 
 class ParameterizedCylinderLink(ParameterizableModule):
