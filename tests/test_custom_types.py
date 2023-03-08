@@ -68,7 +68,7 @@ class CustomTypeUnitTests(unittest.TestCase):
         class TestHeader(TypedHeader):
             name: str
             number: int = 2
-            date: datetime.datetime = datetime.datetime(1970, 1, 1)
+            date: datetime.date = datetime.date.today()
 
         header = TestHeader(name='test')
         with self.assertRaises(TypeError):
@@ -76,7 +76,7 @@ class CustomTypeUnitTests(unittest.TestCase):
         with self.assertRaises(TypeError):
             header.__delattr__('name')
 
-        header = TestHeader(name=666)
+        header = TestHeader(name=666, date=datetime.date(1970, 1, 1))
         self.assertIsInstance(header.name, str)
         self.assertEqual(header.name, '666')
 

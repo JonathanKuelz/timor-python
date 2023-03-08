@@ -71,8 +71,14 @@ class Trajectory(JSONable_mixin):
                     steps = self.pose.shape[0]
                 else:
                     raise ValueError("Cannot use sample size with neither q nor pose given.")
-                if steps > 1:
+                if steps == 0:
+                    self.t = np.zeros((0,), dtype=float)
+                elif steps == 1:
+                    self.t = np.array([self.t], dtype=float).reshape((1,))
+                elif steps > 1:
                     self.t = np.arange(steps, dtype=float) * self.t
+                else:
+                    raise ValueError("Unsupported number of steps for a Trajectory: " + str(steps))
             else:
                 if np.any(self.t[1:] - self.t[:-1] <= 0.):
                     raise ValueError("Expect time to be strictly increasing.")
@@ -121,15 +127,20 @@ class Trajectory(JSONable_mixin):
         if self._allowed_deviation_in_time < 0.:
             raise ValueError("Allowed Deviation in time should be >= 0. seconds")
 
-    @staticmethod
-    def from_json_data(d: Dict, **kwargs) -> Trajectory:
+    @classmethod
+    def empty(cls) -> Trajectory:
+        """Create and return an empty, timed, q-based trajectory"""
+        return cls(t=np.zeros((0,)), q=np.zeros((0, 0)))
+
+    @classmethod
+    def from_json_data(cls, d: Dict, **kwargs) -> Trajectory:
         """Load from dict"""
         if "pose" in d:
             d["pose"] = np.asarray(tuple(ToleratedPose.from_json_data(P) for P in d.pop("pose")))
-        return Trajectory(**d)
+        return cls(**d)
 
-    @staticmethod
-    def from_mstraj(via_points: np.array, dt: float, t_acc: float, qd_max: float, **kwargs) -> Trajectory:
+    @classmethod
+    def from_mstraj(cls, via_points: np.array, dt: float, t_acc: float, qd_max: float, **kwargs) -> Trajectory:
         """
         Create multi-segment multi-axis trajectory.
 
@@ -143,10 +154,10 @@ class Trajectory(JSONable_mixin):
         """
         traj = mstraj(via_points, dt, t_acc, qd_max, **kwargs)
 
-        return Trajectory(t=traj.t, q=traj.q, goal2time={})
+        return cls(t=traj.t, q=traj.q, goal2time={})
 
-    @staticmethod
-    def stationary(time: float, *, q: np.array = None, pose: ToleratedPose = None) -> Trajectory:
+    @classmethod
+    def stationary(cls, time: float, *, q: np.array = None, pose: ToleratedPose = None) -> Trajectory:
         """
         Create a trajectory that stays in place for time seconds.
 
@@ -164,9 +175,9 @@ class Trajectory(JSONable_mixin):
             q = np.tile(q, (2, 1))
             dq = np.zeros_like(q)
             ddq = np.zeros_like(q)
-            return Trajectory(t=t, q=q, dq=dq, ddq=ddq, goal2time={})
+            return cls(t=t, q=q, dq=dq, ddq=ddq, goal2time={})
         else:
-            return Trajectory(t=t, pose=np.asarray((pose, pose)))
+            return cls(t=t, pose=np.asarray((pose, pose)))
 
     @property
     def dq(self) -> np.ndarray:

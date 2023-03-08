@@ -191,8 +191,8 @@ class TypedHeader:
     @staticmethod
     def cast(value: Any, cast_to_type: Type) -> Any:
         """Casts the value to the dtype"""
-        if cast_to_type is datetime.datetime:
-            return TypedHeader.cast_to_datetime(value)
+        if cast_to_type is datetime.datetime or cast_to_type is datetime.date:
+            return TypedHeader.cast_to_date(value)
         try:
             return cast_to_type(value)
         except TypeError:
@@ -200,13 +200,15 @@ class TypedHeader:
             return value
 
     @staticmethod
-    def cast_to_datetime(value: Union[str, datetime.datetime]) -> datetime.datetime:
-        """Casts the value to a datetime.datetime object"""
-        if isinstance(value, datetime.datetime):
+    def cast_to_date(value: Union[str, datetime.date, datetime.datetime]) -> datetime.date:
+        """Casts the value to a datetime.date object"""
+        if isinstance(value, datetime.date):
             return value
+        if isinstance(value, datetime.datetime):
+            return value.date()
         if isinstance(value, str):
             value = re.sub('/', '-', value)  # Allows parsing yyyy/mm/dd formatted dates
-            return datetime.datetime.strptime(value, DEFAULT_DATE_FORMAT)
+            return datetime.datetime.strptime(value, DEFAULT_DATE_FORMAT).date()
         raise TypeError(f"Cannot cast {value} to datetime.datetime")
 
     @staticmethod

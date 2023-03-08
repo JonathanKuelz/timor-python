@@ -78,7 +78,9 @@ class TestTrajectoryClasses(unittest.TestCase):
         with self.assertRaises(ValueError):  # _allowed_deviation_in_time > 0!
             traj_with_lazy_dq = Trajectory(t=t, q=q, _allowed_deviation_in_time=-1e-5)
 
-        empty = Trajectory(t=[], q=[], goal2time={})
+        empty = Trajectory.empty()
+        self.assertEqual(empty, empty)
+        self.assertEqual(empty, empty + empty)
         self.assertEqual(traj_with_lazy_dq, traj_with_lazy_dq + empty)
         self.assertEqual(traj_with_lazy_dq, empty + traj_with_lazy_dq)
 

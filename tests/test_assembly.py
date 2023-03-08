@@ -117,8 +117,7 @@ class TestModuleAssembly(unittest.TestCase):
 
     def test_robot_property(self):
         assembly = ModuleAssembly(self.db)
-        with self.assertRaises(ValueError):
-            empty_robot = assembly.robot
+        empty_robot = assembly.robot
         for _ in range(3):
             assembly.add_random_from_db(lambda module: module not in self.db.end_effectors)
         t0 = time.time()

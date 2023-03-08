@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 # Author: Jonathan Külz
 # Date: 17.01.22
+from __future__ import annotations
+
 from copy import deepcopy
 from dataclasses import dataclass, field
 import datetime
@@ -8,6 +10,7 @@ import itertools
 import json
 from pathlib import Path
 from typing import Collection, Dict, Iterable, List, Optional, Sequence, Tuple, Union
+import uuid
 import warnings
 
 from hppfcl import hppfcl
@@ -32,15 +35,20 @@ class TaskHeader(TypedHeader):
     """The header every task contains"""
 
     ID: str
-    version: str = "2022"
+    version: str = "2023"
     taskName: str = ""
     tags: List = field(default_factory=list)
-    date: datetime.datetime = datetime.datetime(1970, 1, 1)
+    date: datetime.date = datetime.date.today()
     timeStepSize: float = .01  # 10ms
     gravity: np.ndarray = field(default_factory=GRAVITY.copy)
     author: List[str] = TypedHeader.string_list_factory()
     email: List[str] = TypedHeader.string_list_factory()
     affiliation: List[str] = TypedHeader.string_list_factory()
+
+    @classmethod
+    def empty(cls) -> TaskHeader:
+        """Returns an empty task header"""
+        return cls(ID=f'tmp_{uuid.uuid4()}')
 
 
 class Task(JSONable_mixin):
@@ -124,6 +132,11 @@ class Task(JSONable_mixin):
     def from_srf_file(filepath: Path):
         """Future Work"""
         raise NotImplementedError()  # TODO
+
+    @classmethod
+    def empty(cls) -> Task:
+        """Returns an empty task with an empty header"""
+        return cls(header=TaskHeader.empty())
 
     def add_obstacle(self, obstacle: Obstacle):
         """
