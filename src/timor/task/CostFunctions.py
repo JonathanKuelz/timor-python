@@ -97,6 +97,11 @@ class CostFunctionBase(abc.ABC):
             return costs[0]
         return ComposedCost(*costs)
 
+    @classmethod
+    def empty(cls) -> ComposedCost:
+        """Return an empty cost function"""
+        return ComposedCost(weight=0)
+
     def descriptor(self, scale: float = 1.) -> str:
         """
         Creates a string describing this cost function which can be used for serialization.

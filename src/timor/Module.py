@@ -41,7 +41,7 @@ class ModuleHeader(TypedHeader):
 
     ID: str
     name: str
-    date: datetime.datetime = datetime.datetime(1970, 1, 1)
+    date: datetime.date = datetime.date.today()
     author: List[str] = TypedHeader.string_list_factory()
     email: List[str] = TypedHeader.string_list_factory()
     affiliation: List[str] = TypedHeader.string_list_factory()
@@ -736,6 +736,12 @@ class ModuleAssembly(JSONable_mixin):
             self._base_connector = base_connector
 
     @classmethod
+    def empty(cls):
+        """Creates an empty assembly built from an emtpy database"""
+        db = ModulesDB()
+        return cls(db)
+
+    @classmethod
     def from_monolithic_robot(cls, robot: Robot.PinRobot, urdf: Optional[Path] = None) -> ModuleAssembly:
         """
         Wraps a kinematic/dynamic robot model into a single module which will be the full assembly.
@@ -843,7 +849,7 @@ class ModuleAssembly(JSONable_mixin):
         # Finally, set the base connector and create the module
         base_connector = Connector('base', spatial.rotX(-np.pi), parent=child_bodies[0], connector_type='base')
         child_bodies[0].connectors.add(base_connector)
-        module = AtomicModule(header=ModuleHeader(robot.name, robot.name, datetime.datetime.now()),
+        module = AtomicModule(header=ModuleHeader(robot.name, robot.name, datetime.date.today()),
                               bodies=child_bodies.values(),
                               joints=joints)
 
@@ -1165,13 +1171,14 @@ class ModuleAssembly(JSONable_mixin):
 
         :return: pinocchio robot for this assembly
         """
+        robot = Robot.PinRobot(wrapper=pin.RobotWrapper(pin.Model()))
         if len(self.module_instances) == 0:
-            raise ValueError("Cannot create a robot model from an empty assembly!")
+            logging.info("You created an empty robot from an assembly without modules.")
+            return robot
         if ignore_collisions not in ['rigid', 'via_joint', 'rigid_via_joint']:
             raise ValueError("Invalid collision mode: " + ignore_collisions)
         G = self.assembly_graph
         edges = G.edges
-        robot = Robot.PinRobot(wrapper=pin.RobotWrapper(pin.Model()))
         body_collision_geometries = dict()
 
         parent_joints = {'universe': 0, self.base_connector.id: 0}

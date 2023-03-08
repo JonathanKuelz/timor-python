@@ -39,10 +39,8 @@ class TestModulesDB(unittest.TestCase):
         minimum_header = ModuleHeader('id', 'name')
         mod = AtomicModule(minimum_header)  # Header required
         mod = AtomicModule.from_json_data({'header': minimum_header.asdict()}, Path())
-        db = ModulesDB()
-        assembly = ModuleAssembly(db)
-        with self.assertRaises(ValueError):
-            robot = assembly.to_pin_robot()  # An empty robot is not possible
+        assembly = ModuleAssembly.empty()
+        robot = assembly.to_pin_robot()
         with self.assertRaises(LookupError):
             assembly.add_random_from_db()  # The db is empty
 

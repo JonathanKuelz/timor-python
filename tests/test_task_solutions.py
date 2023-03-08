@@ -253,7 +253,6 @@ class TestSolution(unittest.TestCase):
         pause_goal = Goals.Pause(ID='pause', duration=pause_duration,
                                  constraints=[Constraints.JointAngles(robot.joint_limits)])
 
-        Solution.SolutionBase.t_resolution = float('inf')  # Monkey patch to being able testing invalid solutions
         for _ in range(10):
             bad_trajectory = Trajectory(t=dt, q=np.random.random(q_array_shape))
             t_start = random.choice(tuple(bad_trajectory.t[bad_trajectory.t < max(bad_trajectory.t) - pause_duration]))
@@ -505,6 +504,13 @@ class TestSolution(unittest.TestCase):
         q2 = pin.randomConfiguration(robot.model)
         viz = None
         color_viz = None
+
+        empty_task = Task.Task.empty()
+        empty_solution = Solution.SolutionTrajectory.empty()
+        empty_viz = empty_task.visualize()
+        empty_viz = empty_task.visualize(empty_viz, robots=robot)
+        empty_solution.visualize(empty_viz)
+
         for description in self.task_files:
             robot.update_configuration(q0)
             task = Task.Task.from_json_file(description, self.asset_dir)

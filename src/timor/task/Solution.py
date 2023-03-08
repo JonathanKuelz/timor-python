@@ -6,6 +6,7 @@ import datetime
 import json
 from pathlib import Path
 from typing import Dict, List, Tuple, Union
+import uuid
 
 import jsonschema.exceptions
 import numpy as np
@@ -15,6 +16,7 @@ import scipy.interpolate
 from timor.Module import ModuleAssembly
 from timor.Robot import RobotBase
 from timor.task import Constraints, CostFunctions, Goals, Task
+from timor.utilities import logging
 from timor.utilities.dtypes import Lazy, TypedHeader, fuzzy_dict_key_matching, map2path  # noqa: F401
 from timor.utilities.errors import TimeNotFoundError
 from timor.utilities.file_locations import schema_dir
@@ -31,14 +33,19 @@ class SolutionHeader(TypedHeader):
     """The header every solution contains"""
 
     taskID: str  # This is NOT the Solution ID, but identifies the task the solution was crafted for!
-    version: str = "2022"
+    version: str = "2023"
     author: List[str] = field(default_factory=lambda: [''])
     email: List[str] = field(default_factory=lambda: [''])
     affiliation: List[str] = field(default_factory=lambda: [''])
     publication: str = ''
-    date: datetime.datetime = datetime.datetime(1970, 1, 1)
+    date: datetime.date = datetime.date.today()
     computationTime: float = -1.
     processorName: str = ''
+
+    @classmethod
+    def empty(cls) -> SolutionHeader:
+        """Creates an empty solution header with a random taskID"""
+        return cls(taskID=f'tmp_{uuid.uuid4()}')
 
 
 class SolutionBase(abc.ABC, JSONable_mixin):
@@ -73,6 +80,11 @@ class SolutionBase(abc.ABC, JSONable_mixin):
     def __str__(self):
         """String representation of the solution"""
         return f"Solution for task {self.header.taskID}"
+
+    @classmethod
+    @abc.abstractmethod
+    def empty(cls) -> SolutionBase:
+        """Create an empty solution"""
 
     @staticmethod
     def from_json_file(json_path: Union[Path, str], package_dir: Path, tasks: Dict[str, Task.Task]) -> SolutionBase:
@@ -257,6 +269,10 @@ class SolutionBase(abc.ABC, JSONable_mixin):
                   fps: float = 30.) \
             -> pin.visualize.MeshcatVisualizer:
         """Visualize a solution trajectory"""
+        if self.q.size == 0:
+            logging.warning("You tried to visualize a solution with an empty trajectory. Aborting.")
+            return viz
+
         if viz is None:
             viz = MeshcatVisualizerWithAnimation()
             viz.initViewer()
@@ -269,8 +285,12 @@ class SolutionBase(abc.ABC, JSONable_mixin):
             goal.visualize(viz)
 
         # resample to capture statics better
-        q_new = scipy.interpolate.interp1d(
-            self.time_steps, self.q, axis=0)(np.arange(self.time_steps[0], self.time_steps[-1], 1 / fps))
+        if (self.time_steps is not None) and (self.time_steps.size > 1) and (self.q.size > 1):
+            q_new = scipy.interpolate.interp1d(self.time_steps, self.q, axis=0)(np.arange(self.time_steps[0],
+                                                                                          self.time_steps[-1], 1 / fps))
+        else:
+            q_new = self.q
+
         animation(self.robot, q_new, 1 / fps, visualizer=viz)
 
         return viz
@@ -300,6 +320,13 @@ class SolutionTrajectory(SolutionBase):
         self.trajectory: Trajectory = trajectory
         self._torques = Lazy(self._get_torques)
         self._link_side_torques = Lazy(lambda: self._get_torques(motor_inertia=False, friction=False))
+
+    @classmethod
+    def empty(cls) -> SolutionTrajectory:
+        """Returns an empty solution with an empty trajectory"""
+        task = Task.Task.empty()
+        header = SolutionHeader(taskID=task.id)
+        return cls(Trajectory.empty(), header, task, ModuleAssembly.empty(), CostFunctions.CostFunctionBase.empty())
 
     def to_json_data(self) -> Dict[str, any]:
         """
