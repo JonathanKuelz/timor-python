@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 import inspect
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple
 
 import meshcat.geometry
 import numpy as np
@@ -24,7 +24,7 @@ class GoalBase(ABC, JSONable_mixin):
     green_material = meshcat.geometry.MeshBasicMaterial(color=0x90ee90)  # for visualization of goals
 
     def __init__(self,
-                 ID: Union[int, str],
+                 ID: str,
                  constraints: List[Constraints.ConstraintBase] = None,
                  ):
         """
@@ -153,7 +153,7 @@ class GoalWithDuration(GoalBase, ABC):
     epsilon: float = 1e-9  # Precision error: Goal is allowed to be epsilon shorter than self.duration
 
     def __init__(self,
-                 ID: Union[int, str],
+                 ID: str,
                  duration: float,
                  constraints: List[Constraints.ConstraintBase] = None
                  ):
@@ -195,7 +195,7 @@ class At(GoalBase):
     """
 
     def __init__(self,
-                 ID: Union[int, str],
+                 ID: str,
                  goalPose: ToleratedPose,
                  constraints: List[Constraints.ConstraintBase] = None,
                  ):
@@ -253,7 +253,7 @@ class Reach(At):
     """A goal that is achieved when the robot is at a certain position for at least one time step at zero velocity"""
 
     def __init__(self,
-                 ID: Union[int, str],
+                 ID: str,
                  goalPose: ToleratedPose,
                  velocity_tolerance: Tolerance.ToleranceBase = Tolerance.Abs6dPoseTolerance.default(),
                  constraints: List[Constraints.ConstraintBase] = None,
@@ -303,7 +303,7 @@ class ReturnTo(GoalBase):
     """This goal is achieved when the robot returns to the state it was in at a previous goal"""
 
     def __init__(self,
-                 ID: Union[int, str],
+                 ID: str,
                  returnToGoal: Optional[str] = None,
                  epsilon: float = 1e-4,
                  constraints: List[Constraints.ConstraintBase] = None
@@ -418,7 +418,7 @@ class Follow(GoalWithDuration):
     """
 
     def __init__(self,
-                 ID: Union[int, str],
+                 ID: str,
                  trajectory: Trajectory,
                  constraints: List[Constraints.ConstraintBase] = None,):
         """
