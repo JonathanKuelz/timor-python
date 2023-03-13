@@ -33,6 +33,10 @@ def get_schema_validator(schema_file: Path) -> Tuple[Dict, jsonschema.Validator]
 
     resolver = jsonschema.RefResolver.from_schema(main_schema, store=schema_store)
 
-    validator = jsonschema.Draft202012Validator(main_schema, resolver=resolver)
+    new_type_checker = jsonschema.Draft202012Validator.TYPE_CHECKER.redefine(
+        "array", lambda _, instance: jsonschema.Draft202012Validator.TYPE_CHECKER.is_type(instance, "array")
+        or isinstance(instance, tuple))  # Allow also tuple as json array
+    validator_with_tuple = jsonschema.validators.extend(jsonschema.Draft202012Validator, type_checker=new_type_checker)
+    validator = validator_with_tuple(main_schema, resolver=resolver)
 
     return main_schema, validator
