@@ -28,10 +28,10 @@ from timor.Joints import Joint, JointSet, TimorJointType
 from timor.utilities import logging, spatial, write_urdf
 from timor.utilities.dtypes import Lazy, SingleSet, TypedHeader, map2path, randomly
 import timor.utilities.errors as err
-from timor.utilities.file_locations import get_module_db_files
+from timor.utilities.file_locations import get_module_db_files, schema_dir
 from timor.utilities.json_serialization_formatting import compress_json_vectors, possibly_nest_as_list
 from timor.utilities.jsonable import JSONable_mixin
-from timor.utilities.schema import DEFAULT_DATE_FORMAT
+from timor.utilities.schema import DEFAULT_DATE_FORMAT, get_schema_validator
 from timor.utilities.transformation import Transformation, TransformationLike
 
 
@@ -466,10 +466,10 @@ class ModulesDB(SingleSet, JSONable_mixin):
         :param name: Referencing name for the database
         :return: A ModulesDB
         """
-        if not isinstance(data, dict):
-            logging.warning("Deprecated modules.json."
-                            "Please update to include properties modules and model_generation_kwargs")
-            data = {"modules": data}
+        _, validator = get_schema_validator(schema_dir.joinpath("ModuleSchema.json"))
+        if not validator.is_valid(data):
+            logging.debug(f"Errors: {tuple(validator.iter_errors(data))}")
+            raise ValueError("modules.json invalid.")
         db = cls(package_dir=package_dir, name=name, **{k: data[k] for k in data if k != "modules"})
 
         for module_data in data["modules"]:
