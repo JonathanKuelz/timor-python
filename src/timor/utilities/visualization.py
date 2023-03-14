@@ -2,7 +2,7 @@
 # Author: Jonathan Külz
 # Date: 03.03.22
 import logging
-from typing import Dict, Union
+from typing import Dict, List, Tuple, Union
 
 import meshcat.animation
 import meshcat.geometry
@@ -169,6 +169,43 @@ def animation(robot: 'Robot.PinRobot', q: np.ndarray, dt: float,  # pragma: no c
 
     viz.viewer.set_animation(anim)
     return viz
+
+
+def center_camera(viewer: meshcat.visualizer.Visualizer,
+                  around: Union[np.ndarray, List[float], Tuple[float, float, float]]):
+    """
+    Centers the camera of the viewer window s.t. it targets the origin (if it is not already centered otherwise).
+
+    It is placed behind the "around" placement, s.t. any object placed there is shown prominently. The camera will, as
+    common in robotics, be placed above the object.
+
+    :param viewer: The viewer to center (e.g. from `MeshcatVisualizer.viewer`)
+    :param around: The point to look at
+    """
+    p = np.asarray(around).squeeze()
+    rotated_transform = spatial.rotX(-np.pi / 2)
+    if p.shape != (3,):
+        raise ValueError("The 'around' point must be a 3D vector.")
+    place_camera = np.eye(4)
+    place_camera[:2, 3] = around[:2] + np.sign(around[:2]) * 1.5
+    place_camera[2, 3] = around[2] + 1.5
+    viewer["/Cameras/default/rotated/<object>"].set_transform(rotated_transform @ place_camera)
+
+
+def clear_visualizer(visualizer: MeshcatVisualizer):
+    """
+    Clears the viewer window, i.e. leaving it open but removing all objects that are typically set.
+
+    Usually, visualizer.clean() alone should be enough, but at some occasions this does not work. This method has been
+    tested to work in all cases so far.
+
+    :param visualizer: The visualizer to clear
+    """
+    visualizer.clean()
+    visualizer.viewer.window.send(meshcat.commands.Delete('visuals'))
+    visualizer.viewer.window.send(meshcat.commands.Delete('collisions'))
+    visualizer.viewer.window.send(meshcat.commands.Delete('meshcat'))
+    center_camera(visualizer.viewer, [1.5, 0, 0])
 
 
 def drawable_coordinate_system(placement: transformation.TransformationLike,

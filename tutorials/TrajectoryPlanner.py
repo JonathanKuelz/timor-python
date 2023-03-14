@@ -1,3 +1,4 @@
+import logging
 from time import time
 from typing import Optional, Tuple
 
@@ -80,8 +81,10 @@ class TrajectoryPlanner:
 
     def _set_base(self):
         """Don't optimize, but just take the center of the possible space the base can be placed into"""
-        if isinstance(self.task.base_constraint, Constraints.BasePlacement):  # No optimization at all
+        try:
             self.robot.set_base_placement(self.task.base_constraint.base_pose.nominal)
+        except AttributeError:
+            logging.debug("No base placement preferred by task")
 
     def _solve(self) -> Optional[Trajectory]:
         """
