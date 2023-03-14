@@ -1163,11 +1163,11 @@ class ModuleAssembly(JSONable_mixin):
             which pairs of bodies of the robot are IGNORED when checking for collisions. All possible collision pairs
             that are not explicitly ignored will be checked for - the following list provides details:
 
-            * all: All bodies can collide as long as they are not rigidly connected
-            * no_neighbors: Two bodies that are directly connected by a joint cannot collide
-            * multi_joint: Only bodies with 2 or more joints in between them can collide - in other words: Any number of
-            body-connector pairs can form a rigid connection. Rigid connections that are directly connected by a joint
-            cannot collide
+            * rigid: All bodies can collide as long as they are not rigidly connected
+            * via_joint: Two bodies that are directly connected by a joint cannot collide
+            * rigid_via_joint: Only bodies with 2 or more joints in between them can collide - in other words: Any
+              number of body-connector pairs can form a rigid connection. Rigid connections that are directly connected
+              by a joint can not collide
 
         :return: pinocchio robot for this assembly
         """
@@ -1253,7 +1253,7 @@ class ModuleAssembly(JSONable_mixin):
             neighbors_to_clean = set()
             for first, second in itertools.combinations(bodies, 2):
                 remove = False
-                paths = tuple(nx.all_simple_paths(G, first, second))
+                paths = tuple(nx.all_simple_paths(G, first, second))  # TODO: This seems to slow down the whole process
                 n_joints = tuple(sum(isinstance(node, Joint) for node in path) for path in paths)
                 if min(n_joints) == 1:  # If n_joints = 0, "collisions" would be ignored anyway
                     if ignore_collisions == 'rigid_via_joint':

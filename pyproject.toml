@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "timor-python"
-description = "Toolbox for Industrial Modular Robot Design"
+description = "Toolbox for Industrial Modular Robots"
 authors = [{ name = "Jonathan Kuelz", email = "jonathan.kuelz@tum.de" }]
 license = {text = "MIT"}
 classifiers = [
@@ -30,16 +30,8 @@ dynamic = ["version", "readme"]
 
 [project.optional-dependencies]
 dev = ["flake8>=5.0", "coverage>=6.3", "pre-commit", "pip-tools", "pytest>=6.0", "setuptools>=61.0.0"]
-full = [
-    "flake8>=5.0",
-    "coverage>=6.3",
-    "pre-commit",
-    "pip-tools",
-    "pytest>=6.0",
-    "setuptools>=61.0.0",
-    "jupyterlab",
-    "trimesh >= 3.18"
-]
+optimization = ["pygad>=2.18.0", "optuna>=3.1", "plotly", "scikit-learn"]
+full = ["flake8>=5.0", "coverage>=6.3", "pre-commit", "pip-tools", "pytest>=6.0", "setuptools>=61.0.0", "jupyterlab", "trimesh >= 3.18", "tqdm"]
 
 [tool.setuptools.dynamic]
 readme = {file = "README.rst"}

@@ -1,4 +1,7 @@
 import re
+from typing import Dict
+
+import numpy as np
 
 """Contains functions to prettify, verify, fix, ... json file in and output."""
 
@@ -16,6 +19,19 @@ def compress_json_vectors(content: str) -> str:
         here = m.start() + 1
 
     return content
+
+
+def numpy2list(d: Dict[str, any]) -> Dict[str, any]:
+    """Converts all numpy arrays in a dictionary to lists and returns the according copy"""
+    ret = {}
+    for key, value in d.items():
+        if isinstance(value, np.ndarray):
+            ret[key] = value.tolist()
+        elif isinstance(value, dict):
+            ret[key] = numpy2list(value)
+        else:
+            ret[key] = value
+    return ret
 
 
 def possibly_nest_as_list(value: any, tuple_ok: bool = True):

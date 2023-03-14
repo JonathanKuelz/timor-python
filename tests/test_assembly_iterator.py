@@ -10,10 +10,10 @@ class AssemblyIteratorTest(unittest.TestCase):
         self.modrob_db = ModulesDB.from_name('PROMODULAR')
 
     def test_liu_iterator(self):
-        modrob_iterator = Science2019(self.modrob_db, max_dof=3, max_links_between_joints=1)
+        modrob_iterator = Science2019(self.modrob_db, min_dof=1, max_dof=3, max_links_between_joints=1)
         lots_of_assemblies = tuple(modrob_iterator)
         assembly_modules = tuple(assembly.internal_module_ids for assembly in lots_of_assemblies)
-        self.assertEqual(len(modrob_iterator), 95418)
+        self.assertEqual(len(modrob_iterator), 100548)
         self.assertEqual(len(lots_of_assemblies), len(modrob_iterator))  # custom len is correct
         self.assertEqual(len(lots_of_assemblies), len(set(assembly_modules)))
 
@@ -45,7 +45,7 @@ class AssemblyIteratorTest(unittest.TestCase):
         not_in_paper = ('L7', 'L10', 'PB22', 'PB24')
         for module_name in not_in_paper:
             schunk_db.remove(schunk_db.by_name[module_name])
-        iterator = Science2019(schunk_db, min_dof=6, max_links_after_last_joint=1)
+        iterator = Science2019(schunk_db, max_dof=6, max_links_after_last_joint=1)
 
         # The possible combination of powerballs is actually hard coded in the paper
         iterator.joint_combinations = (('21', '21', '23'), ('21', '21', '21'))

@@ -56,6 +56,7 @@ class Science2019(AssemblyIterator):
 
     min_dof: int  # The minimum number of degrees of freedom for any assembly
     max_dof: int  # The maximum allowed number of degrees of freedom for any assembly
+    min_links_between_joints: int  # The minimum number of links between two joints in an assembly
     max_links_between_joints: int  # The maximum number of links between two joints in an assembly
     bases: Tuple[AtomicModule]  # All "base modules" available  in the underlying modules DB
     links: Tuple[AtomicModule]  # All "link modules" available  in the underlying modules DB
@@ -81,6 +82,7 @@ class Science2019(AssemblyIterator):
     def __init__(self, db: ModulesDB,
                  min_dof: int = 0,
                  max_dof: int = 6,
+                 min_links_between_joints: int = 0,
                  max_links_between_joints: int = 3,
                  max_links_before_first_joint: int = 0,
                  max_links_after_last_joint: int = 0
@@ -95,6 +97,7 @@ class Science2019(AssemblyIterator):
         :param max_dof: The maximum number of joints in the robot. The end-effector is not counted as a degree of
           freedom. Changing the default from 6 to another value would mean to differ from the paper. Other than the
           method from the referenced paper, min_dof is not implicitly equal to max_dof.
+        :param min_links_between_joints: The minimum number of links between two joints in an assembly.
         :param max_links_between_joints: The maximum number of links between two joints. Default 3 is from Liu paper.
         :param max_links_before_first_joint: The maximum number of links between a base and the first joint.
         :param max_links_after_last_joint: The maximum number of links between the last joint and the end-effector.
@@ -103,6 +106,7 @@ class Science2019(AssemblyIterator):
             raise ValueError("Minimum number of dof cannot be larger than maximum number of dof.")
         self.min_dof = min_dof
         self.max_dof = max_dof
+        self.min_links_between_joints = min_links_between_joints
         self.max_links_between_joints = max_links_between_joints
         super().__init__(db)
         bases, links, joints, end_effectors = module_classification.divide_db_in_types(self.db)
@@ -152,7 +156,8 @@ class Science2019(AssemblyIterator):
             modules.append(parent_id)
             modules.extend(self.links_between_joints[(parent_id, child_id)][self.state.links[i]])
 
-        modules.append(self._current_joint_combination[-1])  # Last joint is not added in the previous loop
+        if len(self._current_joint_combination) > 0:
+            modules.append(self._current_joint_combination[-1])  # Last joint is not added in the previous loop
 
         modules.extend(self.augmented_end_effectors[self.state.eef])
 
@@ -181,7 +186,10 @@ class Science2019(AssemblyIterator):
                 == self._state.valid_joint_combination_id == 0:
             # This re-attribution is necessary to start with a valid combination after reset
             idx = (self.augmented_bases[0], self.augmented_end_effectors[0])
-            self._state.joints = self.joint_combinations_for_base_eef[idx][0]
+            try:
+                self._state.joints = self.joint_combinations_for_base_eef[idx][0]
+            except IndexError:
+                self._state.joints = ()
         return self._state
 
     @property
@@ -264,10 +272,14 @@ class Science2019(AssemblyIterator):
         bases = list()
         eefs = list()
         for base in self.bases:
-            after_base = ((),) + tuple(lc for lc in candidates_base if lc[0] in self.module_connects[base.id])
+            after_base = [()] + list(lc for lc in candidates_base
+                                     if len(lc) > 0
+                                     and lc[0] in self.module_connects[base.id])
             bases.extend((base.id,) + lc for lc in after_base)
         for eef in self.end_effectors:
-            before_eef = ((),) + tuple(lc for lc in candidates_eef if eef.id in self.module_connects[lc[-1]])
+            before_eef = [()] + list(lc for lc in candidates_eef
+                                     if len(lc) > 0
+                                     and eef.id in self.module_connects[lc[-1]])
             eefs.extend(lc + (eef.id,) for lc in before_eef)
         return tuple(bases), tuple(eefs)
 
@@ -277,21 +289,27 @@ class Science2019(AssemblyIterator):
         for base, eef in itertools.product(self.augmented_bases, self.augmented_end_effectors):
             base_eef_combinations[base, eef] = tuple(
                 i for i, joints in enumerate(self.joint_combinations) if
-                joints[0] in self.module_connects[base[-1]] and eef[0] in self.module_connects[joints[-1]]
+                len(joints) > 0
+                and joints[0] in self.module_connects[base[-1]]
+                and eef[0] in self.module_connects[joints[-1]]
             )
+            try:
+                i = self.joint_combinations.index(())
+                if eef[0] in self.module_connects[base[-1]]:
+                    base_eef_combinations[base, eef] += (i,)
+            except ValueError:
+                pass
         return base_eef_combinations
 
     def _identify_link_combinations(self) -> Tuple[Tuple[str, ...], ...]:
         """Extracts possible tuples of links as they could be built in an assembly.
 
         Note: Without any filters, this will generate
-          sum_over_1_max_in_between_links [num_different_links^max_links_between_joints]
+          sum_over_0_max_in_between_links [num_different_links^max_links_between_joints]
         combinations (which may become infeasible large in max_links_between_joints is not chosen carefully).
         Even with filters, this can grow rapidly!
         :return: A tuple with all possible (allowed) combinations of links that can be in between two joints
         """
-        # NOTE: The liu paper requires at least 1 link module between joint modules. A future implementation could
-        #  allow 0 link modules in between joint modules as well.
         if len(self.links) ** self.max_links_between_joints > 1e8:
             est_id_size = 100  # 2 char string ~100 bytes
             tuple_size = 24
@@ -301,7 +319,7 @@ class Science2019(AssemblyIterator):
                              f"too much memory. Rough estimate: {memory} MB")
         link_combinations = tuple(itertools.chain.from_iterable(
             itertools.product((link.id for link in self.links), repeat=i)
-            for i in range(1, self.max_links_between_joints + 1)
+            for i in range(self.min_links_between_joints, self.max_links_between_joints + 1)
         ))
         # In a chain, we have to check that the distal (male) connector of a link can connect the proximal (female)
         # connector of its successor
@@ -322,7 +340,7 @@ class Science2019(AssemblyIterator):
         joint_dof = {joint_module.id: joint_module.num_joints for joint_module in self.joints}
         joint_ids = tuple(joint_dof.keys())
         combinations = list(itertools.chain.from_iterable(
-            itertools.product(joint_ids, repeat=i) for i in range(1, self.max_dof + 1)
+            itertools.product(joint_ids, repeat=i) for i in range(self.min_dof, self.max_dof + 1)
         ))
 
         # More filters, e.g. 'some joint never in last position' can be builtin here
@@ -333,12 +351,12 @@ class Science2019(AssemblyIterator):
         can_attach_eef = tuple(joint.id for joint in self.joints if
                                any(joint.can_connect(eef) for eef in self.end_effectors))
 
-        def eef_filter(combination) -> bool: return combination[-1] in can_attach_eef
+        def eef_filter(combination) -> bool: return combination[-1] in can_attach_eef if len(combination) > 0 else True
 
         can_attach_base = tuple(joint.id for joint in self.joints if
                                 any(joint.can_connect(base) for base in self.bases))
 
-        def base_filter(combination) -> bool: return combination[0] in can_attach_base
+        def base_filter(combination) -> bool: return combination[0] in can_attach_base if len(combination) > 0 else True
 
         def can_connect_filter(combination) -> bool:
             """Checks whether two joints can in any way be used after each other.
@@ -370,7 +388,12 @@ class Science2019(AssemblyIterator):
             parent, child = key
             mapping[key] = list()
             for combination in self.link_combinations:
+                if len(combination) == 0:  # special case: joint modules are directly connected
+                    if child in self.module_connects[parent]:
+                        mapping[key].append(tuple())
+                    continue
                 first_link, last_link = combination[0], combination[-1]
+
                 if first_link in self.module_connects[parent] and child in self.module_connects[last_link]:
                     mapping[key].append(combination)
 
