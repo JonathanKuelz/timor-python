@@ -17,6 +17,9 @@ doc/source/autoapi/**
 # Personalized files
 timor.config
 
+# Logs
+*.log
+
 # API-available schemata
 */schemata
 

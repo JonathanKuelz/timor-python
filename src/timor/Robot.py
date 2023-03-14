@@ -317,8 +317,6 @@ class RobotBase(abc.ABC):
         """
         Computes the inverse kinematics (joint angles for a given goal destination).
 
-        :note: Be careful, as this currently only optimizes for position, not orientation!
-
         :param eef_pose: Desired end effector pose with tolerances.
         :param q_init: Initial joint angles to start searching from. If not given, uses current configuration
         :param max_iter: Maximum number of iterations before the algorithm gives up. If max_n_tries is larger than 1,
@@ -363,10 +361,13 @@ class RobotBase(abc.ABC):
         # sol.success gives information about successfull termination, but we are not interested in that
         success = eef_pose.valid(self.fk(sol.x))
 
-        if self.has_self_collision() and kwargs.get('ignore_self_collision', False):
+        if success and self.has_self_collision() and kwargs.get('ignore_self_collision', False):
             success = False
-        elif 'task' in kwargs and self.has_collisions(kwargs['task']):
+        elif success and 'task' in kwargs and self.has_collisions(kwargs['task']):
             success = False
+        if success and kwargs.get('check_static_torques', False):
+            tau = self.static_torque(q)
+            success = (np.abs(tau) <= self.joint_torque_limits).all()
 
         logging.debug("Scipy IK ends with message: %s", sol.message)
         if not success and max_n_tries > 0:
@@ -869,6 +870,13 @@ class PinRobot(RobotBase):
                 return self.ik_jacobian(eef_pose, self.random_configuration(), gain, damp, max_iter - i, kind, **kwargs)
             else:
                 logging.debug("IK was out of joint limits, but we're out of iterations")
+
+        if kwargs.get('check_static_torques', False):
+            tau = self.static_torque(q)
+            if not (np.abs(tau) <= self.joint_torque_limits).all():
+                logging.debug("IK was out of joint torque limits, re-try")
+                kwargs['closest_translation_q'] = closest_translation
+                return self.ik_jacobian(eef_pose, self.random_configuration(), gain, damp, max_iter - i, kind, **kwargs)
 
         if self.has_self_collision(q):
             if kwargs.get('ignore_self_collision', False):

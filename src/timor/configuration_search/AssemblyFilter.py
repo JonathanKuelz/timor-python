@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 import contextlib
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Collection, Generator, Iterable, List, Tuple, Type, Union
+from typing import Collection, Dict, Generator, Iterable, List, Tuple, Type, Union
 
 import numpy as np
 
@@ -90,10 +90,10 @@ class IntermediateFilterResults:
     trajectory: EternalResult[Union[Tuple[str, str], str], Trajectory] = \
         field(default_factory=lambda: EternalResult())
     # RobotBase object created
-    robot: RobotBase = None
+    robot: RobotBase = field(default=None, repr=False)
 
-    _filters_validated: List[AssemblyFilter] = field(default_factory=lambda: list())
-    __allow_overwriting: bool = False
+    _filters_validated: List[AssemblyFilter] = field(default_factory=lambda: list(), repr=False)
+    __allow_overwriting: bool = field(default=None, repr=False)
 
     def allow_changes(self):
         """
@@ -277,7 +277,7 @@ class AssemblyFilter(ABC):
 class RobotCreationFilter(AssemblyFilter):
     """Filter to explicitly create a robot object for a given assembly."""
 
-    provides = (ResultType.robot, )
+    provides = (ResultType.robot,)
     requires = ()
 
     def _check(self, assembly: ModuleAssembly, task: Task.Task, results: IntermediateFilterResults) -> bool:
@@ -293,6 +293,15 @@ class RobotCreationFilter(AssemblyFilter):
 class GoalByGoalFilter(AssemblyFilter, abc.ABC):
     """The superclass for all filters that check a condition in a task goal by goal."""
 
+    def __init__(self, skip_not_applicable: bool = True, use_intermediate_results: bool = True):
+        """A goal by goal filter checks a condition for each goal in a task.
+
+        :param use_intermediate_results: If false, intermediate results are not read from during a check. They will be
+          written to, though.
+        """
+        super().__init__(skip_not_applicable)
+        self.use_intermediate_results: bool = use_intermediate_results
+
     def _check(self, assembly: ModuleAssembly, task: Task.Task, results: IntermediateFilterResults) -> bool:
         """Perform a validity check on all goals in sequence and interrupts if one fails.
 
@@ -301,8 +310,9 @@ class GoalByGoalFilter(AssemblyFilter, abc.ABC):
         """
         for goal in self.goals_applicable(task):
             valid = True
-            if len(self.provides) > 0 and \
-                    all(goal.id in results.__getattribute__(provided.name) for provided in self.provides):
+            if self.use_intermediate_results \
+                    and len(self.provides) > 0 \
+                    and all(goal.id in results.__getattribute__(provided.name) for provided in self.provides):
                 # In this case, it is sufficient to check already existing intermediate results
                 valid &= self._check_given(assembly, goal, results)
             else:
@@ -336,16 +346,13 @@ class InverseKinematicsSolvable(GoalByGoalFilter):
     requires: Tuple[ResultType] = (ResultType.robot,)
     provides: Tuple[ResultType] = (ResultType.q_goal_pose,)
     goal_types_filtered: Collection[Type[Goals.GoalBase]] = GOALS_WITH_POSE
-    max_n_tries: int  # TODO @Jonathan: To be replaced by num_iter as soon as base opt branch is merged
 
-    def __init__(self, max_n_tries: int = 3, skip_not_applicable: bool = True):
+    def __init__(self, skip_not_applicable: bool = True, **ik_kwargs):
         """Initialize the filter on inverse kinematics
 
-        :param max_n_tries: Maximum number of inverse kinematics calculations to do, each with random init q, before
-          giving up.
+        :param ik_kwargs: Keyword arguments to be passed to the :func:`inverse kinematics solver <timor.Robot.Robot.ik>`
         """
-        assert max_n_tries >= 1
-        self.max_n_tries = max_n_tries
+        self.kwargs: Dict[str, any] = ik_kwargs
         super().__init__(skip_not_applicable)
 
     def _check_given(self, assembly: ModuleAssembly, goal: Goals.GoalBase, results: IntermediateFilterResults):
@@ -353,7 +360,10 @@ class InverseKinematicsSolvable(GoalByGoalFilter):
         if not self._applies_to_type(type(goal)):
             return True  # Not applicable, so filter is not invalid
         is_pose = results.robot.fk(results.q_goal_pose[goal.id])
-        return goal.goal_pose.valid(is_pose) and not results.robot.has_self_collision()
+        passes = goal.goal_pose.valid(is_pose) and not results.robot.has_self_collision()
+        if 'task' in self.kwargs:
+            passes &= not results.robot.has_collisions(self.kwargs['task'])
+        return passes
 
     def _check_goal(self, assembly: ModuleAssembly, goal: GOALS_WITH_POSE, results: IntermediateFilterResults) -> bool:
         """Performs the check whether the goals are valid.
@@ -361,17 +371,9 @@ class InverseKinematicsSolvable(GoalByGoalFilter):
         Assemblies pass if and only if, for all goal poses, a self-collision free inverse kinematics solution can be
         found. Writes an inverse kinematics solution for the goal pose to the goal, if it finds one.
         """
-        valid = False
-        for _ in range(self.max_n_tries):
-            q, valid = results.robot.ik(goal.goal_pose, q_init=results.robot.random_configuration())
-            valid &= not results.robot.has_self_collision(q)
-            if valid:
-                break
-        if not valid:
-            return False
-
+        q, valid = results.robot.ik(goal.goal_pose, **self.kwargs.copy())
         results.q_goal_pose[goal.id] = q
-        return True
+        return valid
 
 
 class StaticTorquesValid(GoalByGoalFilter):

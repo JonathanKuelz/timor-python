@@ -1,0 +1,958 @@
+2023-02-01-18: ---------- Starting new run ----------
+2023-02-01-18: {"population_size": 45, "num_generations": 100, "mutation_probability": 0.12639194303004236, "num_parents_mating": 5, "crossover_type": "two_points", "keep_elitism": 4, "save_best_solutions": false, "save_solutions": false, "keep_parents": 2}
+2023-02-01-25: Best solution: D86, D86, L500-L-80-80, L150-I-80-80, D86, D86, L150-I-80-80
+2023-02-01-25: Best solution cost: 11.319644599999998
+2023-02-01-25: Best solution found in generation: 90
+2023-02-01-25: ---------- Starting new run ----------
+2023-02-01-25: {"population_size": 14, "num_generations": 100, "mutation_probability": 0.22608452372888993, "num_parents_mating": 3, "crossover_type": "single_point", "keep_elitism": 5, "save_best_solutions": false, "save_solutions": false, "keep_parents": 2}
+2023-02-01-26: Best solution: D86, L700-L-80-80, D86, D86, L200-I-80-80, D86, L500-L-80-80
+2023-02-01-26: Best solution cost: 12.4074232
+2023-02-01-26: Best solution found in generation: 60
+2023-02-01-26: ---------- Starting new run ----------
+2023-02-01-26: {"population_size": 48, "num_generations": 100, "mutation_probability": 0.23703064572396776, "num_parents_mating": 5, "crossover_type": "single_point", "keep_elitism": 5, "save_best_solutions": false, "save_solutions": false, "keep_parents": 4}
+2023-02-01-32: Best solution: D86, D86, L250-I-80-80, D86, L700-L-80-80, L150-L-80-80
+2023-02-01-32: Best solution cost: 9.9287302
+2023-02-01-32: Best solution found in generation: 32
+2023-02-01-32: ---------- Starting new run ----------
+2023-02-01-32: {"population_size": 19, "num_generations": 100, "mutation_probability": 0.1549484479918002, "num_parents_mating": 2, "crossover_type": "single_point", "keep_elitism": 1, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-34: Best solution: D86, D86, L200-I-80-80, D86, L500-I-80-80, D86, L250-I-80-80
+2023-02-01-34: Best solution cost: 11.2735987
+2023-02-01-34: Best solution found in generation: 85
+2023-02-01-34: ---------- Starting new run ----------
+2023-02-01-35: {"population_size": 30, "num_generations": 100, "mutation_probability": 0.04134954631787414, "num_parents_mating": 2, "crossover_type": "two_points", "keep_elitism": 3, "save_best_solutions": false, "save_solutions": false, "keep_parents": 2}
+2023-02-01-37: Best solution: D86, D86, L700-L-80-80, D86, D86, L250-I-80-80
+2023-02-01-37: Best solution cost: 11.0626342
+2023-02-01-37: Best solution found in generation: 77
+2023-02-01-37: ---------- Starting new run ----------
+2023-02-01-37: {"population_size": 23, "num_generations": 100, "mutation_probability": 0.2863973676451394, "num_parents_mating": 1, "crossover_type": "single_point", "keep_elitism": 3, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-41: Best solution: D86, D86, L250-I-80-80, D86, L700-L-80-80, L150-L-80-80
+2023-02-01-41: Best solution cost: 9.9287302
+2023-02-01-41: Best solution found in generation: 84
+2023-02-01-41: ---------- Starting new run ----------
+2023-02-01-41: {"population_size": 43, "num_generations": 100, "mutation_probability": 0.05195441911659777, "num_parents_mating": 4, "crossover_type": "single_point", "keep_elitism": 4, "save_best_solutions": false, "save_solutions": false, "keep_parents": 4}
+2023-02-01-43: Best solution: D86, L700-L-80-80, L150-L-80-80, D86, D86, L200-I-80-80, D86, L150-I-80-80, L200-I-80-80
+2023-02-01-43: Best solution cost: 13.3381371
+2023-02-01-43: Best solution found in generation: 16
+2023-02-01-43: ---------- Starting new run ----------
+2023-02-01-43: {"population_size": 6, "num_generations": 100, "mutation_probability": 0.13362569288203566, "num_parents_mating": 1, "crossover_type": "single_point", "keep_elitism": 2, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-44: Best solution: D86, L150-I-80-80, D86, L200-I-80-80, D86, L250-I-80-80, D86, L500-I-80-80, D86, L200-I-80-80
+2023-02-01-44: Best solution cost: 14.7524544
+2023-02-01-44: Best solution found in generation: 94
+2023-02-01-44: ---------- Starting new run ----------
+2023-02-01-44: {"population_size": 35, "num_generations": 100, "mutation_probability": 0.2654041585543216, "num_parents_mating": 2, "crossover_type": "single_point", "keep_elitism": 4, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-49: Best solution: L150-I-80-80, D86, D86, L150-L-80-80, L300-I-80-80, D86, D86, L150-L-80-80
+2023-02-01-49: Best solution cost: 11.9699453
+2023-02-01-49: Best solution found in generation: 67
+2023-02-01-49: ---------- Starting new run ----------
+2023-02-01-49: {"population_size": 11, "num_generations": 100, "mutation_probability": 0.013474280223887306, "num_parents_mating": 1, "crossover_type": "single_point", "keep_elitism": 2, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-49: Best solution: L700-L-80-80, D86, D86, L500-L-80-80, L200-I-80-80, D86, L700-I-80-80, D86, L250-I-80-80, D86, L150-I-80-80
+2023-02-01-49: Best solution cost: 17.3933683
+2023-02-01-49: Best solution found in generation: 69
+2023-02-01-49: ---------- Starting new run ----------
+2023-02-01-50: {"population_size": 30, "num_generations": 100, "mutation_probability": 0.24226920735051063, "num_parents_mating": 2, "crossover_type": "single_point", "keep_elitism": 1, "save_best_solutions": false, "save_solutions": false, "keep_parents": 2}
+2023-02-01-54: Best solution: L500-I-80-80, D86, D86, L150-I-80-80, D86, L300-I-80-80, D86, L150-I-80-80, D86, L150-I-80-80
+2023-02-01-54: Best solution cost: 14.683005399999995
+2023-02-01-54: Best solution found in generation: 92
+2023-02-01-54: ---------- Starting new run ----------
+2023-02-01-54: {"population_size": 12, "num_generations": 100, "mutation_probability": 0.26196461417638967, "num_parents_mating": 5, "crossover_type": "single_point", "keep_elitism": 5, "save_best_solutions": false, "save_solutions": false, "keep_parents": 2}
+2023-02-01-55: Best solution: L200-I-80-80, D86, L700-L-80-80, L150-I-80-80, D86, L200-I-80-80, D86, L300-I-80-80, D86, L700-L-80-80
+2023-02-01-55: Best solution cost: 14.984124099999999
+2023-02-01-55: Best solution found in generation: 99
+2023-02-01-55: ---------- Starting new run ----------
+2023-02-01-56: {"population_size": 28, "num_generations": 100, "mutation_probability": 0.14281205163916225, "num_parents_mating": 4, "crossover_type": "two_points", "keep_elitism": 1, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-59: Best solution: L200-I-80-80, D86, D86, D86, D86, L300-I-80-80, L200-L-80-80, L150-I-80-80
+2023-02-01-59: Best solution cost: 11.8544504
+2023-02-01-59: Best solution found in generation: 81
+2023-02-01-59: ---------- Starting new run ----------
+2023-02-01-00: {"population_size": 32, "num_generations": 100, "mutation_probability": 0.24683448315217243, "num_parents_mating": 4, "crossover_type": "single_point", "keep_elitism": 1, "save_best_solutions": false, "save_solutions": false, "keep_parents": 2}
+2023-02-01-04: Best solution: D86, L200-I-80-80, D86, D86, L150-I-80-80, D86, L150-I-80-80, L500-I-80-80, L200-L-80-80
+2023-02-01-04: Best solution cost: 12.736500300000001
+2023-02-01-04: Best solution found in generation: 78
+2023-02-01-04: ---------- Starting new run ----------
+2023-02-01-04: {"population_size": 32, "num_generations": 100, "mutation_probability": 0.08065853777275132, "num_parents_mating": 5, "crossover_type": "single_point", "keep_elitism": 3, "save_best_solutions": false, "save_solutions": false, "keep_parents": 3}
+2023-02-01-07: Best solution: D86, D86, D86, L500-I-80-80, D86, D86, L150-I-80-80
+2023-02-01-07: Best solution cost: 12.4535487
+2023-02-01-07: Best solution found in generation: 52
+2023-02-01-07: ---------- Starting new run ----------
+2023-02-01-07: {"population_size": 41, "num_generations": 100, "mutation_probability": 0.29680328690094293, "num_parents_mating": 4, "crossover_type": "two_points", "keep_elitism": 5, "save_best_solutions": false, "save_solutions": false, "keep_parents": 4}
+2023-02-01-12: Best solution: L300-I-80-80, L150-I-80-80, D86, D86, L150-L-80-80, L300-I-80-80, D86, D86, L300-I-80-80
+2023-02-01-12: Best solution cost: 12.805949099999998
+2023-02-01-12: Best solution found in generation: 65
+2023-02-01-12: ---------- Starting new run ----------
+2023-02-01-12: {"population_size": 50, "num_generations": 100, "mutation_probability": 0.19711482837984576, "num_parents_mating": 3, "crossover_type": "two_points", "keep_elitism": 3, "save_best_solutions": false, "save_solutions": false, "keep_parents": 3}
+2023-02-01-20: Best solution: L500-I-80-80, D86, D86, L500-L-80-80, D86, D86, L150-I-80-80
+2023-02-01-20: Best solution cost: 11.805786499999998
+2023-02-01-20: Best solution found in generation: 50
+2023-02-01-20: ---------- Starting new run ----------
+2023-02-01-20: {"population_size": 24, "num_generations": 100, "mutation_probability": 0.20871931596392726, "num_parents_mating": 3, "crossover_type": "two_points", "keep_elitism": 4, "save_best_solutions": false, "save_solutions": false, "keep_parents": 2}
+2023-02-01-23: Best solution: D86, L150-I-80-80, D86, D86, L150-I-80-80, D86, L500-L-80-80, L200-L-80-80
+2023-02-01-23: Best solution cost: 12.3171894
+2023-02-01-23: Best solution found in generation: 96
+2023-02-01-23: ---------- Starting new run ----------
+2023-02-01-24: {"population_size": 35, "num_generations": 100, "mutation_probability": 0.10477583391075229, "num_parents_mating": 2, "crossover_type": "two_points", "keep_elitism": 2, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-28: Best solution: D86, D86, L200-I-80-80, D86, L500-L-80-80, L200-I-80-80, D86
+2023-02-01-28: Best solution cost: 11.4585424
+2023-02-01-28: Best solution found in generation: 66
+2023-02-01-28: ---------- Starting new run ----------
+2023-02-01-28: {"population_size": 13, "num_generations": 100, "mutation_probability": 0.2978207630575858, "num_parents_mating": 2, "crossover_type": "two_points", "keep_elitism": 4, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-30: Best solution: L700-I-80-80, D86, D86, L250-I-80-80, D86, L700-L-80-80, D86, L300-I-80-80
+2023-02-01-30: Best solution cost: 13.3823247
+2023-02-01-30: Best solution found in generation: 71
+2023-02-01-30: ---------- Starting new run ----------
+2023-02-01-30: {"population_size": 23, "num_generations": 100, "mutation_probability": 0.016000283531856938, "num_parents_mating": 4, "crossover_type": "two_points", "keep_elitism": 4, "save_best_solutions": false, "save_solutions": false, "keep_parents": 3}
+2023-02-01-31: Best solution: L150-I-80-80, D86, D86, L150-I-80-80, D86, L200-I-80-80, D86, L150-I-80-80, D86, L200-I-80-80
+2023-02-01-31: Best solution cost: 14.1274148
+2023-02-01-31: Best solution found in generation: 94
+2023-02-01-31: ---------- Starting new run ----------
+2023-02-01-31: {"population_size": 36, "num_generations": 100, "mutation_probability": 0.1738072376708103, "num_parents_mating": 2, "crossover_type": "two_points", "keep_elitism": 5, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-35: Best solution: D86, D86, L500-L-80-80, L150-I-80-80, D86, D86, L200-I-80-80
+2023-02-01-35: Best solution cost: 11.3890935
+2023-02-01-35: Best solution found in generation: 29
+2023-02-01-35: ---------- Starting new run ----------
+2023-02-01-36: {"population_size": 49, "num_generations": 100, "mutation_probability": 0.06795146258755702, "num_parents_mating": 3, "crossover_type": "single_point", "keep_elitism": 3, "save_best_solutions": false, "save_solutions": false, "keep_parents": 2}
+2023-02-01-39: Best solution: D86, D86, L200-I-80-80, D86, L250-I-80-80, L200-I-80-80, D86, L200-I-80-80
+2023-02-01-39: Best solution cost: 11.600058
+2023-02-01-39: Best solution found in generation: 22
+2023-02-01-39: ---------- Starting new run ----------
+2023-02-01-40: {"population_size": 38, "num_generations": 100, "mutation_probability": 0.17714617433497873, "num_parents_mating": 4, "crossover_type": "two_points", "keep_elitism": 2, "save_best_solutions": false, "save_solutions": false, "keep_parents": 4}
+2023-02-01-44: Best solution: D86, D86, L200-I-80-80, D86, L250-I-80-80, L200-I-80-80, D86, L200-I-80-80
+2023-02-01-44: Best solution cost: 11.600058
+2023-02-01-44: Best solution found in generation: 82
+2023-02-01-44: ---------- Starting new run ----------
+2023-02-01-44: {"population_size": 35, "num_generations": 100, "mutation_probability": 0.29060198902691076, "num_parents_mating": 1, "crossover_type": "two_points", "keep_elitism": 2, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-49: Best solution: L500-I-80-80, D86, D86, L500-L-80-80, D86, D86, L150-I-80-80
+2023-02-01-49: Best solution cost: 11.805786499999998
+2023-02-01-49: Best solution found in generation: 64
+2023-02-01-49: ---------- Starting new run ----------
+2023-02-01-49: {"population_size": 19, "num_generations": 100, "mutation_probability": 0.10265667879245673, "num_parents_mating": 1, "crossover_type": "two_points", "keep_elitism": 4, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-51: Best solution: L150-I-80-80, D86, D86, L150-I-80-80, D86, L150-I-80-80, D86, L300-I-80-80, L150-L-80-80, L200-I-80-80
+2023-02-01-51: Best solution cost: 13.132408400000001
+2023-02-01-51: Best solution found in generation: 96
+2023-02-01-51: ---------- Starting new run ----------
+2023-02-01-51: {"population_size": 26, "num_generations": 100, "mutation_probability": 0.22269356019210226, "num_parents_mating": 2, "crossover_type": "single_point", "keep_elitism": 3, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-55: Best solution: D86, L300-I-80-80, D86, L500-L-80-80, L200-I-80-80, D86, D86, L500-L-80-80
+2023-02-01-55: Best solution cost: 13.011677800000001
+2023-02-01-55: Best solution found in generation: 32
+2023-02-01-55: ---------- Starting new run ----------
+2023-02-01-55: {"population_size": 41, "num_generations": 100, "mutation_probability": 0.02154585747984603, "num_parents_mating": 3, "crossover_type": "single_point", "keep_elitism": 4, "save_best_solutions": false, "save_solutions": false, "keep_parents": 2}
+2023-02-01-57: Best solution: L150-I-80-80, D86, D86, D86, L150-I-80-80, D86, L500-I-80-80, D86
+2023-02-01-57: Best solution cost: 13.127252099999998
+2023-02-01-57: Best solution found in generation: 40
+2023-02-01-57: ---------- Starting new run ----------
+2023-02-01-57: {"population_size": 46, "num_generations": 100, "mutation_probability": 0.14859763772928813, "num_parents_mating": 3, "crossover_type": "single_point", "keep_elitism": 5, "save_best_solutions": false, "save_solutions": false, "keep_parents": 2}
+2023-02-01-03: Best solution: L150-I-80-80, D86, D86, D86, L200-I-80-80, D86, L300-I-80-80, L200-L-80-80
+2023-02-01-03: Best solution cost: 11.8544504
+2023-02-01-03: Best solution found in generation: 70
+2023-02-01-03: ---------- Starting new run ----------
+2023-02-01-03: {"population_size": 18, "num_generations": 100, "mutation_probability": 0.16757553304284314, "num_parents_mating": 2, "crossover_type": "single_point", "keep_elitism": 1, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-05: Best solution: L150-L-80-80, D86, D86, L200-I-80-80, D86, L250-I-80-80, L500-L-80-80, L150-I-80-80, D86, L150-I-80-80
+2023-02-01-05: Best solution cost: 13.803493999999999
+2023-02-01-05: Best solution found in generation: 100
+2023-02-01-05: ---------- Starting new run ----------
+2023-02-01-05: {"population_size": 23, "num_generations": 100, "mutation_probability": 0.17655498445903173, "num_parents_mating": 4, "crossover_type": "two_points", "keep_elitism": 1, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-08: Best solution: D86, D86, L250-I-80-80, D86, L500-I-80-80, D86, L250-I-80-80
+2023-02-01-09: Best solution cost: 11.3430475
+2023-02-01-09: Best solution found in generation: 97
+2023-02-01-09: ---------- Starting new run ----------
+2023-02-01-09: {"population_size": 18, "num_generations": 100, "mutation_probability": 0.14853249388759995, "num_parents_mating": 2, "crossover_type": "single_point", "keep_elitism": 1, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-11: Best solution: D86, D86, L150-I-80-80, D86, L150-I-80-80, L700-L-80-80, L150-L-80-80
+2023-02-01-11: Best solution cost: 10.4635359
+2023-02-01-11: Best solution found in generation: 93
+2023-02-01-11: ---------- Starting new run ----------
+2023-02-01-11: {"population_size": 13, "num_generations": 100, "mutation_probability": 0.027146971413954835, "num_parents_mating": 4, "crossover_type": "single_point", "keep_elitism": 2, "save_best_solutions": false, "save_solutions": false, "keep_parents": 2}
+2023-02-01-12: Best solution: D86, L500-L-80-80, D86, D86, L500-L-80-80, D86, L150-I-80-80, D86, L150-I-80-80
+2023-02-01-12: Best solution cost: 14.795882399999996
+2023-02-01-12: Best solution found in generation: 48
+2023-02-01-12: ---------- Starting new run ----------
+2023-02-01-12: {"population_size": 50, "num_generations": 100, "mutation_probability": 0.2045229983482243, "num_parents_mating": 1, "crossover_type": "single_point", "keep_elitism": 3, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-18: Best solution: D86, D86, L200-I-80-80, D86, L500-L-80-80, L150-I-80-80, L200-L-80-80
+2023-02-01-18: Best solution cost: 10.324638300000002
+2023-02-01-18: Best solution found in generation: 50
+2023-02-01-18: ---------- Starting new run ----------
+2023-02-01-18: {"population_size": 15, "num_generations": 100, "mutation_probability": 0.043983661864674534, "num_parents_mating": 1, "crossover_type": "single_point", "keep_elitism": 2, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-19: Best solution: L700-I-80-80, L200-I-80-80, D86, D86, L700-L-80-80, D86, D86, L150-I-80-80
+2023-02-01-19: Best solution cost: 13.104529399999999
+2023-02-01-19: Best solution found in generation: 50
+2023-02-01-19: ---------- Starting new run ----------
+2023-02-01-19: {"population_size": 5, "num_generations": 100, "mutation_probability": 0.1927379869651732, "num_parents_mating": 3, "crossover_type": "single_point", "keep_elitism": 1, "save_best_solutions": false, "save_solutions": false, "keep_parents": 3}
+2023-02-01-20: Best solution: D86, L200-I-80-80, D86, L300-I-80-80, D86, L150-I-80-80, D86, L500-I-80-80, L150-L-80-80, L200-I-80-80
+2023-02-01-20: Best solution cost: 13.687999199999998
+2023-02-01-20: Best solution found in generation: 56
+2023-02-01-20: ---------- Starting new run ----------
+2023-02-01-20: {"population_size": 47, "num_generations": 100, "mutation_probability": 0.21875361911212438, "num_parents_mating": 1, "crossover_type": "single_point", "keep_elitism": 3, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-26: Best solution: D86, D86, L700-L-80-80, D86, D86, L200-I-80-80
+2023-02-01-26: Best solution cost: 10.9931854
+2023-02-01-26: Best solution found in generation: 12
+2023-02-01-26: ---------- Starting new run ----------
+2023-02-01-26: {"population_size": 28, "num_generations": 100, "mutation_probability": 0.10787680069233313, "num_parents_mating": 2, "crossover_type": "single_point", "keep_elitism": 3, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-29: Best solution: D86, D86, L150-I-80-80, D86, L150-I-80-80, L700-L-80-80, L200-L-80-80
+2023-02-01-29: Best solution cost: 10.5329847
+2023-02-01-29: Best solution found in generation: 87
+2023-02-01-29: ---------- Starting new run ----------
+2023-02-01-29: {"population_size": 10, "num_generations": 100, "mutation_probability": 0.12070187248144729, "num_parents_mating": 3, "crossover_type": "single_point", "keep_elitism": 4, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-30: Best solution: L150-I-80-80, L300-I-80-80, D86, L250-I-80-80, D86, L700-L-80-80, D86, L500-L-80-80, D86, D86
+2023-02-01-31: Best solution cost: 16.094625299999997
+2023-02-01-31: Best solution found in generation: 86
+2023-02-01-31: ---------- Starting new run ----------
+2023-02-01-31: {"population_size": 22, "num_generations": 100, "mutation_probability": 0.18973742218150036, "num_parents_mating": 1, "crossover_type": "single_point", "keep_elitism": 3, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-33: Best solution: D86, L150-I-80-80, D86, D86, L200-I-80-80, D86, L500-L-80-80, L150-L-80-80
+2023-02-01-33: Best solution cost: 12.3171895
+2023-02-01-33: Best solution found in generation: 73
+2023-02-01-33: ---------- Starting new run ----------
+2023-02-01-33: {"population_size": 22, "num_generations": 100, "mutation_probability": 0.10218662335902101, "num_parents_mating": 1, "crossover_type": "single_point", "keep_elitism": 3, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-36: Best solution: L150-L-80-80, D86, L150-L-80-80, L200-I-80-80, D86, L250-I-80-80, L300-I-80-80, D86, L150-I-80-80, D86, L250-I-80-80
+2023-02-01-36: Best solution cost: 14.338299800000001
+2023-02-01-36: Best solution found in generation: 39
+2023-02-01-36: ---------- Starting new run ----------
+2023-02-01-36: {"population_size": 15, "num_generations": 100, "mutation_probability": 0.1456871483757335, "num_parents_mating": 2, "crossover_type": "single_point", "keep_elitism": 2, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-38: Best solution: D86, D86, L250-I-80-80, D86, L150-I-80-80, L250-I-80-80, D86, L200-I-80-80, L200-L-80-80
+2023-02-01-38: Best solution cost: 12.5976027
+2023-02-01-38: Best solution found in generation: 100
+2023-02-01-38: ---------- Starting new run ----------
+2023-02-01-38: {"population_size": 27, "num_generations": 100, "mutation_probability": 0.12432310314949818, "num_parents_mating": 5, "crossover_type": "single_point", "keep_elitism": 4, "save_best_solutions": false, "save_solutions": false, "keep_parents": 5}
+2023-02-01-41: Best solution: D86, D86, L500-L-80-80, L250-I-80-80, D86, D86, L150-I-80-80
+2023-02-01-41: Best solution cost: 11.4585423
+2023-02-01-41: Best solution found in generation: 91
+2023-02-01-41: ---------- Starting new run ----------
+2023-02-01-41: {"population_size": 50, "num_generations": 100, "mutation_probability": 0.25918576219265266, "num_parents_mating": 2, "crossover_type": "single_point", "keep_elitism": 2, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-48: Best solution: D86, D86, L500-L-80-80, L150-I-80-80, D86, D86, L200-I-80-80
+2023-02-01-48: Best solution cost: 11.3890935
+2023-02-01-48: Best solution found in generation: 60
+2023-02-01-48: ---------- Starting new run ----------
+2023-02-01-48: {"population_size": 46, "num_generations": 100, "mutation_probability": 0.15693622198169005, "num_parents_mating": 4, "crossover_type": "single_point", "keep_elitism": 1, "save_best_solutions": false, "save_solutions": false, "keep_parents": 4}
+2023-02-01-54: Best solution: D86, D86, L700-L-80-80, D86, D86, L150-I-80-80
+2023-02-01-54: Best solution cost: 10.923736499999999
+2023-02-01-54: Best solution found in generation: 17
+2023-02-01-54: ---------- Starting new run ----------
+2023-02-01-55: {"population_size": 47, "num_generations": 100, "mutation_probability": 0.16391047544329448, "num_parents_mating": 5, "crossover_type": "single_point", "keep_elitism": 1, "save_best_solutions": false, "save_solutions": false, "keep_parents": 5}
+2023-02-01-01: Best solution: L250-I-80-80, L150-I-80-80, D86, D86, L500-L-80-80, D86, D86, L150-I-80-80
+2023-02-01-01: Best solution cost: 12.1322457
+2023-02-01-01: Best solution found in generation: 53
+2023-02-01-01: ---------- Starting new run ----------
+2023-02-01-01: {"population_size": 41, "num_generations": 100, "mutation_probability": 0.15269054846694502, "num_parents_mating": 4, "crossover_type": "single_point", "keep_elitism": 1, "save_best_solutions": false, "save_solutions": false, "keep_parents": 4}
+2023-02-01-07: Best solution: D86, D86, L700-L-80-80, D86, D86, L150-I-80-80
+2023-02-01-07: Best solution cost: 10.923736499999999
+2023-02-01-07: Best solution found in generation: 86
+2023-02-01-08: ---------- Starting new run ----------
+2023-02-01-08: {"population_size": 21, "num_generations": 100, "mutation_probability": 0.13893149622968282, "num_parents_mating": 5, "crossover_type": "single_point", "keep_elitism": 3, "save_best_solutions": false, "save_solutions": false, "keep_parents": 5}
+2023-02-01-10: Best solution: D86, D86, L200-I-80-80, D86, L150-I-80-80, D86, L250-I-80-80, D86, L200-I-80-80
+2023-02-01-10: Best solution cost: 13.5926091
+2023-02-01-10: Best solution found in generation: 92
+2023-02-01-10: ---------- Starting new run ----------
+2023-02-01-10: {"population_size": 43, "num_generations": 100, "mutation_probability": 0.18699831407087472, "num_parents_mating": 5, "crossover_type": "single_point", "keep_elitism": 1, "save_best_solutions": false, "save_solutions": false, "keep_parents": 4}
+2023-02-01-17: Best solution: D86, D86, L200-I-80-80, D86, D86, L500-I-80-80, L150-L-80-80
+2023-02-01-17: Best solution cost: 11.3890936
+2023-02-01-17: Best solution found in generation: 98
+2023-02-01-17: ---------- Starting new run ----------
+2023-02-01-17: {"population_size": 39, "num_generations": 100, "mutation_probability": 0.14598807274592637, "num_parents_mating": 4, "crossover_type": "single_point", "keep_elitism": 1, "save_best_solutions": false, "save_solutions": false, "keep_parents": 3}
+2023-02-01-22: Best solution: L150-I-80-80, D86, D86, L200-I-80-80, D86, D86, L200-I-80-80, L500-L-80-80
+2023-02-01-22: Best solution cost: 12.1322458
+2023-02-01-22: Best solution found in generation: 15
+2023-02-01-22: ---------- Starting new run ----------
+2023-02-01-22: {"population_size": 6, "num_generations": 100, "mutation_probability": 0.20985316563427092, "num_parents_mating": 1, "crossover_type": "single_point", "keep_elitism": 5, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-23: Best solution: L200-L-80-80, L500-L-80-80, D86, D86, L700-I-80-80, D86, L500-I-80-80, D86, L200-I-80-80, D86
+2023-02-01-23: Best solution cost: 16.372420799999997
+2023-02-01-23: Best solution found in generation: 34
+2023-02-01-23: ---------- Starting new run ----------
+2023-02-01-23: {"population_size": 43, "num_generations": 100, "mutation_probability": 0.27196247033431975, "num_parents_mating": 2, "crossover_type": "single_point", "keep_elitism": 4, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-28: Best solution: D86, L150-I-80-80, D86, D86, D86, L700-L-80-80, L150-L-80-80
+2023-02-01-28: Best solution cost: 11.851832499999999
+2023-02-01-28: Best solution found in generation: 36
+2023-02-01-29: ---------- Starting new run ----------
+2023-02-01-29: {"population_size": 28, "num_generations": 100, "mutation_probability": 0.2982524497745956, "num_parents_mating": 1, "crossover_type": "single_point", "keep_elitism": 2, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-32: Best solution: L700-I-80-80, D86, D86, L150-L-80-80, L300-I-80-80, D86, D86, L200-I-80-80
+2023-02-01-32: Best solution cost: 12.5489388
+2023-02-01-32: Best solution found in generation: 77
+2023-02-01-32: ---------- Starting new run ----------
+2023-02-01-32: {"population_size": 33, "num_generations": 100, "mutation_probability": 0.13273908183843147, "num_parents_mating": 4, "crossover_type": "single_point", "keep_elitism": 2, "save_best_solutions": false, "save_solutions": false, "keep_parents": 4}
+2023-02-01-37: Best solution: D86, D86, L500-L-80-80, L150-I-80-80, D86, D86, L150-I-80-80
+2023-02-01-37: Best solution cost: 11.319644599999998
+2023-02-01-37: Best solution found in generation: 89
+2023-02-01-37: ---------- Starting new run ----------
+2023-02-01-37: {"population_size": 41, "num_generations": 100, "mutation_probability": 0.2430631598860794, "num_parents_mating": 3, "crossover_type": "two_points", "keep_elitism": 3, "save_best_solutions": false, "save_solutions": false, "keep_parents": 3}
+2023-02-01-42: Best solution: D86, D86, L250-I-80-80, D86, L700-L-80-80, L150-L-80-80
+2023-02-01-42: Best solution cost: 9.9287302
+2023-02-01-42: Best solution found in generation: 33
+2023-02-01-42: ---------- Starting new run ----------
+2023-02-01-42: {"population_size": 44, "num_generations": 100, "mutation_probability": 0.16070905702304783, "num_parents_mating": 5, "crossover_type": "single_point", "keep_elitism": 2, "save_best_solutions": false, "save_solutions": false, "keep_parents": 5}
+2023-02-01-47: Best solution: D86, D86, L200-I-80-80, D86, L500-I-80-80, D86, L250-I-80-80
+2023-02-01-47: Best solution cost: 11.2735987
+2023-02-01-47: Best solution found in generation: 31
+2023-02-01-47: ---------- Starting new run ----------
+2023-02-01-47: {"population_size": 38, "num_generations": 100, "mutation_probability": 0.24284857613288613, "num_parents_mating": 3, "crossover_type": "two_points", "keep_elitism": 3, "save_best_solutions": false, "save_solutions": false, "keep_parents": 3}
+2023-02-01-51: Best solution: D86, D86, L200-I-80-80, D86, L150-I-80-80, L300-I-80-80, D86, L200-I-80-80
+2023-02-01-51: Best solution cost: 11.6000579
+2023-02-01-51: Best solution found in generation: 74
+2023-02-01-52: ---------- Starting new run ----------
+2023-02-01-52: {"population_size": 31, "num_generations": 100, "mutation_probability": 0.23939683148688276, "num_parents_mating": 5, "crossover_type": "two_points", "keep_elitism": 4, "save_best_solutions": false, "save_solutions": false, "keep_parents": 5}
+2023-02-01-56: Best solution: L150-I-80-80, D86, D86, L150-I-80-80, L150-I-80-80, L200-I-80-80, D86, L150-I-80-80, D86, L700-L-80-80
+2023-02-01-56: Best solution cost: 13.687998999999998
+2023-02-01-56: Best solution found in generation: 98
+2023-02-01-56: ---------- Starting new run ----------
+2023-02-01-56: {"population_size": 47, "num_generations": 100, "mutation_probability": 0.1815636505820789, "num_parents_mating": 2, "crossover_type": "single_point", "keep_elitism": 1, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-02: Best solution: D86, D86, L200-I-80-80, D86, L250-I-80-80, L200-I-80-80, D86, L200-I-80-80
+2023-02-01-02: Best solution cost: 11.600058
+2023-02-01-02: Best solution found in generation: 45
+2023-02-01-02: ---------- Starting new run ----------
+2023-02-01-02: {"population_size": 29, "num_generations": 100, "mutation_probability": 0.21075103668629555, "num_parents_mating": 3, "crossover_type": "single_point", "keep_elitism": 5, "save_best_solutions": false, "save_solutions": false, "keep_parents": 2}
+2023-02-01-05: Best solution: D86, D86, L150-I-80-80, L150-I-80-80, D86, L700-L-80-80, D86
+2023-02-01-05: Best solution cost: 11.5974399
+2023-02-01-05: Best solution found in generation: 67
+2023-02-01-05: ---------- Starting new run ----------
+2023-02-01-05: {"population_size": 21, "num_generations": 100, "mutation_probability": 0.24505621902454558, "num_parents_mating": 4, "crossover_type": "single_point", "keep_elitism": 3, "save_best_solutions": false, "save_solutions": false, "keep_parents": 3}
+2023-02-01-08: Best solution: L150-L-80-80, D86, L200-L-80-80, L500-L-80-80, D86, L500-I-80-80, D86, L300-I-80-80, D86, L200-I-80-80
+2023-02-01-08: Best solution cost: 14.6829261
+2023-02-01-08: Best solution found in generation: 77
+2023-02-01-08: ---------- Starting new run ----------
+2023-02-01-08: {"population_size": 46, "num_generations": 100, "mutation_probability": 0.19870571462824788, "num_parents_mating": 2, "crossover_type": "two_points", "keep_elitism": 3, "save_best_solutions": false, "save_solutions": false, "keep_parents": 2}
+2023-02-01-15: Best solution: L150-L-80-80, D86, L150-I-80-80, D86, D86, L300-I-80-80, D86, L700-I-80-80, L150-L-80-80, L150-I-80-80
+2023-02-01-15: Best solution cost: 14.0812893
+2023-02-01-15: Best solution found in generation: 18
+2023-02-01-15: ---------- Starting new run ----------
+2023-02-01-15: {"population_size": 50, "num_generations": 100, "mutation_probability": 0.27358266401522086, "num_parents_mating": 1, "crossover_type": "two_points", "keep_elitism": 3, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-22: Best solution: D86, D86, L200-I-80-80, D86, L700-L-80-80, D86
+2023-02-01-22: Best solution cost: 10.9931854
+2023-02-01-22: Best solution found in generation: 33
+2023-02-01-22: ---------- Starting new run ----------
+2023-02-01-22: {"population_size": 9, "num_generations": 100, "mutation_probability": 0.08824046474274637, "num_parents_mating": 5, "crossover_type": "single_point", "keep_elitism": 2, "save_best_solutions": false, "save_solutions": false, "keep_parents": 5}
+2023-02-01-23: Best solution: L500-I-80-80, L150-I-80-80, D86, D86, L250-I-80-80, D86, L700-L-80-80, D86
+2023-02-01-23: Best solution cost: 12.8961829
+2023-02-01-23: Best solution found in generation: 88
+2023-02-01-23: ---------- Starting new run ----------
+2023-02-01-23: {"population_size": 42, "num_generations": 100, "mutation_probability": 0.22710584532322886, "num_parents_mating": 2, "crossover_type": "two_points", "keep_elitism": 2, "save_best_solutions": false, "save_solutions": false, "keep_parents": 2}
+2023-02-01-29: Best solution: L700-I-80-80, D86, D86, L500-L-80-80, D86, D86, L150-I-80-80
+2023-02-01-29: Best solution cost: 12.0835818
+2023-02-01-29: Best solution found in generation: 81
+2023-02-01-29: ---------- Starting new run ----------
+2023-02-01-29: {"population_size": 18, "num_generations": 100, "mutation_probability": 0.16832625473098697, "num_parents_mating": 3, "crossover_type": "single_point", "keep_elitism": 3, "save_best_solutions": false, "save_solutions": false, "keep_parents": 3}
+2023-02-01-31: Best solution: D86, D86, D86, D86, L500-I-80-80, L200-L-80-80
+2023-02-01-31: Best solution cost: 10.7153901
+2023-02-01-31: Best solution found in generation: 79
+2023-02-01-32: ---------- Starting new run ----------
+2023-02-01-32: {"population_size": 41, "num_generations": 100, "mutation_probability": 0.155306953585226, "num_parents_mating": 4, "crossover_type": "single_point", "keep_elitism": 1, "save_best_solutions": false, "save_solutions": false, "keep_parents": 4}
+2023-02-01-37: Best solution: D86, D86, L700-L-80-80, D86, D86, L150-I-80-80
+2023-02-01-37: Best solution cost: 10.923736499999999
+2023-02-01-37: Best solution found in generation: 53
+2023-02-01-38: ---------- Starting new run ----------
+2023-02-01-38: {"population_size": 49, "num_generations": 100, "mutation_probability": 0.13546471524604264, "num_parents_mating": 4, "crossover_type": "single_point", "keep_elitism": 1, "save_best_solutions": false, "save_solutions": false, "keep_parents": 4}
+2023-02-01-45: Best solution: L150-I-80-80, D86, L150-I-80-80, D86, L700-I-80-80, D86, L500-L-80-80, L500-I-80-80, D86
+2023-02-01-45: Best solution cost: 13.9171305
+2023-02-01-45: Best solution found in generation: 23
+2023-02-01-45: ---------- Starting new run ----------
+2023-02-01-45: {"population_size": 45, "num_generations": 100, "mutation_probability": 0.2538352485701152, "num_parents_mating": 1, "crossover_type": "single_point", "keep_elitism": 3, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-51: Best solution: L150-I-80-80, L250-I-80-80, D86, D86, L500-L-80-80, D86, D86, L150-I-80-80
+2023-02-01-52: Best solution cost: 12.1322457
+2023-02-01-52: Best solution found in generation: 54
+2023-02-01-52: ---------- Starting new run ----------
+2023-02-01-52: {"population_size": 41, "num_generations": 100, "mutation_probability": 0.12275857678978694, "num_parents_mating": 5, "crossover_type": "single_point", "keep_elitism": 1, "save_best_solutions": false, "save_solutions": false, "keep_parents": 4}
+2023-02-01-57: Best solution: L250-I-80-80, D86, L700-L-80-80, D86, L150-I-80-80, D86, D86, L700-I-80-80
+2023-02-01-57: Best solution cost: 13.173978199999999
+2023-02-01-57: Best solution found in generation: 11
+2023-02-01-57: ---------- Starting new run ----------
+2023-02-01-57: {"population_size": 44, "num_generations": 100, "mutation_probability": 0.17084257408054676, "num_parents_mating": 2, "crossover_type": "single_point", "keep_elitism": 1, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-03: Best solution: L150-I-80-80, L250-I-80-80, D86, D86, L500-L-80-80, D86, D86, L150-I-80-80
+2023-02-01-03: Best solution cost: 12.1322457
+2023-02-01-03: Best solution found in generation: 29
+2023-02-01-03: ---------- Starting new run ----------
+2023-02-01-04: {"population_size": 39, "num_generations": 100, "mutation_probability": 0.20788456790302248, "num_parents_mating": 2, "crossover_type": "two_points", "keep_elitism": 4, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-09: Best solution: D86, D86, L200-I-80-80, D86, L500-L-80-80, L150-I-80-80, L200-L-80-80
+2023-02-01-09: Best solution cost: 10.324638300000002
+2023-02-01-09: Best solution found in generation: 67
+2023-02-01-09: ---------- Starting new run ----------
+2023-02-01-09: {"population_size": 32, "num_generations": 100, "mutation_probability": 0.11176159843466328, "num_parents_mating": 3, "crossover_type": "single_point", "keep_elitism": 2, "save_best_solutions": false, "save_solutions": false, "keep_parents": 2}
+2023-02-01-13: Best solution: D86, D86, L700-I-80-80, D86, L150-I-80-80, D86, L150-I-80-80, L700-L-80-80
+2023-02-01-13: Best solution cost: 13.035080499999998
+2023-02-01-13: Best solution found in generation: 78
+2023-02-01-13: ---------- Starting new run ----------
+2023-02-01-13: {"population_size": 50, "num_generations": 100, "mutation_probability": 0.14097020568472748, "num_parents_mating": 4, "crossover_type": "single_point", "keep_elitism": 1, "save_best_solutions": false, "save_solutions": false, "keep_parents": 4}
+2023-02-01-19: Best solution: D86, D86, L250-I-80-80, D86, L500-I-80-80, D86, L200-I-80-80
+2023-02-01-19: Best solution cost: 11.2735987
+2023-02-01-19: Best solution found in generation: 86
+2023-02-01-19: ---------- Starting new run ----------
+2023-02-01-19: {"population_size": 36, "num_generations": 100, "mutation_probability": 0.15980532385474847, "num_parents_mating": 2, "crossover_type": "single_point", "keep_elitism": 1, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-23: Best solution: D86, D86, L200-I-80-80, D86, L500-I-80-80, D86, L250-I-80-80
+2023-02-01-24: Best solution cost: 11.2735987
+2023-02-01-24: Best solution found in generation: 95
+2023-02-01-24: ---------- Starting new run ----------
+2023-02-01-24: {"population_size": 26, "num_generations": 100, "mutation_probability": 0.23235128824713552, "num_parents_mating": 3, "crossover_type": "single_point", "keep_elitism": 2, "save_best_solutions": false, "save_solutions": false, "keep_parents": 3}
+2023-02-01-27: Best solution: D86, D86, L300-I-80-80, D86, L500-I-80-80, D86, L200-I-80-80
+2023-02-01-27: Best solution cost: 11.3430475
+2023-02-01-27: Best solution found in generation: 32
+2023-02-01-27: ---------- Starting new run ----------
+2023-02-01-27: {"population_size": 39, "num_generations": 100, "mutation_probability": 0.19996206483121745, "num_parents_mating": 3, "crossover_type": "single_point", "keep_elitism": 3, "save_best_solutions": false, "save_solutions": false, "keep_parents": 2}
+2023-02-01-31: Best solution: L200-I-80-80, L200-I-80-80, D86, D86, L500-L-80-80, D86, D86, L150-I-80-80
+2023-02-01-31: Best solution cost: 12.132245799999998
+2023-02-01-31: Best solution found in generation: 46
+2023-02-01-32: ---------- Starting new run ----------
+2023-02-01-32: {"population_size": 47, "num_generations": 100, "mutation_probability": 0.1338899456249463, "num_parents_mating": 1, "crossover_type": "single_point", "keep_elitism": 5, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-38: Best solution: L250-I-80-80, D86, L500-L-80-80, D86, L150-I-80-80, D86, D86, L500-I-80-80
+2023-02-01-38: Best solution cost: 12.6183876
+2023-02-01-38: Best solution found in generation: 27
+2023-02-01-38: ---------- Starting new run ----------
+2023-02-01-38: {"population_size": 42, "num_generations": 100, "mutation_probability": 0.2993841686954063, "num_parents_mating": 5, "crossover_type": "two_points", "keep_elitism": 2, "save_best_solutions": false, "save_solutions": false, "keep_parents": 3}
+2023-02-01-38: ---------- Starting new run ----------
+2023-02-01-38: {"population_size": 45, "num_generations": 100, "mutation_probability": 0.15825804054660897, "num_parents_mating": 4, "crossover_type": "single_point", "keep_elitism": 1, "save_best_solutions": false, "save_solutions": false, "keep_parents": 4}
+2023-02-01-44: Best solution: D86, D86, L700-L-80-80, D86, D86, L150-I-80-80
+2023-02-01-44: Best solution cost: 10.923736499999999
+2023-02-01-44: Best solution found in generation: 74
+2023-02-01-44: ---------- Starting new run ----------
+2023-02-01-44: {"population_size": 38, "num_generations": 100, "mutation_probability": 0.15255285275612904, "num_parents_mating": 4, "crossover_type": "single_point", "keep_elitism": 1, "save_best_solutions": false, "save_solutions": false, "keep_parents": 4}
+2023-02-01-50: Best solution: D86, D86, L150-I-80-80, L700-L-80-80, D86, D86, L500-I-80-80
+2023-02-01-50: Best solution cost: 12.0835818
+2023-02-01-50: Best solution found in generation: 100
+2023-02-01-50: ---------- Starting new run ----------
+2023-02-01-50: {"population_size": 48, "num_generations": 100, "mutation_probability": 0.27931969896466313, "num_parents_mating": 1, "crossover_type": "two_points", "keep_elitism": 3, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-56: Best solution: L150-L-80-80, D86, L150-I-80-80, L500-L-80-80, D86, L700-I-80-80, D86, L200-I-80-80, D86, L200-I-80-80
+2023-02-01-56: Best solution cost: 14.4979824
+2023-02-01-56: Best solution found in generation: 86
+2023-02-01-57: ---------- Starting new run ----------
+2023-02-01-57: {"population_size": 41, "num_generations": 100, "mutation_probability": 0.11168465989891174, "num_parents_mating": 4, "crossover_type": "single_point", "keep_elitism": 1, "save_best_solutions": false, "save_solutions": false, "keep_parents": 4}
+2023-02-01-02: Best solution: L150-L-80-80, D86, L150-L-80-80, L150-L-80-80, L500-I-80-80, D86, L300-I-80-80, D86, L150-I-80-80, D86, L500-L-80-80
+2023-02-01-02: Best solution cost: 15.472124399999998
+2023-02-01-02: Best solution found in generation: 65
+2023-02-01-02: ---------- Starting new run ----------
+2023-02-01-02: {"population_size": 17, "num_generations": 100, "mutation_probability": 0.22109557388268614, "num_parents_mating": 5, "crossover_type": "single_point", "keep_elitism": 5, "save_best_solutions": false, "save_solutions": false, "keep_parents": 4}
+2023-02-01-04: Best solution: L150-I-80-80, D86, L500-L-80-80, L250-I-80-80, D86, L150-I-80-80, D86, D86, L700-I-80-80
+2023-02-01-04: Best solution cost: 13.5698863
+2023-02-01-04: Best solution found in generation: 38
+2023-02-01-04: ---------- Starting new run ----------
+2023-02-01-04: {"population_size": 35, "num_generations": 100, "mutation_probability": 0.18653385413884638, "num_parents_mating": 4, "crossover_type": "single_point", "keep_elitism": 1, "save_best_solutions": false, "save_solutions": false, "keep_parents": 4}
+2023-02-01-10: Best solution: D86, L500-L-80-80, L150-I-80-80, D86, L150-I-80-80, D86, L150-I-80-80, D86, L700-L-80-80
+2023-02-01-10: Best solution cost: 13.6853811
+2023-02-01-10: Best solution found in generation: 32
+2023-02-01-10: ---------- Starting new run ----------
+2023-02-01-10: {"population_size": 6, "num_generations": 100, "mutation_probability": 0.25888145253630207, "num_parents_mating": 2, "crossover_type": "single_point", "keep_elitism": 4, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-11: Best solution: L150-I-80-80, L150-L-80-80, D86, L700-L-80-80, L500-L-80-80, D86, L700-L-80-80, D86, L500-L-80-80, L200-L-80-80
+2023-02-01-11: Best solution cost: inf
+2023-02-01-11: Best solution found in generation: 0
+2023-02-01-11: ---------- Starting new run ----------
+2023-02-01-11: {"population_size": 25, "num_generations": 100, "mutation_probability": 0.16938136860670883, "num_parents_mating": 3, "crossover_type": "single_point", "keep_elitism": 4, "save_best_solutions": false, "save_solutions": false, "keep_parents": 3}
+2023-02-01-14: Best solution: D86, D86, L250-I-80-80, D86, L700-L-80-80, D86
+2023-02-01-14: Best solution cost: 11.0626342
+2023-02-01-14: Best solution found in generation: 67
+2023-02-01-14: ---------- Starting new run ----------
+2023-02-01-14: {"population_size": 16, "num_generations": 100, "mutation_probability": 0.174727367213938, "num_parents_mating": 4, "crossover_type": "two_points", "keep_elitism": 2, "save_best_solutions": false, "save_solutions": false, "keep_parents": 4}
+2023-02-01-14: ---------- Starting new run ----------
+2023-02-01-14: {"population_size": 38, "num_generations": 100, "mutation_probability": 0.20326496059583377, "num_parents_mating": 2, "crossover_type": "two_points", "keep_elitism": 4, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-20: Best solution: D86, D86, L700-L-80-80, D86, D86, L300-I-80-80
+2023-02-01-20: Best solution cost: 11.132083
+2023-02-01-20: Best solution found in generation: 73
+2023-02-01-20: ---------- Starting new run ----------
+2023-02-01-20: {"population_size": 30, "num_generations": 100, "mutation_probability": 0.1517429684452708, "num_parents_mating": 2, "crossover_type": "single_point", "keep_elitism": 1, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-24: Best solution: L150-I-80-80, D86, D86, L200-L-80-80, D86, D86, L200-I-80-80, L200-L-80-80
+2023-02-01-24: Best solution cost: 11.9699453
+2023-02-01-24: Best solution found in generation: 49
+2023-02-01-24: ---------- Starting new run ----------
+2023-02-01-24: {"population_size": 39, "num_generations": 100, "mutation_probability": 0.2324375214377558, "num_parents_mating": 2, "crossover_type": "two_points", "keep_elitism": 5, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-29: Best solution: L500-I-80-80, D86, D86, L500-L-80-80, D86, D86, L150-I-80-80
+2023-02-01-29: Best solution cost: 11.805786499999998
+2023-02-01-29: Best solution found in generation: 45
+2023-02-01-29: ---------- Starting new run ----------
+2023-02-01-29: {"population_size": 35, "num_generations": 100, "mutation_probability": 0.2738479580985155, "num_parents_mating": 3, "crossover_type": "two_points", "keep_elitism": 4, "save_best_solutions": false, "save_solutions": false, "keep_parents": 2}
+2023-02-01-33: Best solution: D86, D86, L250-I-80-80, D86, L200-L-80-80, L500-I-80-80, L150-L-80-80
+2023-02-01-33: Best solution cost: 10.394087200000001
+2023-02-01-33: Best solution found in generation: 74
+2023-02-01-33: ---------- Starting new run ----------
+2023-02-01-33: {"population_size": 48, "num_generations": 100, "mutation_probability": 0.14219283598894414, "num_parents_mating": 3, "crossover_type": "single_point", "keep_elitism": 4, "save_best_solutions": false, "save_solutions": false, "keep_parents": 2}
+2023-02-01-40: Best solution: D86, D86, L150-I-80-80, L500-L-80-80, D86, D86, L150-I-80-80, L150-L-80-80
+2023-02-01-40: Best solution cost: 12.247740599999998
+2023-02-01-40: Best solution found in generation: 20
+2023-02-01-40: ---------- Starting new run ----------
+2023-02-01-40: {"population_size": 13, "num_generations": 100, "mutation_probability": 0.27480330304360556, "num_parents_mating": 5, "crossover_type": "single_point", "keep_elitism": 1, "save_best_solutions": false, "save_solutions": false, "keep_parents": 5}
+2023-02-01-42: Best solution: D86, L150-I-80-80, D86, D86, L700-L-80-80, D86, L700-L-80-80, L700-I-80-80, L200-L-80-80
+2023-02-01-42: Best solution cost: 15.050954999999998
+2023-02-01-42: Best solution found in generation: 88
+2023-02-01-42: ---------- Starting new run ----------
+2023-02-01-42: {"population_size": 45, "num_generations": 100, "mutation_probability": 0.12706761666541483, "num_parents_mating": 3, "crossover_type": "single_point", "keep_elitism": 5, "save_best_solutions": false, "save_solutions": false, "keep_parents": 3}
+2023-02-01-47: Best solution: D86, D86, L500-L-80-80, L150-I-80-80, D86, D86, L150-I-80-80
+2023-02-01-47: Best solution cost: 11.319644599999998
+2023-02-01-47: Best solution found in generation: 47
+2023-02-01-47: ---------- Starting new run ----------
+2023-02-01-47: {"population_size": 45, "num_generations": 100, "mutation_probability": 0.15795727565492962, "num_parents_mating": 4, "crossover_type": "single_point", "keep_elitism": 1, "save_best_solutions": false, "save_solutions": false, "keep_parents": 4}
+2023-02-01-47: ---------- Starting new run ----------
+2023-02-01-47: {"population_size": 32, "num_generations": 100, "mutation_probability": 0.24744293430013478, "num_parents_mating": 1, "crossover_type": "two_points", "keep_elitism": 3, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-51: Best solution: D86, D86, L150-I-80-80, D86, L200-I-80-80, L700-L-80-80, L150-L-80-80
+2023-02-01-51: Best solution cost: 10.5329848
+2023-02-01-51: Best solution found in generation: 86
+2023-02-01-51: ---------- Starting new run ----------
+2023-02-01-51: {"population_size": 44, "num_generations": 100, "mutation_probability": 0.21029605001873425, "num_parents_mating": 2, "crossover_type": "two_points", "keep_elitism": 4, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-57: Best solution: L150-I-80-80, D86, D86, L200-I-80-80, L150-I-80-80, D86, L700-L-80-80, L150-L-80-80
+2023-02-01-57: Best solution cost: 11.2066882
+2023-02-01-57: Best solution found in generation: 72
+2023-02-01-57: ---------- Starting new run ----------
+2023-02-01-57: {"population_size": 43, "num_generations": 100, "mutation_probability": 0.18041619379687834, "num_parents_mating": 4, "crossover_type": "single_point", "keep_elitism": 1, "save_best_solutions": false, "save_solutions": false, "keep_parents": 4}
+2023-02-01-02: Best solution: D86, D86, L150-I-80-80, D86, L150-I-80-80, L700-L-80-80, L150-L-80-80
+2023-02-01-02: Best solution cost: 10.4635359
+2023-02-01-02: Best solution found in generation: 49
+2023-02-01-02: ---------- Starting new run ----------
+2023-02-01-03: {"population_size": 25, "num_generations": 100, "mutation_probability": 0.28818503363555964, "num_parents_mating": 1, "crossover_type": "two_points", "keep_elitism": 3, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-06: Best solution: L500-I-80-80, L250-I-80-80, L150-I-80-80, D86, D86, L700-L-80-80, D86, D86, L250-I-80-80
+2023-02-01-06: Best solution cost: 13.708783999999998
+2023-02-01-06: Best solution found in generation: 95
+2023-02-01-06: ---------- Starting new run ----------
+2023-02-01-06: {"population_size": 40, "num_generations": 100, "mutation_probability": 0.1758132960299997, "num_parents_mating": 4, "crossover_type": "single_point", "keep_elitism": 1, "save_best_solutions": false, "save_solutions": false, "keep_parents": 4}
+2023-02-01-11: Best solution: D86, D86, L200-I-80-80, D86, L500-I-80-80, D86, L250-I-80-80
+2023-02-01-11: Best solution cost: 11.2735987
+2023-02-01-11: Best solution found in generation: 86
+2023-02-01-11: ---------- Starting new run ----------
+2023-02-01-12: {"population_size": 43, "num_generations": 100, "mutation_probability": 0.18490003646017325, "num_parents_mating": 4, "crossover_type": "single_point", "keep_elitism": 1, "save_best_solutions": false, "save_solutions": false, "keep_parents": 4}
+2023-02-01-18: Best solution: D86, D86, L150-L-80-80, L150-I-80-80, L300-I-80-80, D86, D86, L150-I-80-80
+2023-02-01-18: Best solution cost: 11.715552699999998
+2023-02-01-18: Best solution found in generation: 77
+2023-02-01-18: ---------- Starting new run ----------
+2023-02-01-18: {"population_size": 8, "num_generations": 100, "mutation_probability": 0.2160492183117734, "num_parents_mating": 2, "crossover_type": "two_points", "keep_elitism": 3, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-19: Best solution: L200-I-80-80, D86, D86, L500-I-80-80, D86, L200-I-80-80, D86, L150-I-80-80, L700-L-80-80
+2023-02-01-19: Best solution cost: 13.5698864
+2023-02-01-19: Best solution found in generation: 95
+2023-02-01-19: ---------- Starting new run ----------
+2023-02-01-19: {"population_size": 35, "num_generations": 100, "mutation_probability": 0.263308327303724, "num_parents_mating": 2, "crossover_type": "single_point", "keep_elitism": 4, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-23: Best solution: L500-I-80-80, D86, D86, L500-L-80-80, D86, D86, L150-I-80-80
+2023-02-01-23: Best solution cost: 11.805786499999998
+2023-02-01-23: Best solution found in generation: 54
+2023-02-01-23: ---------- Starting new run ----------
+2023-02-01-23: {"population_size": 37, "num_generations": 100, "mutation_probability": 0.20233097874786746, "num_parents_mating": 5, "crossover_type": "single_point", "keep_elitism": 2, "save_best_solutions": false, "save_solutions": false, "keep_parents": 5}
+2023-02-01-29: Best solution: L200-I-80-80, L150-I-80-80, D86, D86, L300-I-80-80, D86, L300-I-80-80, D86, L700-L-80-80
+2023-02-01-29: Best solution cost: 13.430988600000001
+2023-02-01-29: Best solution found in generation: 53
+2023-02-01-29: ---------- Starting new run ----------
+2023-02-01-29: {"population_size": 34, "num_generations": 100, "mutation_probability": 0.2269742474585958, "num_parents_mating": 4, "crossover_type": "single_point", "keep_elitism": 1, "save_best_solutions": false, "save_solutions": false, "keep_parents": 4}
+2023-02-01-34: Best solution: D86, D86, L200-I-80-80, D86, L500-I-80-80, D86, L150-I-80-80, L150-I-80-80, L200-L-80-80
+2023-02-01-34: Best solution cost: 12.805949200000002
+2023-02-01-34: Best solution found in generation: 20
+2023-02-01-34: ---------- Starting new run ----------
+2023-02-01-34: {"population_size": 40, "num_generations": 100, "mutation_probability": 0.19054707379779784, "num_parents_mating": 3, "crossover_type": "two_points", "keep_elitism": 2, "save_best_solutions": false, "save_solutions": false, "keep_parents": 2}
+2023-02-01-39: Best solution: L250-I-80-80, L150-I-80-80, D86, D86, L500-L-80-80, D86, D86, L150-I-80-80
+2023-02-01-39: Best solution cost: 12.1322457
+2023-02-01-39: Best solution found in generation: 81
+2023-02-01-39: ---------- Starting new run ----------
+2023-02-01-39: {"population_size": 42, "num_generations": 100, "mutation_probability": 0.19284173974027183, "num_parents_mating": 1, "crossover_type": "single_point", "keep_elitism": 2, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-45: Best solution: D86, L150-I-80-80, D86, L150-I-80-80, D86, L700-L-80-80, D86, L300-I-80-80
+2023-02-01-45: Best solution cost: 12.479489799999998
+2023-02-01-45: Best solution found in generation: 90
+2023-02-01-45: ---------- Starting new run ----------
+2023-02-01-45: {"population_size": 31, "num_generations": 100, "mutation_probability": 0.2985633808445041, "num_parents_mating": 4, "crossover_type": "two_points", "keep_elitism": 1, "save_best_solutions": false, "save_solutions": false, "keep_parents": 3}
+2023-02-01-49: Best solution: L150-I-80-80, D86, D86, L300-I-80-80, D86, L700-L-80-80, D86, L250-I-80-80
+2023-02-01-49: Best solution cost: 12.618387499999999
+2023-02-01-49: Best solution found in generation: 52
+2023-02-01-49: ---------- Starting new run ----------
+2023-02-01-49: {"population_size": 10, "num_generations": 100, "mutation_probability": 0.24747361229234735, "num_parents_mating": 1, "crossover_type": "single_point", "keep_elitism": 5, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-51: Best solution: L300-I-80-80, D86, D86, L700-L-80-80, D86, L700-I-80-80, D86, L150-I-80-80, D86, L700-I-80-80
+2023-02-01-51: Best solution cost: 16.743067599999996
+2023-02-01-51: Best solution found in generation: 99
+2023-02-01-51: ---------- Starting new run ----------
+2023-02-01-51: {"population_size": 35, "num_generations": 100, "mutation_probability": 0.28189562066302504, "num_parents_mating": 3, "crossover_type": "two_points", "keep_elitism": 4, "save_best_solutions": false, "save_solutions": false, "keep_parents": 2}
+2023-02-01-55: Best solution: L150-L-80-80, D86, L150-L-80-80, L700-L-80-80, D86, L700-I-80-80, D86, D86, L300-I-80-80
+2023-02-01-55: Best solution cost: 14.425915600000002
+2023-02-01-55: Best solution found in generation: 58
+2023-02-01-55: ---------- Starting new run ----------
+2023-02-01-55: {"population_size": 20, "num_generations": 100, "mutation_probability": 0.15080571195031667, "num_parents_mating": 3, "crossover_type": "single_point", "keep_elitism": 1, "save_best_solutions": false, "save_solutions": false, "keep_parents": 3}
+2023-02-01-58: Best solution: L300-I-80-80, D86, D86, D86, L300-I-80-80, D86, D86, L200-I-80-80
+2023-02-01-58: Best solution cost: 13.127252099999998
+2023-02-01-58: Best solution found in generation: 53
+2023-02-01-58: ---------- Starting new run ----------
+2023-02-01-58: {"population_size": 50, "num_generations": 100, "mutation_probability": 0.13828706803955926, "num_parents_mating": 5, "crossover_type": "single_point", "keep_elitism": 1, "save_best_solutions": false, "save_solutions": false, "keep_parents": 4}
+2023-02-01-05: Best solution: L150-I-80-80, D86, D86, L250-I-80-80, D86, D86, L250-I-80-80, L500-L-80-80
+2023-02-01-05: Best solution cost: 12.2711434
+2023-02-01-05: Best solution found in generation: 99
+2023-02-01-05: ---------- Starting new run ----------
+2023-02-01-05: {"population_size": 46, "num_generations": 100, "mutation_probability": 0.16497255020009322, "num_parents_mating": 4, "crossover_type": "single_point", "keep_elitism": 1, "save_best_solutions": false, "save_solutions": false, "keep_parents": 4}
+2023-02-01-11: Best solution: D86, D86, L700-L-80-80, D86, D86, L150-I-80-80
+2023-02-01-11: Best solution cost: 10.923736499999999
+2023-02-01-11: Best solution found in generation: 78
+2023-02-01-12: ---------- Starting new run ----------
+2023-02-01-12: {"population_size": 37, "num_generations": 100, "mutation_probability": 0.27333684248815915, "num_parents_mating": 3, "crossover_type": "two_points", "keep_elitism": 4, "save_best_solutions": false, "save_solutions": false, "keep_parents": 2}
+2023-02-01-12: ---------- Starting new run ----------
+2023-02-01-12: {"population_size": 44, "num_generations": 100, "mutation_probability": 0.15712740916121123, "num_parents_mating": 4, "crossover_type": "single_point", "keep_elitism": 1, "save_best_solutions": false, "save_solutions": false, "keep_parents": 4}
+2023-02-01-18: Best solution: D86, D86, L200-I-80-80, D86, L700-L-80-80, D86
+2023-02-01-18: Best solution cost: 10.9931854
+2023-02-01-18: Best solution found in generation: 58
+2023-02-01-18: ---------- Starting new run ----------
+2023-02-01-18: {"population_size": 46, "num_generations": 100, "mutation_probability": 0.18089703857505873, "num_parents_mating": 4, "crossover_type": "single_point", "keep_elitism": 1, "save_best_solutions": false, "save_solutions": false, "keep_parents": 4}
+2023-02-01-24: Best solution: D86, D86, D86, D86, L500-L-80-80, L200-L-80-80
+2023-02-01-24: Best solution cost: 10.9697826
+2023-02-01-24: Best solution found in generation: 7
+2023-02-01-24: ---------- Starting new run ----------
+2023-02-01-25: {"population_size": 48, "num_generations": 100, "mutation_probability": 0.16749585331120778, "num_parents_mating": 4, "crossover_type": "single_point", "keep_elitism": 1, "save_best_solutions": false, "save_solutions": false, "keep_parents": 4}
+2023-02-01-31: Best solution: L500-I-80-80, D86, D86, L500-L-80-80, D86, D86, L150-I-80-80
+2023-02-01-31: Best solution cost: 11.805786499999998
+2023-02-01-31: Best solution found in generation: 33
+2023-02-01-32: ---------- Starting new run ----------
+2023-02-01-32: {"population_size": 29, "num_generations": 100, "mutation_probability": 0.26545916028228783, "num_parents_mating": 4, "crossover_type": "two_points", "keep_elitism": 3, "save_best_solutions": false, "save_solutions": false, "keep_parents": 3}
+2023-02-01-35: Best solution: D86, D86, L700-L-80-80, D86, D86, L300-I-80-80
+2023-02-01-35: Best solution cost: 11.132083
+2023-02-01-35: Best solution found in generation: 93
+2023-02-01-35: ---------- Starting new run ----------
+2023-02-01-35: {"population_size": 42, "num_generations": 100, "mutation_probability": 0.14347958505285832, "num_parents_mating": 4, "crossover_type": "single_point", "keep_elitism": 1, "save_best_solutions": false, "save_solutions": false, "keep_parents": 4}
+2023-02-01-41: Best solution: D86, L150-L-80-80, L250-I-80-80, D86, D86, L150-I-80-80, D86, L150-I-80-80, L500-L-80-80
+2023-02-01-41: Best solution cost: 13.060341699999999
+2023-02-01-41: Best solution found in generation: 96
+2023-02-01-41: ---------- Starting new run ----------
+2023-02-01-41: {"population_size": 41, "num_generations": 100, "mutation_probability": 0.22187878705080608, "num_parents_mating": 3, "crossover_type": "two_points", "keep_elitism": 4, "save_best_solutions": false, "save_solutions": false, "keep_parents": 2}
+2023-02-01-47: Best solution: D86, D86, L200-I-80-80, D86, L150-I-80-80, L700-L-80-80, L200-L-80-80
+2023-02-01-47: Best solution cost: 10.602433600000001
+2023-02-01-47: Best solution found in generation: 85
+2023-02-01-47: ---------- Starting new run ----------
+2023-02-01-47: {"population_size": 48, "num_generations": 100, "mutation_probability": 0.19241870753654514, "num_parents_mating": 2, "crossover_type": "single_point", "keep_elitism": 2, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-53: Best solution: D86, D86, L700-L-80-80, D86, D86, L150-I-80-80
+2023-02-01-53: Best solution cost: 10.923736499999999
+2023-02-01-53: Best solution found in generation: 97
+2023-02-01-53: ---------- Starting new run ----------
+2023-02-01-53: {"population_size": 40, "num_generations": 100, "mutation_probability": 0.13029904781738375, "num_parents_mating": 4, "crossover_type": "two_points", "keep_elitism": 1, "save_best_solutions": false, "save_solutions": false, "keep_parents": 4}
+2023-02-01-57: Best solution: D86, D86, L200-I-80-80, D86, L150-I-80-80, L300-I-80-80, D86, L200-I-80-80
+2023-02-01-58: Best solution cost: 11.6000579
+2023-02-01-58: Best solution found in generation: 9
+2023-02-01-58: ---------- Starting new run ----------
+2023-02-01-58: {"population_size": 36, "num_generations": 100, "mutation_probability": 0.2856387398613509, "num_parents_mating": 2, "crossover_type": "two_points", "keep_elitism": 3, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-02: Best solution: D86, D86, L250-I-80-80, D86, L500-L-80-80, L250-I-80-80, D86, L150-I-80-80
+2023-02-01-02: Best solution cost: 12.271143400000001
+2023-02-01-02: Best solution found in generation: 83
+2023-02-01-02: ---------- Starting new run ----------
+2023-02-01-02: {"population_size": 34, "num_generations": 100, "mutation_probability": 0.2559297450435632, "num_parents_mating": 4, "crossover_type": "single_point", "keep_elitism": 4, "save_best_solutions": false, "save_solutions": false, "keep_parents": 3}
+2023-02-01-07: Best solution: L500-I-80-80, D86, D86, L500-L-80-80, D86, D86, L150-I-80-80
+2023-02-01-07: Best solution cost: 11.805786499999998
+2023-02-01-07: Best solution found in generation: 85
+2023-02-01-07: ---------- Starting new run ----------
+2023-02-01-07: {"population_size": 23, "num_generations": 100, "mutation_probability": 0.15008813745582317, "num_parents_mating": 5, "crossover_type": "single_point", "keep_elitism": 3, "save_best_solutions": false, "save_solutions": false, "keep_parents": 5}
+2023-02-01-10: Best solution: L150-I-80-80, L250-I-80-80, D86, D86, L500-L-80-80, D86, D86, L150-I-80-80
+2023-02-01-10: Best solution cost: 12.1322457
+2023-02-01-10: Best solution found in generation: 74
+2023-02-01-10: ---------- Starting new run ----------
+2023-02-01-10: {"population_size": 44, "num_generations": 100, "mutation_probability": 0.16031388422236953, "num_parents_mating": 4, "crossover_type": "single_point", "keep_elitism": 1, "save_best_solutions": false, "save_solutions": false, "keep_parents": 4}
+2023-02-01-16: Best solution: L500-I-80-80, D86, D86, L500-L-80-80, D86, D86, L150-I-80-80
+2023-02-01-16: Best solution cost: 11.805786499999998
+2023-02-01-16: Best solution found in generation: 38
+2023-02-01-16: ---------- Starting new run ----------
+2023-02-01-16: {"population_size": 46, "num_generations": 100, "mutation_probability": 0.13777887090417987, "num_parents_mating": 2, "crossover_type": "single_point", "keep_elitism": 4, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-23: Best solution: L500-I-80-80, D86, D86, L500-L-80-80, D86, D86, L150-I-80-80
+2023-02-01-23: Best solution cost: 11.805786499999998
+2023-02-01-23: Best solution found in generation: 86
+2023-02-01-23: ---------- Starting new run ----------
+2023-02-01-23: {"population_size": 46, "num_generations": 100, "mutation_probability": 0.16375539433030578, "num_parents_mating": 4, "crossover_type": "single_point", "keep_elitism": 1, "save_best_solutions": false, "save_solutions": false, "keep_parents": 4}
+2023-02-01-29: Best solution: D86, D86, L300-I-80-80, D86, D86, L300-I-80-80, L500-L-80-80
+2023-02-01-29: Best solution cost: 11.7363376
+2023-02-01-29: Best solution found in generation: 40
+2023-02-01-29: ---------- Starting new run ----------
+2023-02-01-30: {"population_size": 43, "num_generations": 100, "mutation_probability": 0.24496396793952246, "num_parents_mating": 3, "crossover_type": "single_point", "keep_elitism": 3, "save_best_solutions": false, "save_solutions": false, "keep_parents": 2}
+2023-02-01-35: Best solution: D86, D86, L700-L-80-80, D86, D86, L150-I-80-80
+2023-02-01-35: Best solution cost: 10.923736499999999
+2023-02-01-35: Best solution found in generation: 44
+2023-02-01-35: ---------- Starting new run ----------
+2023-02-01-35: {"population_size": 43, "num_generations": 100, "mutation_probability": 0.17570894540688003, "num_parents_mating": 4, "crossover_type": "single_point", "keep_elitism": 1, "save_best_solutions": false, "save_solutions": false, "keep_parents": 4}
+2023-02-01-41: Best solution: D86, D86, L200-I-80-80, D86, L150-I-80-80, L150-I-80-80, L200-I-80-80, D86, L250-I-80-80
+2023-02-01-41: Best solution cost: 12.2043125
+2023-02-01-41: Best solution found in generation: 62
+2023-02-01-41: ---------- Starting new run ----------
+2023-02-01-41: {"population_size": 49, "num_generations": 100, "mutation_probability": 0.1656767337887081, "num_parents_mating": 4, "crossover_type": "single_point", "keep_elitism": 1, "save_best_solutions": false, "save_solutions": false, "keep_parents": 4}
+2023-02-01-47: Best solution: L150-I-80-80, D86, D86, D86, D86, L500-I-80-80, L150-L-80-80
+2023-02-01-47: Best solution cost: 11.3196447
+2023-02-01-47: Best solution found in generation: 32
+2023-02-01-47: ---------- Starting new run ----------
+2023-02-01-47: {"population_size": 48, "num_generations": 100, "mutation_probability": 0.23477192441549102, "num_parents_mating": 4, "crossover_type": "two_points", "keep_elitism": 5, "save_best_solutions": false, "save_solutions": false, "keep_parents": 3}
+2023-02-01-53: Best solution: D86, D86, L250-I-80-80, D86, L500-I-80-80, D86, L300-I-80-80
+2023-02-01-53: Best solution cost: 11.4124963
+2023-02-01-53: Best solution found in generation: 89
+2023-02-01-53: ---------- Starting new run ----------
+2023-02-01-54: {"population_size": 20, "num_generations": 100, "mutation_probability": 0.21347877882445915, "num_parents_mating": 1, "crossover_type": "single_point", "keep_elitism": 2, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-56: Best solution: D86, D86, L500-I-80-80, D86, L200-I-80-80, L150-I-80-80, D86, L200-I-80-80, L200-I-80-80
+2023-02-01-56: Best solution cost: 12.6210056
+2023-02-01-56: Best solution found in generation: 93
+2023-02-01-56: ---------- Starting new run ----------
+2023-02-01-56: {"population_size": 47, "num_generations": 100, "mutation_probability": 0.15599187950792195, "num_parents_mating": 4, "crossover_type": "single_point", "keep_elitism": 1, "save_best_solutions": false, "save_solutions": false, "keep_parents": 4}
+2023-02-01-03: Best solution: D86, D86, L700-L-80-80, D86, D86, L150-I-80-80
+2023-02-01-03: Best solution cost: 10.923736499999999
+2023-02-01-03: Best solution found in generation: 91
+2023-02-01-03: ---------- Starting new run ----------
+2023-02-01-03: {"population_size": 18, "num_generations": 100, "mutation_probability": 0.14731593343519658, "num_parents_mating": 4, "crossover_type": "single_point", "keep_elitism": 1, "save_best_solutions": false, "save_solutions": false, "keep_parents": 4}
+2023-02-01-05: Best solution: D86, L150-I-80-80, D86, L250-I-80-80, D86, D86, L700-I-80-80, L150-L-80-80
+2023-02-01-05: Best solution cost: 12.410041099999999
+2023-02-01-05: Best solution found in generation: 91
+2023-02-01-05: ---------- Starting new run ----------
+2023-02-01-05: {"population_size": 45, "num_generations": 100, "mutation_probability": 0.18071983799334276, "num_parents_mating": 3, "crossover_type": "single_point", "keep_elitism": 1, "save_best_solutions": false, "save_solutions": false, "keep_parents": 2}
+2023-02-01-11: Best solution: L500-I-80-80, D86, D86, L500-L-80-80, D86, D86, L150-I-80-80
+2023-02-01-11: Best solution cost: 11.805786499999998
+2023-02-01-11: Best solution found in generation: 50
+2023-02-01-11: ---------- Starting new run ----------
+2023-02-01-11: {"population_size": 33, "num_generations": 100, "mutation_probability": 0.2674460901290071, "num_parents_mating": 2, "crossover_type": "two_points", "keep_elitism": 3, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-15: Best solution: L500-I-80-80, D86, D86, L500-L-80-80, D86, D86, L150-I-80-80
+2023-02-01-15: Best solution cost: 11.805786499999998
+2023-02-01-15: Best solution found in generation: 55
+2023-02-01-15: ---------- Starting new run ----------
+2023-02-01-15: {"population_size": 40, "num_generations": 100, "mutation_probability": 0.11654265890500695, "num_parents_mating": 4, "crossover_type": "single_point", "keep_elitism": 2, "save_best_solutions": false, "save_solutions": false, "keep_parents": 4}
+2023-02-01-15: ---------- Starting new run ----------
+2023-02-01-16: {"population_size": 42, "num_generations": 100, "mutation_probability": 0.12902783171371754, "num_parents_mating": 5, "crossover_type": "single_point", "keep_elitism": 5, "save_best_solutions": false, "save_solutions": false, "keep_parents": 3}
+2023-02-01-20: Best solution: L150-I-80-80, D86, D86, D86, D86, L500-I-80-80, L150-L-80-80
+2023-02-01-20: Best solution cost: 11.3196447
+2023-02-01-20: Best solution found in generation: 93
+2023-02-01-21: ---------- Starting new run ----------
+2023-02-01-21: {"population_size": 27, "num_generations": 100, "mutation_probability": 0.1702751994708166, "num_parents_mating": 2, "crossover_type": "single_point", "keep_elitism": 1, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-21: ---------- Starting new run ----------
+2023-02-01-21: {"population_size": 24, "num_generations": 100, "mutation_probability": 0.2487698028312551, "num_parents_mating": 1, "crossover_type": "two_points", "keep_elitism": 3, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-24: Best solution: D86, L150-I-80-80, D86, L200-I-80-80, L700-L-80-80, D86, D86, L150-I-80-80
+2023-02-01-24: Best solution cost: 12.340592199999998
+2023-02-01-24: Best solution found in generation: 79
+2023-02-01-24: ---------- Starting new run ----------
+2023-02-01-24: {"population_size": 29, "num_generations": 100, "mutation_probability": 0.28753916419695325, "num_parents_mating": 1, "crossover_type": "two_points", "keep_elitism": 3, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-27: Best solution: D86, D86, L200-I-80-80, D86, L150-I-80-80, L300-I-80-80, D86, L200-I-80-80
+2023-02-01-27: Best solution cost: 11.6000579
+2023-02-01-27: Best solution found in generation: 77
+2023-02-01-27: ---------- Starting new run ----------
+2023-02-01-27: {"population_size": 31, "num_generations": 100, "mutation_probability": 0.22639100803708062, "num_parents_mating": 1, "crossover_type": "two_points", "keep_elitism": 3, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-31: Best solution: L200-I-80-80, L150-L-80-80, D86, D86, L250-I-80-80, D86, L500-L-80-80, D86
+2023-02-01-31: Best solution cost: 12.456087199999999
+2023-02-01-31: Best solution found in generation: 67
+2023-02-01-31: ---------- Starting new run ----------
+2023-02-01-32: {"population_size": 38, "num_generations": 100, "mutation_probability": 0.1438518096706789, "num_parents_mating": 3, "crossover_type": "two_points", "keep_elitism": 1, "save_best_solutions": false, "save_solutions": false, "keep_parents": 3}
+2023-02-01-37: Best solution: L500-I-80-80, D86, D86, L150-L-80-80, L150-I-80-80, D86, D86, L250-I-80-80
+2023-02-01-37: Best solution cost: 12.1322458
+2023-02-01-37: Best solution found in generation: 45
+2023-02-01-37: ---------- Starting new run ----------
+2023-02-01-37: {"population_size": 33, "num_generations": 100, "mutation_probability": 0.24100783459260575, "num_parents_mating": 1, "crossover_type": "two_points", "keep_elitism": 3, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-41: Best solution: L300-I-80-80, D86, L150-L-80-80, L300-I-80-80, D86, L150-I-80-80, D86, D86, L500-I-80-80
+2023-02-01-41: Best solution cost: 13.0837445
+2023-02-01-41: Best solution found in generation: 73
+2023-02-01-41: ---------- Starting new run ----------
+2023-02-01-41: {"population_size": 48, "num_generations": 100, "mutation_probability": 0.19342238642624923, "num_parents_mating": 2, "crossover_type": "single_point", "keep_elitism": 3, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-48: Best solution: L150-I-80-80, D86, D86, L300-I-80-80, D86, L700-L-80-80, D86, L200-I-80-80
+2023-02-01-48: Best solution cost: 12.548938699999999
+2023-02-01-48: Best solution found in generation: 38
+2023-02-01-48: ---------- Starting new run ----------
+2023-02-01-48: {"population_size": 26, "num_generations": 100, "mutation_probability": 0.25410391580212077, "num_parents_mating": 1, "crossover_type": "two_points", "keep_elitism": 3, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-51: Best solution: D86, D86, L150-I-80-80, D86, L200-I-80-80, D86, L150-I-80-80, L200-I-80-80, L200-L-80-80
+2023-02-01-51: Best solution cost: 12.3892562
+2023-02-01-51: Best solution found in generation: 79
+2023-02-01-51: ---------- Starting new run ----------
+2023-02-01-51: {"population_size": 48, "num_generations": 100, "mutation_probability": 0.18853003365201945, "num_parents_mating": 2, "crossover_type": "single_point", "keep_elitism": 2, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-57: Best solution: D86, D86, L200-I-80-80, D86, L150-I-80-80, L700-L-80-80, L150-L-80-80
+2023-02-01-57: Best solution cost: 10.532984800000001
+2023-02-01-57: Best solution found in generation: 51
+2023-02-01-57: ---------- Starting new run ----------
+2023-02-01-57: {"population_size": 40, "num_generations": 100, "mutation_probability": 0.26715697076691586, "num_parents_mating": 2, "crossover_type": "single_point", "keep_elitism": 4, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-02: Best solution: D86, D86, L700-L-80-80, D86, D86, L150-I-80-80
+2023-02-01-02: Best solution cost: 10.923736499999999
+2023-02-01-02: Best solution found in generation: 21
+2023-02-01-02: ---------- Starting new run ----------
+2023-02-01-02: {"population_size": 46, "num_generations": 100, "mutation_probability": 0.27727223203421214, "num_parents_mating": 1, "crossover_type": "two_points", "keep_elitism": 2, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-08: Best solution: D86, D86, L500-L-80-80, D86, L150-I-80-80, D86, L150-L-80-80, L150-I-80-80
+2023-02-01-08: Best solution cost: 12.247740599999998
+2023-02-01-08: Best solution found in generation: 26
+2023-02-01-08: ---------- Starting new run ----------
+2023-02-01-08: {"population_size": 50, "num_generations": 100, "mutation_probability": 0.1654936270773224, "num_parents_mating": 2, "crossover_type": "single_point", "keep_elitism": 2, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-15: Best solution: L150-I-80-80, D86, D86, D86, D86, L500-I-80-80, L150-L-80-80
+2023-02-01-15: Best solution cost: 11.3196447
+2023-02-01-15: Best solution found in generation: 64
+2023-02-01-15: ---------- Starting new run ----------
+2023-02-01-15: {"population_size": 45, "num_generations": 100, "mutation_probability": 0.17593278561246, "num_parents_mating": 2, "crossover_type": "single_point", "keep_elitism": 1, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-20: Best solution: D86, D86, L150-I-80-80, L150-I-80-80, D86, L500-I-80-80, D86, L200-I-80-80
+2023-02-01-20: Best solution cost: 11.8084044
+2023-02-01-20: Best solution found in generation: 59
+2023-02-01-20: ---------- Starting new run ----------
+2023-02-01-20: {"population_size": 38, "num_generations": 100, "mutation_probability": 0.29769964858250475, "num_parents_mating": 3, "crossover_type": "single_point", "keep_elitism": 4, "save_best_solutions": false, "save_solutions": false, "keep_parents": 2}
+2023-02-01-25: Best solution: L700-I-80-80, D86, D86, L200-L-80-80, D86, D86, L500-I-80-80
+2023-02-01-25: Best solution cost: 12.1530307
+2023-02-01-25: Best solution found in generation: 55
+2023-02-01-25: ---------- Starting new run ----------
+2023-02-01-25: {"population_size": 50, "num_generations": 100, "mutation_probability": 0.23952486161682612, "num_parents_mating": 1, "crossover_type": "two_points", "keep_elitism": 3, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-31: Best solution: L150-I-80-80, D86, D86, L200-I-80-80, L150-I-80-80, D86, L700-L-80-80, L150-L-80-80
+2023-02-01-31: Best solution cost: 11.2066882
+2023-02-01-31: Best solution found in generation: 61
+2023-02-01-31: ---------- Starting new run ----------
+2023-02-01-31: {"population_size": 47, "num_generations": 100, "mutation_probability": 0.18739590248123156, "num_parents_mating": 1, "crossover_type": "single_point", "keep_elitism": 1, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-39: Best solution: L150-I-80-80, D86, L500-L-80-80, D86, L150-I-80-80, D86, L150-I-80-80, D86, L700-L-80-80
+2023-02-01-39: Best solution cost: 13.6853811
+2023-02-01-39: Best solution found in generation: 46
+2023-02-01-39: ---------- Starting new run ----------
+2023-02-01-39: {"population_size": 29, "num_generations": 100, "mutation_probability": 0.1532059112948951, "num_parents_mating": 4, "crossover_type": "single_point", "keep_elitism": 2, "save_best_solutions": false, "save_solutions": false, "keep_parents": 4}
+2023-02-01-43: Best solution: L500-I-80-80, D86, D86, L500-L-80-80, D86, D86, L150-I-80-80
+2023-02-01-43: Best solution cost: 11.805786499999998
+2023-02-01-43: Best solution found in generation: 99
+2023-02-01-43: ---------- Starting new run ----------
+2023-02-01-43: {"population_size": 43, "num_generations": 100, "mutation_probability": 0.16260232881864525, "num_parents_mating": 4, "crossover_type": "single_point", "keep_elitism": 1, "save_best_solutions": false, "save_solutions": false, "keep_parents": 4}
+2023-02-01-43: ---------- Starting new run ----------
+2023-02-01-43: {"population_size": 12, "num_generations": 100, "mutation_probability": 0.1732435219773798, "num_parents_mating": 2, "crossover_type": "single_point", "keep_elitism": 3, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-44: Best solution: D86, D86, L150-I-80-80, D86, L500-L-80-80, L200-I-80-80, D86, L200-I-80-80
+2023-02-01-44: Best solution cost: 12.1322458
+2023-02-01-44: Best solution found in generation: 27
+2023-02-01-44: ---------- Starting new run ----------
+2023-02-01-44: {"population_size": 49, "num_generations": 100, "mutation_probability": 0.13740095962558163, "num_parents_mating": 2, "crossover_type": "single_point", "keep_elitism": 1, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-44: ---------- Starting new run ----------
+2023-02-01-44: {"population_size": 29, "num_generations": 100, "mutation_probability": 0.17565443025169425, "num_parents_mating": 2, "crossover_type": "single_point", "keep_elitism": 3, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-48: Best solution: L500-I-80-80, D86, D86, L500-L-80-80, D86, D86, L150-I-80-80
+2023-02-01-48: Best solution cost: 11.805786499999998
+2023-02-01-48: Best solution found in generation: 33
+2023-02-01-48: ---------- Starting new run ----------
+2023-02-01-48: {"population_size": 45, "num_generations": 100, "mutation_probability": 0.1206757388847989, "num_parents_mating": 4, "crossover_type": "single_point", "keep_elitism": 2, "save_best_solutions": false, "save_solutions": false, "keep_parents": 4}
+2023-02-01-54: Best solution: D86, D86, L700-L-80-80, D86, D86, L150-I-80-80
+2023-02-01-54: Best solution cost: 10.923736499999999
+2023-02-01-54: Best solution found in generation: 28
+2023-02-01-54: ---------- Starting new run ----------
+2023-02-01-54: {"population_size": 41, "num_generations": 100, "mutation_probability": 0.22083948856331412, "num_parents_mating": 3, "crossover_type": "two_points", "keep_elitism": 4, "save_best_solutions": false, "save_solutions": false, "keep_parents": 2}
+2023-02-01-59: Best solution: D86, D86, L200-I-80-80, D86, L200-I-80-80, L300-I-80-80, D86, L250-I-80-80
+2023-02-01-59: Best solution cost: 11.7389556
+2023-02-01-59: Best solution found in generation: 21
+2023-02-01-59: ---------- Starting new run ----------
+2023-02-01-59: {"population_size": 48, "num_generations": 100, "mutation_probability": 0.19720873132895345, "num_parents_mating": 2, "crossover_type": "single_point", "keep_elitism": 2, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-05: Best solution: D86, D86, L150-L-80-80, L500-I-80-80, D86, D86, L150-I-80-80
+2023-02-01-05: Best solution cost: 11.3196447
+2023-02-01-05: Best solution found in generation: 49
+2023-02-01-05: ---------- Starting new run ----------
+2023-02-01-05: {"population_size": 46, "num_generations": 100, "mutation_probability": 0.15480881483773448, "num_parents_mating": 2, "crossover_type": "single_point", "keep_elitism": 3, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-10: Best solution: D86, D86, D86, L150-I-80-80, L500-L-80-80, L150-I-80-80, L150-L-80-80
+2023-02-01-10: Best solution cost: 10.1857406
+2023-02-01-10: Best solution found in generation: 81
+2023-02-01-10: ---------- Starting new run ----------
+2023-02-01-10: {"population_size": 42, "num_generations": 100, "mutation_probability": 0.21633339075225133, "num_parents_mating": 3, "crossover_type": "two_points", "keep_elitism": 4, "save_best_solutions": false, "save_solutions": false, "keep_parents": 2}
+2023-02-01-10: ---------- Starting new run ----------
+2023-02-01-10: {"population_size": 36, "num_generations": 100, "mutation_probability": 0.19223261854111617, "num_parents_mating": 3, "crossover_type": "two_points", "keep_elitism": 4, "save_best_solutions": false, "save_solutions": false, "keep_parents": 2}
+2023-02-01-15: Best solution: L150-I-80-80, D86, D86, L500-I-80-80, D86, L300-I-80-80, D86, L700-L-80-80
+2023-02-01-15: Best solution cost: 12.965631699999998
+2023-02-01-15: Best solution found in generation: 52
+2023-02-01-15: ---------- Starting new run ----------
+2023-02-01-15: {"population_size": 32, "num_generations": 100, "mutation_probability": 0.22761275404981113, "num_parents_mating": 3, "crossover_type": "two_points", "keep_elitism": 4, "save_best_solutions": false, "save_solutions": false, "keep_parents": 2}
+2023-02-01-19: Best solution: L200-L-80-80, D86, L500-L-80-80, L150-I-80-80, L500-L-80-80, D86, D86, D86, L200-I-80-80
+2023-02-01-19: Best solution cost: 13.800876099999998
+2023-02-01-19: Best solution found in generation: 6
+2023-02-01-19: ---------- Starting new run ----------
+2023-02-01-19: {"population_size": 44, "num_generations": 100, "mutation_probability": 0.20501611886533994, "num_parents_mating": 3, "crossover_type": "two_points", "keep_elitism": 3, "save_best_solutions": false, "save_solutions": false, "keep_parents": 2}
+2023-02-01-19: ---------- Starting new run ----------
+2023-02-01-19: {"population_size": 46, "num_generations": 100, "mutation_probability": 0.154053682838996, "num_parents_mating": 2, "crossover_type": "single_point", "keep_elitism": 3, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-25: Best solution: D86, D86, L150-I-80-80, D86, D86, L500-I-80-80, L150-L-80-80
+2023-02-01-26: Best solution cost: 11.3196447
+2023-02-01-26: Best solution found in generation: 68
+2023-02-01-26: ---------- Starting new run ----------
+2023-02-01-26: {"population_size": 41, "num_generations": 100, "mutation_probability": 0.1453545446555293, "num_parents_mating": 2, "crossover_type": "single_point", "keep_elitism": 3, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-30: Best solution: D86, D86, L150-I-80-80, D86, L150-I-80-80, L700-L-80-80, L150-L-80-80
+2023-02-01-30: Best solution cost: 10.4635359
+2023-02-01-30: Best solution found in generation: 36
+2023-02-01-30: ---------- Starting new run ----------
+2023-02-01-30: {"population_size": 40, "num_generations": 100, "mutation_probability": 0.2572031737992961, "num_parents_mating": 2, "crossover_type": "two_points", "keep_elitism": 3, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-36: Best solution: L150-I-80-80, L150-L-80-80, D86, L200-I-80-80, D86, D86, L150-I-80-80, D86, L700-I-80-80, L200-L-80-80
+2023-02-01-36: Best solution cost: 14.011840500000002
+2023-02-01-36: Best solution found in generation: 55
+2023-02-01-36: ---------- Starting new run ----------
+2023-02-01-36: {"population_size": 41, "num_generations": 100, "mutation_probability": 0.13276676965659737, "num_parents_mating": 2, "crossover_type": "single_point", "keep_elitism": 3, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-41: Best solution: D86, D86, D86, D86, L500-L-80-80, L200-L-80-80
+2023-02-01-41: Best solution cost: 10.9697826
+2023-02-01-41: Best solution found in generation: 97
+2023-02-01-41: ---------- Starting new run ----------
+2023-02-01-41: {"population_size": 39, "num_generations": 100, "mutation_probability": 0.1462932238634173, "num_parents_mating": 2, "crossover_type": "single_point", "keep_elitism": 3, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-46: Best solution: L150-I-80-80, D86, D86, L200-I-80-80, D86, D86, L200-I-80-80, L500-L-80-80
+2023-02-01-46: Best solution cost: 12.1322458
+2023-02-01-46: Best solution found in generation: 74
+2023-02-01-46: ---------- Starting new run ----------
+2023-02-01-46: {"population_size": 44, "num_generations": 100, "mutation_probability": 0.15759220566648832, "num_parents_mating": 2, "crossover_type": "single_point", "keep_elitism": 3, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-46: ---------- Starting new run ----------
+2023-02-01-46: {"population_size": 37, "num_generations": 100, "mutation_probability": 0.14085457592231096, "num_parents_mating": 2, "crossover_type": "two_points", "keep_elitism": 3, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-50: Best solution: D86, D86, L150-L-80-80, L500-I-80-80, D86, D86, L150-I-80-80
+2023-02-01-50: Best solution cost: 11.3196447
+2023-02-01-50: Best solution found in generation: 56
+2023-02-01-50: ---------- Starting new run ----------
+2023-02-01-51: {"population_size": 42, "num_generations": 100, "mutation_probability": 0.17013301397264927, "num_parents_mating": 3, "crossover_type": "single_point", "keep_elitism": 3, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-56: Best solution: L200-I-80-80, D86, D86, D86, L150-I-80-80, D86, L300-I-80-80, L150-L-80-80, L200-I-80-80
+2023-02-01-56: Best solution cost: 12.5281539
+2023-02-01-56: Best solution found in generation: 87
+2023-02-01-56: ---------- Starting new run ----------
+2023-02-01-56: {"population_size": 37, "num_generations": 100, "mutation_probability": 0.19859110537926747, "num_parents_mating": 1, "crossover_type": "single_point", "keep_elitism": 5, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-01: Best solution: L150-I-80-80, D86, D86, L150-I-80-80, D86, D86, L250-I-80-80, L500-L-80-80
+2023-02-01-01: Best solution cost: 12.1322457
+2023-02-01-01: Best solution found in generation: 67
+2023-02-01-01: ---------- Starting new run ----------
+2023-02-01-01: {"population_size": 44, "num_generations": 100, "mutation_probability": 0.1495151797886539, "num_parents_mating": 2, "crossover_type": "single_point", "keep_elitism": 3, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-07: Best solution: D86, D86, L700-I-80-80, D86, L150-I-80-80, D86, L700-L-80-80
+2023-02-01-07: Best solution cost: 12.3613771
+2023-02-01-07: Best solution found in generation: 88
+2023-02-01-07: ---------- Starting new run ----------
+2023-02-01-07: {"population_size": 23, "num_generations": 100, "mutation_probability": 0.23257839794311436, "num_parents_mating": 4, "crossover_type": "two_points", "keep_elitism": 2, "save_best_solutions": false, "save_solutions": false, "keep_parents": 4}
+2023-02-01-10: Best solution: L150-L-80-80, D86, L500-L-80-80, L200-I-80-80, D86, L500-I-80-80, D86, L500-I-80-80, D86, L150-I-80-80
+2023-02-01-10: Best solution cost: 14.6368801
+2023-02-01-10: Best solution found in generation: 86
+2023-02-01-10: ---------- Starting new run ----------
+2023-02-01-10: {"population_size": 46, "num_generations": 100, "mutation_probability": 0.16288752846851035, "num_parents_mating": 2, "crossover_type": "single_point", "keep_elitism": 4, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-15: Best solution: D86, D86, L200-I-80-80, D86, L500-I-80-80, D86, L250-I-80-80
+2023-02-01-15: Best solution cost: 11.2735987
+2023-02-01-15: Best solution found in generation: 50
+2023-02-01-15: ---------- Starting new run ----------
+2023-02-01-15: {"population_size": 42, "num_generations": 100, "mutation_probability": 0.2483117222341018, "num_parents_mating": 2, "crossover_type": "two_points", "keep_elitism": 4, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-20: Best solution: D86, L700-L-80-80, L200-L-80-80, D86, D86, L150-I-80-80, D86, L500-L-80-80
+2023-02-01-20: Best solution cost: 13.3355191
+2023-02-01-20: Best solution found in generation: 89
+2023-02-01-20: ---------- Starting new run ----------
+2023-02-01-20: {"population_size": 45, "num_generations": 100, "mutation_probability": 0.2803403631520511, "num_parents_mating": 3, "crossover_type": "single_point", "keep_elitism": 4, "save_best_solutions": false, "save_solutions": false, "keep_parents": 2}
+2023-02-01-26: Best solution: D86, L150-I-80-80, D86, L500-L-80-80, L200-I-80-80, D86, L150-I-80-80, D86, L150-I-80-80
+2023-02-01-26: Best solution cost: 12.736500299999998
+2023-02-01-26: Best solution found in generation: 97
+2023-02-01-26: ---------- Starting new run ----------
+2023-02-01-26: {"population_size": 47, "num_generations": 100, "mutation_probability": 0.178629929544148, "num_parents_mating": 4, "crossover_type": "single_point", "keep_elitism": 3, "save_best_solutions": false, "save_solutions": false, "keep_parents": 4}
+2023-02-01-26: ---------- Starting new run ----------
+2023-02-01-26: {"population_size": 43, "num_generations": 100, "mutation_probability": 0.15841806698161873, "num_parents_mating": 1, "crossover_type": "single_point", "keep_elitism": 4, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-31: Best solution: L150-I-80-80, D86, L700-L-80-80, D86, L150-I-80-80, D86, D86, L150-I-80-80, L500-I-80-80
+2023-02-01-31: Best solution cost: 13.430988600000001
+2023-02-01-31: Best solution found in generation: 14
+2023-02-01-32: ---------- Starting new run ----------
+2023-02-01-32: {"population_size": 18, "num_generations": 100, "mutation_probability": 0.17450365439680557, "num_parents_mating": 3, "crossover_type": "single_point", "keep_elitism": 3, "save_best_solutions": false, "save_solutions": false, "keep_parents": 3}
+2023-02-01-34: Best solution: D86, D86, L250-I-80-80, L150-I-80-80, D86, L700-L-80-80, D86, L150-I-80-80
+2023-02-01-34: Best solution cost: 12.410040999999998
+2023-02-01-34: Best solution found in generation: 76
+2023-02-01-34: ---------- Starting new run ----------
+2023-02-01-34: {"population_size": 18, "num_generations": 100, "mutation_probability": 0.21984551716317052, "num_parents_mating": 3, "crossover_type": "single_point", "keep_elitism": 3, "save_best_solutions": false, "save_solutions": false, "keep_parents": 3}
+2023-02-01-36: Best solution: L150-I-80-80, D86, D86, L500-L-80-80, D86, L250-I-80-80, D86, L700-L-80-80
+2023-02-01-36: Best solution cost: 13.150575400000001
+2023-02-01-36: Best solution found in generation: 71
+2023-02-01-36: ---------- Starting new run ----------
+2023-02-01-36: {"population_size": 41, "num_generations": 100, "mutation_probability": 0.1688171501209779, "num_parents_mating": 4, "crossover_type": "single_point", "keep_elitism": 1, "save_best_solutions": false, "save_solutions": false, "keep_parents": 4}
+2023-02-01-36: ---------- Starting new run ----------
+2023-02-01-36: {"population_size": 49, "num_generations": 100, "mutation_probability": 0.1461276831128527, "num_parents_mating": 2, "crossover_type": "single_point", "keep_elitism": 1, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-43: Best solution: D86, D86, L150-L-80-80, L500-I-80-80, D86, D86
+2023-02-01-43: Best solution cost: 10.645941299999999
+2023-02-01-43: Best solution found in generation: 87
+2023-02-01-43: ---------- Starting new run ----------
+2023-02-01-43: {"population_size": 49, "num_generations": 100, "mutation_probability": 0.12570192946311967, "num_parents_mating": 2, "crossover_type": "single_point", "keep_elitism": 3, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-43: ---------- Starting new run ----------
+2023-02-01-43: {"population_size": 14, "num_generations": 100, "mutation_probability": 0.1577186660203633, "num_parents_mating": 3, "crossover_type": "single_point", "keep_elitism": 3, "save_best_solutions": false, "save_solutions": false, "keep_parents": 3}
+2023-02-01-45: Best solution: D86, D86, L500-I-80-80, D86, L150-I-80-80, D86, L200-I-80-80, L500-L-80-80
+2023-02-01-45: Best solution cost: 12.548938799999998
+2023-02-01-45: Best solution found in generation: 68
+2023-02-01-45: ---------- Starting new run ----------
+2023-02-01-45: {"population_size": 50, "num_generations": 100, "mutation_probability": 0.1348547809002772, "num_parents_mating": 2, "crossover_type": "single_point", "keep_elitism": 1, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-52: Best solution: L150-I-80-80, D86, D86, L150-I-80-80, D86, L500-L-80-80, D86, L300-I-80-80
+2023-02-01-52: Best solution cost: 12.2016945
+2023-02-01-52: Best solution found in generation: 60
+2023-02-01-52: ---------- Starting new run ----------
+2023-02-01-52: {"population_size": 49, "num_generations": 100, "mutation_probability": 0.1444689791241307, "num_parents_mating": 2, "crossover_type": "single_point", "keep_elitism": 1, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-57: Best solution: D86, D86, L200-I-80-80, D86, L500-I-80-80, D86, L250-I-80-80
+2023-02-01-57: Best solution cost: 11.2735987
+2023-02-01-57: Best solution found in generation: 20
+2023-02-01-57: ---------- Starting new run ----------
+2023-02-01-57: {"population_size": 16, "num_generations": 100, "mutation_probability": 0.15252114874609016, "num_parents_mating": 2, "crossover_type": "single_point", "keep_elitism": 1, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-01-59: Best solution: D86, D86, L300-I-80-80, D86, L500-I-80-80, D86, L200-I-80-80
+2023-02-01-59: Best solution cost: 11.3430475
+2023-02-01-59: Best solution found in generation: 64
+2023-02-01-59: ---------- Starting new run ----------
+2023-02-02-00: {"population_size": 20, "num_generations": 100, "mutation_probability": 0.20876281456445464, "num_parents_mating": 3, "crossover_type": "single_point", "keep_elitism": 3, "save_best_solutions": false, "save_solutions": false, "keep_parents": 3}
+2023-02-02-02: Best solution: L150-L-80-80, D86, L150-I-80-80, D86, L200-I-80-80, D86, L700-I-80-80, D86, L150-I-80-80, L200-I-80-80, L150-L-80-80
+2023-02-02-02: Best solution cost: 14.685544000000002
+2023-02-02-02: Best solution found in generation: 68
+2023-02-02-02: ---------- Starting new run ----------
+2023-02-02-02: {"population_size": 40, "num_generations": 100, "mutation_probability": 0.2059341687404132, "num_parents_mating": 2, "crossover_type": "single_point", "keep_elitism": 3, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-02-08: Best solution: D86, D86, L500-L-80-80, L150-I-80-80, D86, D86, L150-I-80-80
+2023-02-02-08: Best solution cost: 11.319644599999998
+2023-02-02-08: Best solution found in generation: 92
+2023-02-02-08: ---------- Starting new run ----------
+2023-02-02-08: {"population_size": 47, "num_generations": 100, "mutation_probability": 0.16043202176531718, "num_parents_mating": 4, "crossover_type": "single_point", "keep_elitism": 1, "save_best_solutions": false, "save_solutions": false, "keep_parents": 2}
+2023-02-02-14: Best solution: L250-I-80-80, L150-I-80-80, D86, D86, L500-L-80-80, D86, D86, L150-I-80-80
+2023-02-02-14: Best solution cost: 12.1322457
+2023-02-02-14: Best solution found in generation: 33
+2023-02-02-14: ---------- Starting new run ----------
+2023-02-02-15: {"population_size": 45, "num_generations": 100, "mutation_probability": 0.18341680700047003, "num_parents_mating": 2, "crossover_type": "single_point", "keep_elitism": 1, "save_best_solutions": false, "save_solutions": false, "keep_parents": 1}
+2023-02-02-21: Best solution: L150-I-80-80, D86, D86, L300-I-80-80, D86, D86, L150-I-80-80, L500-L-80-80
+2023-02-02-21: Best solution cost: 12.201694499999999
+2023-02-02-21: Best solution found in generation: 60
+2023-02-02-21: ---------- Starting new run ----------
+2023-02-02-21: {"population_size": 48, "num_generations": 100, "mutation_probability": 0.14160496942876122, "num_parents_mating": 5, "crossover_type": "single_point", "keep_elitism": 1, "save_best_solutions": false, "save_solutions": false, "keep_parents": 4}
+2023-02-02-28: Best solution: D86, D86, L500-L-80-80, L150-I-80-80, D86, D86, L200-I-80-80
+2023-02-02-28: Best solution cost: 11.3890935
+2023-02-02-28: Best solution found in generation: 86
+2023-02-02-28: ---------- Starting new run ----------
+2023-02-02-28: {"population_size": 31, "num_generations": 100, "mutation_probability": 0.14793351497063675, "num_parents_mating": 3, "crossover_type": "single_point", "keep_elitism": 1, "save_best_solutions": false, "save_solutions": false, "keep_parents": 3}
+2023-02-02-32: Best solution: D86, D86, L300-I-80-80, D86, L500-I-80-80, D86, L250-I-80-80
+2023-02-02-32: Best solution cost: 11.4124963
+2023-02-02-32: Best solution found in generation: 98
