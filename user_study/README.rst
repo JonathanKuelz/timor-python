@@ -1,6 +1,6 @@
 This folder contains the code used to conduct the user study as described in the accompanying paper to this toolbox.
 As the user study itself is not part of the toolbox functionalities, it is not included in the testing suite and forwards compatability is not guaranteed.
-The scripts in this folder have last been tested on the commit with hash xxx - if you check out this hash from the project repository, compatability with the local code is ensured.
+The scripts in this folder have last been tested on the commit with hash c15ec613a439e0b259ac21efe7582eec06c4aae3 - if you check out this hash from the project repository, compatability with the local code is ensured.
 
 # Evaluate your robot building skills
 
