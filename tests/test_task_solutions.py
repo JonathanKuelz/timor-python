@@ -20,6 +20,7 @@ from timor.utilities.prebuilt_robots import get_six_axis_assembly
 from timor.utilities.tolerated_pose import ToleratedPose
 from timor.utilities.trajectory import Trajectory
 from timor.utilities.transformation import Transformation
+from timor.utilities.visualization import clear_visualizer
 
 
 class TestSolution(unittest.TestCase):
@@ -499,6 +500,7 @@ class TestSolution(unittest.TestCase):
     def test_task_visuals(self):
         """Needs manual inspection for the plots"""
         robot = Robot.PinRobot.from_urdf(self.panda_urdf, robots['panda'].parent)
+        robot.move(Transformation.from_translation((-2., -2., .5)))
         q0 = pin.neutral(robot.model)
         q1 = pin.randomConfiguration(robot.model)
         q2 = pin.randomConfiguration(robot.model)
@@ -515,7 +517,12 @@ class TestSolution(unittest.TestCase):
             robot.update_configuration(q0)
             task = Task.Task.from_json_file(description, self.asset_dir)
             robot.update_configuration(q1)
-            viz = task.visualize(viz, robots=robot)  # Obstacle should be red
+            viz = task.visualize(viz, robots=robot, center_view=False)  # Should have view centered on origin
+            clear_visualizer(viz)
+            viz = task.visualize(viz, robots=robot, center_view=True)  # Should have view including more of the robot
+            clear_visualizer(viz)
+            viz = task.visualize(viz, center_view=True)  # Should have view including base constraint, e.g. PTP_1
+            clear_visualizer(viz)
             robot.update_configuration(q2)
             self.assertIs(robot.data, viz.data)
 

@@ -266,9 +266,16 @@ class SolutionBase(abc.ABC, JSONable_mixin):
 
     def visualize(self,
                   viz: Union[pin.visualize.MeshcatVisualizer, MeshcatVisualizerWithAnimation] = None,
-                  fps: float = 30.) \
+                  fps: float = 30.,
+                  center_view: bool = True) \
             -> pin.visualize.MeshcatVisualizer:
-        """Visualize a solution trajectory"""
+        """
+        Visualize a solution trajectory
+
+        :param viz: Visualizer to use (default create new)
+        :param fps: fps to use for visualization
+        :param center_view: Whether to try to set camera such that robot / base pose constraint visible
+        """
         if self.q.size == 0:
             logging.warning("You tried to visualize a solution with an empty trajectory. Aborting.")
             return viz
@@ -280,7 +287,7 @@ class SolutionBase(abc.ABC, JSONable_mixin):
         if isinstance(viz, pin.visualize.MeshcatVisualizer):
             viz = MeshcatVisualizerWithAnimation.from_MeshcatVisualizer(viz)
 
-        viz = self.task.visualize(viz, robots=self.robot)
+        viz = self.task.visualize(viz, robots=self.robot, center_view=center_view)
         for goal in self.task.goals:
             goal.visualize(viz)
 

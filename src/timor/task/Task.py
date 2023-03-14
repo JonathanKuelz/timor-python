@@ -25,6 +25,7 @@ from timor.utilities.json_serialization_formatting import compress_json_vectors
 from timor.utilities.jsonable import JSONable_mixin
 import timor.utilities.logging as logging
 from timor.utilities.schema import DEFAULT_DATE_FORMAT
+from timor.utilities.visualization import center_camera
 
 GRAVITY = np.array([0, 0, -9.81], dtype=float)  # Default gravity for z upwards TODO : Move to global configuration?!
 robot_or_robots = Union[PinRobot, Iterable[PinRobot]]
@@ -221,23 +222,25 @@ class Task(JSONable_mixin):
         return tuple(o.name for o in self.obstacles)
 
     @property
-    def base_constraint(self) -> Union['Constraints.BasePlacement', 'Constraints.AlwaysTrueConstraint']:
-        """Returns the base constraint of this task"""
+    def base_constraint(self) -> Constraints.BasePlacement:
+        """
+        Returns the base constraint of this task.
+
+        :raise: AttributeError if not BasePlacement Constraint given.
+        """
         base = [x for x in self.constraints if isinstance(x, Constraints.BasePlacement)]
         if len(base) == 1:
             return base[0]
-        elif len(base) == 0:
-            logging.info("Task has no base constraint; return always true constraint")
-            return Constraints.AlwaysTrueConstraint()
         else:
-            raise ValueError("Base constraint not unique within this task")
+            raise AttributeError("Base constraint not unique within this task")
 
     def visualize(self,
                   viz: pin.visualize.MeshcatVisualizer = None,
                   robots: Optional[robot_or_robots] = None,
                   show_obstacle: bool = True,
                   show_goals: bool = True,
-                  show_constraints: bool = True
+                  show_constraints: bool = True,
+                  center_view: bool = True
                   ) -> pin.visualize.MeshcatVisualizer:
         """
         Plots the task in a Meshcat visualizer.
@@ -251,6 +254,8 @@ class Task(JSONable_mixin):
         :param show_obstacle: bool to turn on obstacle rendering (default true)
         :param show_goals: bool to turn on goal rendering (default true)
         :param show_constraints: bool to turn on constraint rendering for those that can be displayed (default true)
+        :param center_view: if set to true try to find  a reasonable camera position such that task visible, i.e.
+          try to center camera on the first robot's base and if that is not set try to center the base constraint pose.
         """
         if viz is None:
             viz = pin.visualize.MeshcatVisualizer()
@@ -263,7 +268,11 @@ class Task(JSONable_mixin):
         if robots is not None:
             if isinstance(robots, RobotBase):
                 robots.visualize(viz)
+                if center_view:
+                    center_camera(viz.viewer, robots.placement.translation)
             else:
+                if center_view:
+                    center_camera(viz.viewer, robots[0].placement.translation)
                 for robot in robots:
                     robot.visualize(viz)
 
@@ -280,5 +289,12 @@ class Task(JSONable_mixin):
                 except NotImplementedError:
                     # Not every constraint can be visualized, and that's okay
                     pass
+
+        if center_view and robots is None:
+            try:
+                base_constraint = self.base_constraint
+                center_camera(viz.viewer, base_constraint.base_pose.nominal.translation)
+            except AttributeError:
+                logging.info("Cannot recenter visualizer view to base.")
 
         return viz
