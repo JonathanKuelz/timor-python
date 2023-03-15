@@ -150,7 +150,7 @@ class Geometry(abc.ABC, JSONable_mixin):
             # The "package://" prefix might be given, but is not mandatory.
             desc['parameters']['file'] = re.sub('package://', '', desc['parameters']['file'])
             if not (package_dir / Path(desc['parameters']['file'])).exists():
-                raise ValueError("Mesh file {} does not exist".format(desc['parameters']['file']))
+                raise ValueError("Mesh file {} does not exist".format(package_dir / desc['parameters']['file']))
 
         return class_ref(**desc)
 
@@ -334,8 +334,14 @@ class Cylinder(Geometry):
     @parameters.setter
     def parameters(self, parameters: Dict[str, float]):
         """Unpacks to r, z"""
-        self._r = parameters['r']
-        self._z = parameters['z']
+        try:
+            self._r = parameters['r']
+        except KeyError:
+            self._r = parameters['radius']
+        try:
+            self._z = parameters['z']
+        except KeyError:
+            self._z = parameters['length']
 
     @property
     def urdf_properties(self) -> Tuple[str, Dict[str, float]]:

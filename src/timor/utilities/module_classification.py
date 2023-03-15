@@ -28,7 +28,7 @@ class ModuleType(IntEnum):
     END_EFFECTOR = 3
 
 
-def divide_db_in_types(db: ModulesDB) -> Tuple[ModulesDB, ModulesDB, ModulesDB, ModulesDB]:
+def divide_db_in_types(db: ModulesDB, strict: bool = True) -> Tuple[ModulesDB, ModulesDB, ModulesDB, ModulesDB]:
     """
     Takes one module db and splits it into subsets of bases, links, joints and end-effectors if possible.
 
@@ -36,12 +36,14 @@ def divide_db_in_types(db: ModulesDB) -> Tuple[ModulesDB, ModulesDB, ModulesDB, 
     types, this will raise an Exception.
 
     :param db: Any input modules db with modules that can be uniquely assigned to a ModuleType
+    :param strict: If true, this method will raise an Error if there are any doubts about the uniqueness of the
+      classification.
     :return: Four DBs in the following order: (Bases, Links, Joints, End-Effectors)
     :raises: ModuleClassificationError
     """
     splits: Dict[ModuleType, ModulesDB] = {mod_type: ModulesDB() for mod_type in ModuleType}
     for module in db:
-        module_type = get_module_type(module, strict=True)
+        module_type = get_module_type(module, strict=strict)
         splits[module_type].add(module)
 
     return tuple(splits[mod_type] for mod_type in ModuleType)
@@ -87,6 +89,6 @@ def get_module_type(module: ModuleBase, strict: bool = True) -> ModuleType:
         is_unique &= len(module.bodies) == 1
 
     if strict and not is_unique:
-        raise ModuleClassificationError()
+        raise ModuleClassificationError(f"Cannot classify module {module.id}, {module.name}.")
 
     return module_type

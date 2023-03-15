@@ -217,10 +217,12 @@ class ModuleBase(abc.ABC, JSONable_mixin):
         :param base_placement: where to show this module in the global frame
         :return: visualizer object (keep if you want to add more to this)
         """
-        # Usually single female is connector closer to base
-        base_connector = [c for c in self.available_connectors.values() if c.gender is Gender.female]
-        if len(base_connector) == 1:
-            base_connector_id = (0, base_connector[0].id[2])
+        base_connectors = [c for c in self.available_connectors.values() if c.type == 'base']
+        if len(base_connectors) == 0:
+            # Usually single female is connector closer to base
+            base_connectors = [c for c in self.available_connectors.values() if c.gender is Gender.female]
+        if len(base_connectors) >= 1:
+            base_connector_id = (0, base_connectors[0].own_id)
             tmp_ass = ModuleAssembly(ModulesDB([self]), [self.id], (), base_connector_id)
         else:  # Otherwise, any connector can be fixed to environment
             base_connector_id = (0, list(self.available_connectors)[0][2])
@@ -263,7 +265,9 @@ class AtomicModule(ModuleBase):
         super().__copy__()
 
     @classmethod
-    def from_concert_specification(cls, d: Dict, package_dir: Path) -> ModuleBase:  # pragma: no cover
+    def from_concert_specification(cls,
+                                   d: Dict[str, any],
+                                   package_dir: Path) -> Tuple[AtomicModule, np.ndarray]:  # pragma: no cover
         """
         Maps a concert-module description to an instance of this class.
 
@@ -279,8 +283,20 @@ class AtomicModule(ModuleBase):
 
         :param package_dir: Package directory relative to which mesh file paths are defined
         :param d: A dictionary with relevant meta-information
-        :return: An instantiated module
+        :return: An instantiated module and a color for visualization
         """
+        from matplotlib import colors
+        d['header'].pop('type')
+        for body in d['bodies']:
+            body.pop('gazebo')
+        for joint in d['joints']:
+            joint['parent2joint'] = Transformation(joint.get('pose_parent', Transformation.neutral()))
+            joint['joint2child'] = Transformation(joint.get('pose_child', Transformation.neutral()))
+        viz_colors = set()
+        for body in d['bodies']:
+            viz_colors.update(set(v['parameters'].pop('color', 'grey') for v in body.get('visual', [])))
+        if len(viz_colors) != 1:
+            raise ValueError('All bodies must have the same color')
         module = cls.from_json_data(d, package_dir)
         for connector in module.available_connectors.values():
             if connector.gender is Gender.female:
@@ -290,9 +306,13 @@ class AtomicModule(ModuleBase):
         for joint in module.joints:
             child = joint.child_body
             offset = joint.child2joint
-            child.visual.placement = child.visual.placement @ offset
-            child.collision.placement = child.collision.placement @ offset
-        return module
+            # bTv = bTj @ jTv, where bTj is the joint placement in the body frame
+            child.visual.placement = offset @ child.visual.placement
+            child.collision.placement = offset @ child.collision.placement
+            child.inertia = child.inertia.se3Action(pin.SE3(offset.homogeneous))
+
+        module._module_graph = module._build_module_graph()  # After changing connectors T, we need to fix the graph
+        return module, np.asarray(colors.to_rgba(viz_colors.pop(), alpha=1))
 
     @classmethod
     def from_json_data(cls, d: Dict, package_dir: Path) -> AtomicModule:
