@@ -30,6 +30,7 @@ class TimorJointType(Enum):
     # Passive Joints
     revolute_passive = 2
     prismatic_passive = 2
+
     fixed = 3
 
     # Pin Aliases
@@ -254,6 +255,8 @@ class Joint(JSONable_mixin):
             raise TypeError("Pinocchio does not have fixed joints. They are represented as frames")
         elif (self.type is TimorJointType.revolute_passive) or (self.type is TimorJointType.prismatic_passive):
             raise TypeError("Pinocchio does not have passive joints. They are represented as frames")
+        else:
+            raise ValueError("Unknown joint type")
 
     def __getstate__(self):
         """Returns the state of this object as a dictionary"""
