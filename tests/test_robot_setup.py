@@ -183,6 +183,8 @@ class PinocchioRobotSetup(unittest.TestCase):
         scipy_tolerance = Tolerance.CartesianXYZ.default()
         jacobian_tolerance = Tolerance.DEFAULT_SPATIAL
         fails = []
+        inf_limits = np.ones_like(robot.joint_torque_limits) * np.inf
+        zero_limits = np.zeros_like(robot.joint_torque_limits)
         for _ in range(N):
             # Using a random example for which we know, there's at least one goal configuration
             conf = pin.randomConfiguration(robot.model)
@@ -191,17 +193,19 @@ class PinocchioRobotSetup(unittest.TestCase):
                 # Don't test ik in these cases - it might fail due to avoiding self collisions
                 continue
             n += 1  # Keep track of how many examples were really worked with
+            robot.model.effortLimit = inf_limits  # Make it impossible to fail due to the torque limits
             robot.update_configuration(pin.neutral(robot.model))
-            conf, success = robot.ik_scipy(ToleratedPose(goal, scipy_tolerance))
+            conf, success = robot.ik_scipy(ToleratedPose(goal, scipy_tolerance), check_static_torques=True)
             if success:
                 # ik_scipy optimizes only for position, therefore the Cartesian XYZ tolerance
                 self.assertTrue(scipy_tolerance.valid(goal, robot.fk(conf)))
                 self.assertTrue(max(abs(conf)) < 2 * np.pi)  # IK result should be mapped to (-2pi, 2pi)
+                self.assertFalse(robot.has_self_collision(conf))
             else:
                 error_count['scipy'] += 1
 
             robot.update_configuration(pin.neutral(robot.model))  # Prevent using the scipy result as initial guess
-            conf, success = robot.ik_jacobian(ToleratedPose(goal, jacobian_tolerance))
+            conf, success = robot.ik_jacobian(ToleratedPose(goal, jacobian_tolerance), check_static_torques=True)
             if success:
                 np_test.assert_array_almost_equal(goal.homogeneous, robot.fk(conf).homogeneous, decimal=2)
                 self.assertTrue(jacobian_tolerance.valid(goal, robot.fk(conf)))
@@ -210,6 +214,23 @@ class PinocchioRobotSetup(unittest.TestCase):
             else:
                 error_count['jacobian'] += 1
                 fails.append((goal, conf))
+
+            # Test that masking joints in the ik works
+            q_start = robot.random_configuration()
+            mask = np.array([random.random() > 0.5 for _ in range(len(conf))])
+            conf, success = robot.ik_jacobian(ToleratedPose(goal, jacobian_tolerance), q_init=q_start, joint_mask=mask)
+            np_test.assert_array_almost_equal(q_start[~mask], conf[~mask])
+            conf, success = robot.ik_scipy(ToleratedPose(goal, jacobian_tolerance), q_init=q_start, joint_mask=mask)
+            np_test.assert_array_almost_equal(q_start[~mask], conf[~mask])
+
+            # Test joint torque limits
+            robot.model.effortLimit = zero_limits
+            conf, success = robot.ik_jacobian(ToleratedPose(goal, jacobian_tolerance), max_iter=50,
+                                              check_static_torques=True)
+            self.assertFalse(success)
+            conf, success = robot.ik_scipy(ToleratedPose(goal, jacobian_tolerance), max_iter=50,
+                                           check_static_torques=True)
+            self.assertFalse(success)
 
         for k, v in error_count.items():
             self.assertLess(v, 0.05 * n, f"ik should be able to resolve almost any fk; "

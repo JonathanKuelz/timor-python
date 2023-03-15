@@ -324,60 +324,83 @@ class RobotBase(abc.ABC):
         :param restore_config: If True, the current robot configuration will be kept. If false, the found solution for
             the inverse kinematics will be kept
         :param max_n_tries: Maximum number of runs with a new random init configuration before the algorithm gives up
+        :param kwargs: Additional arguments, including:
+            - task: If a timor.Task.Task is provided here, the ik will restart if there are task collisions as long as
+                max_iter is not reached.
+            - joint_mask: A boolean array of length njoints that indicates which joints should be considered for the IK
+            - allow_random_restart: The IK will restart from random configurations if it fails to converge. This can be
+                disabled by setting this to False.
+            - ignore_self_collision: If True, the IK will ignore self-collisions
+            - method: The scipy minimize method to be used. Defaults to 'L-BFGS-B'
         :return: A tuple of q_solution [np.ndarray], success [boolean]. If success is False, q_solution is the
             configuration with minimal self._ik_cost_function amongst all seen in between iterations if this method.
         """
         if 'tolerance' in kwargs:
             raise ValueError("The pose needs to be tolerated - providing an extra tolerance is deprecated.")
 
+        if 'joint_mask' in kwargs:
+            if q_init is None:
+                raise ValueError("If you provide a joint mask, you need to provide a q_init as well.")
+            joint_mask = np.asarray(kwargs['joint_mask']).astype(bool)
+        else:
+            joint_mask = np.ones_like(self.configuration, dtype=bool)
+
         if self.njoints == 0:
             return self.configuration, eef_pose.valid(self.fk())
 
-        def _cost(_q: np.ndarray):
-            return self._ik_cost_function(_q, eef_pose.nominal)
-
         previous_config = self.configuration
         if q_init is None:
-            q = self.configuration
+            q_start = self.random_configuration()
         else:
-            q = q_init
-        lowest_cost = kwargs.get('lowest_cost', IntermediateIkResult(q, _cost(q)))
+            q_start = q_init
 
-        bounds = optimize.Bounds(self.joint_limits[0, :], self.joint_limits[1, :])
+        q_masked = q_start[joint_mask]
+
+        def _unmask(q_partial):
+            q_ik = q_start
+            q_ik[joint_mask] = q_partial
+            return q_ik
+
+        def _cost(_q: np.ndarray):
+            return self._ik_cost_function(_unmask(_q), eef_pose.nominal)
+
+        lowest_cost = kwargs.get('lowest_cost', IntermediateIkResult(_unmask(q_masked), _cost(q_masked)))
+
+        bounds = optimize.Bounds(self.joint_limits[0, joint_mask], self.joint_limits[1, joint_mask])
         sol = optimize.minimize(
             _cost,
-            q,
-            method='L-BFGS-B',
+            q_masked,
+            method=kwargs.get('method', 'L-BFGS-B'),
             bounds=bounds,
             options={'maxiter': max_iter, 'ftol': 1e-12}
         )
 
+        q_sol = _unmask(sol.x)
         if sol.fun < lowest_cost.distance:
-            lowest_cost = IntermediateIkResult(sol.x, sol.fun)
+            lowest_cost = IntermediateIkResult(q_sol, sol.fun)
 
         if restore_config:
             self.update_configuration(previous_config)  # Restore the old configuration
 
         # sol.success gives information about successfull termination, but we are not interested in that
-        success = eef_pose.valid(self.fk(sol.x))
+        success = eef_pose.valid(self.fk(q_sol))
 
-        if success and self.has_self_collision() and kwargs.get('ignore_self_collision', False):
+        if success and self.has_self_collision() and not kwargs.get('ignore_self_collision', False):
             success = False
         elif success and 'task' in kwargs and self.has_collisions(kwargs['task']):
             success = False
-        if success and kwargs.get('check_static_torques', False):
-            tau = self.static_torque(q)
+        elif success and kwargs.get('check_static_torques', False):
+            tau = self.static_torque(q_sol)
             success = (np.abs(tau) <= self.joint_torque_limits).all()
 
         logging.debug("Scipy IK ends with message: %s", sol.message)
         if not success and max_n_tries > 0:
             logging.debug("Scipy IK failed, trying again with new random init configuration")
-            q_init = self.random_configuration()
             kwargs['lowest_cost'] = lowest_cost
             return self.ik_scipy(eef_pose, q_init, max_iter - sol.nit, restore_config, max_n_tries - 1, **kwargs)
 
         if success or 'lowest_cost' not in kwargs:
-            q = sol.x
+            q = q_sol
         else:
             logging.debug("Scipy IK failed, using lowest cost solution from all tries")
             q = lowest_cost.q
@@ -749,6 +772,9 @@ class PinRobot(RobotBase):
             current configuration.
         :return: A tuple of (q_solution, success [boolean])
         """
+        if kwargs.get('ignore_self_collision', False) and 'task' in kwargs:
+            raise ValueError("Checking for collisions in a task without checking for self-collisions is not supported.")
+
         if self.njoints < 6:
             # Jacobian unstable for small robots
             return self.ik_scipy(eef_pose, q_init, **kwargs)
@@ -785,6 +811,15 @@ class PinRobot(RobotBase):
             problems it is too inaccurate to converge (quickly) to a solution. Pseudo inverse and damped least squares
             pseudo-inverse are pretty similar, the latter one introduces a "punishment" for the norm of the joint
             velocities and is therefore more resistant against singularities.
+        :param kwargs: Additional arguments to be passed to the jacobian function. These include:
+            - task: If a timor.Task.Task is provided here, the ik will restart if there are task collisions as long as
+                max_iter is not reached.
+            - joint_mask: A boolean array of length njoints that indicates which joints should be considered for the IK
+            - allow_random_restart: The IK will restart from random configurations if it fails to converge. This can be
+                disabled by setting this to False.
+            - ignore_self_collision: If True, the IK will ignore self-collisions
+            - check_static_torques: If True, the IK will check if the torques are within the static torque limits. If
+                not so, the IK will restart from a random configuration as long as max_iter allows.
         :return: A tuple of q_solution [np.ndarray], success [boolean]
         """
         # Custom errors to make sure no more deprecated arguments are used for the IK solver
@@ -794,8 +829,12 @@ class PinRobot(RobotBase):
         if self.njoints < 1:
             return np.array([]), eef_pose.valid(self.fk())
 
-        rot_join_mask = np.array([jnt.shortname() == 'JointModelRZ' for jnt in self.model.joints[1:]])
+        rot_joint_mask = np.array([jnt.shortname() == 'JointModelRZ' for jnt in self.model.joints[1:]], dtype=bool)
+        if 'joint_mask' in kwargs:
+            rot_joint_mask = np.logical_and(rot_joint_mask, kwargs['joint_mask'])
         if q_init is None:
+            if 'joint_mask' in kwargs:
+                raise ValueError("joint_mask is only supported if you provide a q_init")
             # Find an initial guess for the solution where the robot is close to the desired point in space
             candidates = [self.configuration] + [self.random_configuration() for _ in range(4)]
             distances = [self.fk(cand).distance(eef_pose.nominal).translation_euclidean for cand in candidates]
@@ -817,13 +856,30 @@ class PinRobot(RobotBase):
         i = 1
         success = True
         closest_translation = kwargs.get('closest_translation_q', IntermediateIkResult(q, -np.inf))
+
+        def random_restart(iter_left: int) -> Tuple[np.ndarray, bool]:
+            """
+            Evaluate a random restart given the number of iterations left and whether restarts are allowed.
+
+            :param iter_left: number of iterations left till iter_max
+            :return: Same as parent method
+            """
+            if kwargs.get("allow_random_restart", False):
+                return closest_translation.q, False
+            new_init = self.random_configuration()
+            if 'joint_mask' in kwargs:
+                inverted_mask = ~kwargs['joint_mask'].astype(bool)
+                new_init[inverted_mask] = q_init[inverted_mask]
+            return self.ik_jacobian(eef_pose, new_init, gain, damp, iter_left, kind, **kwargs)
+
         while not eef_pose.valid(self.fk(q)):
             joint_current = self.data.oMi[joint_idx_pin]
             diff = joint_current.actInv(joint_desired)
             error_twist = pin.log(diff).vector
             abs_translational_distance = np.linalg.norm(diff.translation)
-            if (abs_translational_distance > closest_translation.distance) and self.q_in_joint_limits(q) and \
-                    not self.has_self_collision(q):
+            if abs_translational_distance < closest_translation.distance  \
+                    and self.q_in_joint_limits(q) \
+                    and not self.has_self_collision(q):
                 closest_translation = IntermediateIkResult(q, abs_translational_distance)
             J = pin.computeJointJacobian(self.model, self.data, q, joint_idx_pin)
             try:
@@ -835,18 +891,20 @@ class PinRobot(RobotBase):
             except np.linalg.LinAlgError:
                 logging.debug(f"Jacobian ik break due to singularity after {i} iter for q={q}. Trying again.")
                 kwargs['closest_translation_q'] = closest_translation
-                return self.ik_jacobian(eef_pose, self.random_configuration(), gain, damp, max_iter - i, kind, **kwargs)
+                return random_restart(max_iter - i)
+            if 'joint_mask' in kwargs:
+                q_dot = q_dot * kwargs['joint_mask']
             q = pin.integrate(self.model, q, q_dot)
             # Python modolo defaults to positive values, but we want to preserve q sign
             sign_preserve = np.ones_like(q) * 2 * np.pi
-            sign_preserve[q > 0] = 0
+            sign_preserve[q >= 0] = 0
             # Keep joint angles (for revolute joints) in interval (-2pi, 2pi)
-            q[rot_join_mask] = q[rot_join_mask] % (2 * np.pi) - sign_preserve[rot_join_mask]
+            q[rot_joint_mask] = q[rot_joint_mask] % (2 * np.pi) - sign_preserve[rot_joint_mask]
 
             if np.inf in q:
                 logging.debug(f"Jacobian ik break due to q approaching inf after {i} iter. Trying again.")
                 kwargs['closest_translation_q'] = closest_translation
-                return self.ik_jacobian(eef_pose, self.random_configuration(), gain, damp, max_iter - i, kind, **kwargs)
+                return random_restart(max_iter - i)
             if i >= max_iter:
                 logging.debug(f"Jacobian ik not successful due to reaching the maximum number of iterations {i}")
                 logging.debug("Returning partial/closest solution.")
@@ -856,9 +914,9 @@ class PinRobot(RobotBase):
         if not self.q_in_joint_limits(q):
             if not kwargs.get('allow_wrapping_joint_angle', True):
                 logging.debug("Wrapping forbidden; retry solving ik.")
-                return self.ik_jacobian(eef_pose, self.random_configuration(), gain, damp, max_iter - i, kind, **kwargs)
+                return random_restart(max_iter - i)
 
-            q[rot_join_mask] = spatial.rotation_in_bounds(q[rot_join_mask], self.joint_limits[:, rot_join_mask])
+            q[rot_joint_mask] = spatial.rotation_in_bounds(q[rot_joint_mask], self.joint_limits[:, rot_joint_mask])
             if self.q_in_joint_limits(q):
                 # We're good to go
                 logging.debug("Successfully mapped ik result to the robot joint limits")
@@ -867,7 +925,7 @@ class PinRobot(RobotBase):
                 i += 1
                 logging.info("IK was out of joint limits, re-try")
                 kwargs['closest_translation_q'] = closest_translation
-                return self.ik_jacobian(eef_pose, self.random_configuration(), gain, damp, max_iter - i, kind, **kwargs)
+                return random_restart(max_iter - i)
             else:
                 logging.debug("IK was out of joint limits, but we're out of iterations")
 
@@ -876,17 +934,15 @@ class PinRobot(RobotBase):
             if not (np.abs(tau) <= self.joint_torque_limits).all():
                 logging.debug("IK was out of joint torque limits, re-try")
                 kwargs['closest_translation_q'] = closest_translation
-                return self.ik_jacobian(eef_pose, self.random_configuration(), gain, damp, max_iter - i, kind, **kwargs)
+                return random_restart(max_iter - i)
 
-        if self.has_self_collision(q):
-            if kwargs.get('ignore_self_collision', False):
-                return q, success
+        if self.has_self_collision(q) and not kwargs.get('ignore_self_collision', False):
             logging.info("IK solution had self-collisions, re-try")
             if i < max_iter:
                 # Give it another try, starting from a different configuration
                 i += 1
                 kwargs['closest_translation_q'] = closest_translation
-                return self.ik_jacobian(eef_pose, self.random_configuration(), gain, damp, max_iter - i, kind, **kwargs)
+                return random_restart(max_iter - i)
             logging.debug("Jacobian ik not successful after maximum number of iterations, fails with self collision.")
             success = False
         elif 'task' in kwargs and self.has_collisions(kwargs['task']):
@@ -896,7 +952,7 @@ class PinRobot(RobotBase):
                 i += 1
                 logging.debug("Keep the previously best q, but without checking for environment collisions.")
                 kwargs['closest_translation_q'] = closest_translation
-                return self.ik_jacobian(eef_pose, self.random_configuration(), gain, damp, max_iter - i, kind, **kwargs)
+                return random_restart(max_iter - i)
             logging.debug("Jacobian ik not successful after maximum number of iterations, fails due to collision.")
             success = False
 
@@ -921,12 +977,14 @@ class PinRobot(RobotBase):
                 vo.placement = displacement * vo.placement
             frame.placement = displacement * frame.placement
         self.model.jointPlacements[0] = displacement * self.model.jointPlacements[0]
-        try:
-            self.model.jointPlacements[1] = displacement * self.model.jointPlacements[1]
-        except IndexError:
-            assert self.njoints == 0, "Could not find the first joint, but there seems to be one"
-        assert len(tuple(p_idx for p_idx in self.model.parents if p_idx == 0)) <= 2, \
-            "Robot should only be connected to world in joint 0 and 1"
+        for i in range(1, self.njoints):
+            # Move all joints that are directly connected to "world" (i.e. the first joint[s])
+            if self.model.parents[i] != 0:
+                continue
+            try:
+                self.model.jointPlacements[i] = displacement * self.model.jointPlacements[i]
+            except IndexError:
+                assert self.njoints == 0, "Could not find the first joint, but there seems to be one"
         self.update_configuration(self.configuration)
         self._base_placement = Transformation(self.placement.multiply_from_left(displacement.homogeneous),
                                               set_safe=True)
