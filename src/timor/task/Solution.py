@@ -17,9 +17,9 @@ from timor.Module import ModuleAssembly
 from timor.Robot import RobotBase
 from timor.task import Constraints, CostFunctions, Goals, Task
 from timor.utilities import logging
-from timor.utilities.dtypes import Lazy, TypedHeader, fuzzy_dict_key_matching, map2path  # noqa: F401
+from timor.utilities.dtypes import Lazy, TypedHeader, fuzzy_dict_key_matching  # noqa: F401
 from timor.utilities.errors import TimeNotFoundError
-from timor.utilities.file_locations import schema_dir
+from timor.utilities.file_locations import map2path, schema_dir
 from timor.utilities.json_serialization_formatting import compress_json_vectors
 from timor.utilities.jsonable import JSONable_mixin
 from timor.utilities.schema import DEFAULT_DATE_FORMAT, get_schema_validator
@@ -346,7 +346,7 @@ class SolutionTrajectory(SolutionBase):
             "costFunction": self.cost_function.descriptor(),
             **self.header.asdict(),
             **self.module_assembly.to_json_data(),
-            "basePose": [self.robot.placement.serialized],
+            "basePose": [self.robot.placement.to_json_data()],
             "trajectory": self.trajectory.to_json_data()
         }
         data['date'] = data['date'].strftime(DEFAULT_DATE_FORMAT)

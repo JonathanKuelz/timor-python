@@ -211,7 +211,7 @@ class Geometry(abc.ABC, JSONable_mixin):
         return [{
             'type': self.type.value,
             'parameters': self.parameters,  # This is a dict itself
-            'pose': self.placement.serialized
+            'pose': self.placement.to_json_data()
         }]
 
     @property
@@ -603,7 +603,7 @@ class ComposedGeometry(Geometry):
         return [{
             'type': g.type.value,
             'parameters': g.parameters,
-            'pose': g.placement.serialized
+            'pose': g.placement.to_json_data()
         } for g in self.composing_geometries]
 
     @property

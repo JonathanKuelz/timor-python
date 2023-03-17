@@ -20,7 +20,8 @@ import pinocchio as pin
 from timor.Robot import PinRobot, RobotBase
 from timor.task import Constraints, Goals
 from timor.task.Obstacle import Obstacle
-from timor.utilities.dtypes import TypedHeader, map2path
+from timor.utilities.dtypes import TypedHeader
+from timor.utilities.file_locations import map2path
 from timor.utilities.json_serialization_formatting import compress_json_vectors
 from timor.utilities.jsonable import JSONable_mixin
 import timor.utilities.logging as logging

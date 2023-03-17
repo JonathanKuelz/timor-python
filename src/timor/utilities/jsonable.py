@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 from typing import Dict, Optional, Union
 
-from timor.utilities.dtypes import map2path
+from timor.utilities.file_locations import map2path
 from timor.utilities.json_serialization_formatting import compress_json_vectors
 
 
