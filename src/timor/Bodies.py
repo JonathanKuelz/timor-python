@@ -132,7 +132,7 @@ class Connector(JSONable_mixin):
             size = self.size
         return {
             'ID': self._id,
-            'pose': self.body2connector.serialized,
+            'pose': self.body2connector.to_json_data(),
             'gender': str(self.gender),
             'type': self.type,
             'size': size

@@ -9,8 +9,9 @@ import numpy as np
 import pinocchio as pin
 from scipy.spatial.transform import Rotation
 
-from timor.utilities import spatial
+from timor.utilities import logging, spatial
 import timor.utilities.errors as err
+from timor.utilities.jsonable import JSONable_mixin
 
 _TransformationConvertable = Union[
     List[Union[List[float], Tuple[float, float, float, float]]],
@@ -114,7 +115,7 @@ class Projection:
         return spatial.cartesian2spherical(self.cartesian)
 
 
-class Transformation:
+class Transformation(JSONable_mixin):
     """A transformation describes a translation and rotation in cartesian space."""
 
     shape: Tuple[int, int] = (4, 4)
@@ -210,6 +211,11 @@ class Transformation:
         return cls.from_roto_translation(rotation, translation)
 
     @classmethod
+    def from_json_data(cls, d: TransformationConvertable, *args, **kwargs):
+        """Create Transformation from data available in json."""
+        return Transformation(d)
+
+    @classmethod
     def from_translation(cls, p: Collection[float]) -> Transformation:
         """Create a placement from a point with default orientation."""
         return cls.from_roto_translation(np.eye(3), p)
@@ -260,10 +266,15 @@ class Transformation:
         """Returns this transformation as a hppfcl Transform3f"""
         return Transform3f(self.rotation, self.translation)
 
+    def to_json_data(self):
+        """Returns a serialized description if the nominal placement."""
+        return self.homogeneous.tolist()
+
     @property
     def serialized(self) -> List[List[float]]:
         """Returns a serialized description if the nominal placement."""
-        return self.homogeneous.tolist()
+        logging.warning("Transformation.serialized deprecated; please use JSONable API")
+        return self.to_json_data()
 
     @property
     def homogeneous(self) -> np.ndarray:
@@ -329,9 +340,17 @@ class Transformation:
             return self.__class__(self.homogeneous @ other)
         return NotImplemented
 
-    def __str__(self):
-        """Defaults to numpy"""
-        return self.homogeneous.__str__()
+    def __str__(self, precision: int = 3) -> str:
+        """
+        Defaults to numpy homogeneous.
+
+        :param precision: How many decimals to show.
+        """
+        return np.around(self.homogeneous, precision).__str__()
+
+    def __repr__(self) -> str:
+        """Show transformation as homog. matrix in debug mode"""
+        return self.__str__(3)
 
     def visualize(self, viz: 'pin.visualize.MeshcatVisualizer', name: str,
                   scale: float = 1., text: Optional[str] = None):

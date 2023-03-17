@@ -26,9 +26,9 @@ from timor.Bodies import Body, BodyBase, BodySet, Connector, ConnectorSet, Gende
 from timor.Geometry import ComposedGeometry
 from timor.Joints import Joint, JointSet, TimorJointType
 from timor.utilities import logging, spatial, write_urdf
-from timor.utilities.dtypes import Lazy, SingleSet, TypedHeader, map2path, randomly
+from timor.utilities.dtypes import Lazy, SingleSet, TypedHeader, randomly
 import timor.utilities.errors as err
-from timor.utilities.file_locations import get_module_db_files, schema_dir
+from timor.utilities.file_locations import get_module_db_files, map2path, schema_dir
 from timor.utilities.json_serialization_formatting import compress_json_vectors, possibly_nest_as_list
 from timor.utilities.jsonable import JSONable_mixin
 from timor.utilities.schema import DEFAULT_DATE_FORMAT, get_schema_validator

@@ -185,8 +185,8 @@ class Joint(JSONable_mixin):
             'child': self.child_body._id,
             'type': str(self.type),
             'passive': False,
-            'poseParent': self.parent2joint.serialized,
-            'poseChild': self.joint2child.serialized,
+            'poseParent': self.parent2joint.to_json_data(),
+            'poseChild': self.joint2child.to_json_data(),
             'limits': {
                 'positionLower': self.limits[0, :].tolist()[0],
                 'positionUpper': self.limits[1, :].tolist()[0],

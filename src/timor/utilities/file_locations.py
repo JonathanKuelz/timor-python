@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 # Author: Jonathan Külz
 # Date: 29.03.22
+from __future__ import annotations
+
 from itertools import chain
 import json
 from pathlib import Path
@@ -84,3 +86,10 @@ def get_module_db_files(name: str) -> Tuple[Path, Path]:
     if not module_file.exists():
         raise FileNotFoundError("Module Set File {} not found.".format(module_file))
     return module_file, module_file.parent
+
+
+def map2path(p: Union[str, Path]) -> Path:
+    """Maps strings to paths, but does nothing else s.t. e.g. Django paths are not casted."""
+    if isinstance(p, str):
+        return Path(p)
+    return p
