@@ -5,17 +5,9 @@ import re
 
 def compress_json_vectors(content: str) -> str:
     """Compresses json vectors and matrices, s.t. innermost on single line"""
-    here = 0
     # Matches inner parts of vectors [Number,...,Number] where each number in scientific notation
     pattern = re.compile(r"\[\s*(?:-?\d+(?:.\d+)?(?:e[-+]?\d+)?,?\s*)+\]")
-    while here < len(content):
-        m = pattern.search(content, here)
-        if m is None:
-            break
-        content = content[:m.start()] + re.sub(r"\s+", " ", content[m.start():m.end()]) + content[m.end():]
-        here = m.start() + 1
-
-    return content
+    return pattern.sub(lambda m: re.sub(r"\s+", " ", m.group()), content)  # replace newline + whitespace in innermost
 
 
 def possibly_nest_as_list(value: any, tuple_ok: bool = True):
