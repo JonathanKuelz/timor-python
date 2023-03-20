@@ -216,6 +216,13 @@ class Trajectory(JSONable_mixin):
         self._ddq = ddq
 
     @property
+    def dof(self):
+        """Number of degrees of freedom encoded by this trajectory."""
+        if not self.has_q:
+            raise ValueError("DoF only defined for joint trajectory with q")
+        return self.q.shape[1]
+
+    @property
     def is_timed(self) -> bool:
         """Does this trajectory enforce time."""
         return self.t is not None

@@ -250,6 +250,14 @@ class RobotBase(abc.ABC):
         """
 
     @abc.abstractmethod
+    def manipulability_index(self, q: Optional[np.ndarray]) -> float:
+        """
+        Calculate the Yoshikawa manipulability index at joint position q or current one.
+
+        :param q: Joint position to calculate at (default current robot configuration)
+        """
+
+    @abc.abstractmethod
     def visualize(self, viz: pin.visualize.MeshcatVisualizer, *args, **kwargs) -> pin.visualize.MeshcatVisualizer:
         """Interface to plot the robot in a meshcat visualizer"""
 
@@ -646,6 +654,18 @@ class PinRobot(RobotBase):
         """Computes the forces due to friction"""
         # sin(atan( )) is smooth signum function
         return self.model.damping * dq + self.model.friction * np.sin(np.arctan(100 * dq))
+
+    def manipulability_index(self, q: Optional[np.ndarray] = None) -> float:
+        """
+        Calculate the Yoshikawa manipulability index at joint position q or current one.
+
+        :param q: Joint position to calculate at (default current robot configuration)
+        """
+        if q is None:
+            q = self.configuration
+
+        J = pin.computeJointJacobian(self.model, self.data, q, self.model.frames[self.tcp].parent)
+        return np.sqrt(np.linalg.det(J @ J.T))
 
     def motor_inertias(self, ddq: np.ndarray) -> np.ndarray:
         """Computes the motor inertias in the joins at a given acceleration"""

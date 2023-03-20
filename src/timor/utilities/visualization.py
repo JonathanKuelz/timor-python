@@ -2,8 +2,9 @@
 # Author: Jonathan Külz
 # Date: 03.03.22
 import logging
-from typing import Dict, List, Tuple, Union
+from typing import Dict, Iterable, List, Optional, Sequence, Tuple, Union
 
+from matplotlib import pyplot as plt
 import meshcat.animation
 import meshcat.geometry
 import numpy as np
@@ -297,3 +298,52 @@ def scene_text(text: str, size: float = 1., **kwargs):
                                  meshcat.geometry.MeshPhongMaterial(map=TextTexture(text, **kwargs),
                                                                     transparent=True,
                                                                     needsUpdate=True))
+
+
+def plot_time_series(times: Sequence[float], data: Sequence[Tuple[np.ndarray, str]],
+                     marker: Dict[float, Tuple[str, str]] = None, additional_subplots: int = 0,
+                     show_figure: bool = False, subplot_kwargs: Optional[Dict] = None) \
+        -> plt.Figure:
+    """
+    Helper to plot time series data
+
+    :param times: Time (x-value) for the sampled data at N steps
+    :param data: Timeseries, each containing a NxM array of N samples of M-dimensional data at each time in times and
+      an axis label for this data; creates one subplot per timeseries
+    :param marker: A dictionary where keys are times to draw a marking line with label and color at
+    :param additional_subplots: leave space for more subplots
+    :param show_figure: Call show on returned figure
+    :param subplot_kwargs: Kwargs handed to subplots, including pyplot.figure kwargs
+      (see https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.subplots.html)
+    :return: figure containing all these
+    """
+    if marker is None:
+        marker = {}
+
+    data = tuple(data)
+    default_subplot_kwargs = {"sharex": "row"}
+    default_subplot_kwargs.update({} if subplot_kwargs is None else subplot_kwargs)
+    f, axes = plt.subplots(len(data) + additional_subplots, 1, **default_subplot_kwargs)
+    if not isinstance(axes, Iterable):
+        axes = (axes, )
+
+    for idx, d in enumerate(data):
+        axes[idx].plot(times, d[0])
+        axes[idx].set(ylabel=d[1])
+
+    axes[-1].set(xlabel="Time t [s]")
+
+    time_frame = np.max(times) - np.min(times)
+
+    for time, marker in marker.items():
+        name, color = marker
+        for ax in axes:
+            ax.axvline(time, c=color)
+            ax.text(time + 0.01 * time_frame,  # Slight offset from line
+                    .9, name, c=color, transform=ax.get_xaxis_transform())
+
+    plt.tight_layout()
+    if show_figure:
+        plt.show()
+
+    return f

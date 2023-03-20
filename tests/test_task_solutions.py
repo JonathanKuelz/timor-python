@@ -346,6 +346,13 @@ class TestSolution(unittest.TestCase):
                                                       task,
                                                       ModuleAssembly.from_monolithic_robot(self.robot),
                                                       cost_whitman)
+
+        random_solution.plot(show_figure=False)
+        random_solution.plot(["q", "dq", "ddq", "tau", "manipulablility", "eef_position", "eef_rotation"],
+                             show_figure=False)
+        random_solution.plot(["q", "dq", "ddq", "tau", "manipulablility", "eef_position", "eef_rotation"],
+                             show_figure=False, subplot_kwargs={"facecolor": "black"})  # Check propagation of kwargs
+
         random_solution_without_all_goals = Solution.SolutionTrajectory(
             random_trajectory, self.solution_header, task_without_all_goals,
             ModuleAssembly.from_monolithic_robot(self.robot), cost_whitman)
