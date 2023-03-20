@@ -340,7 +340,7 @@ class Science2019(AssemblyIterator):
         joint_dof = {joint_module.id: joint_module.num_joints for joint_module in self.joints}
         joint_ids = tuple(joint_dof.keys())
         combinations = list(itertools.chain.from_iterable(
-            itertools.product(joint_ids, repeat=i) for i in range(self.min_dof, self.max_dof + 1)
+            itertools.product(joint_ids, repeat=i) for i in range(0, self.max_dof + 1)
         ))
 
         # More filters, e.g. 'some joint never in last position' can be builtin here
