@@ -25,4 +25,4 @@ Important references
 --------------------
 
 * `Gitlab Repository <https://gitlab.lrz.de/tum-cps/timor-python>`_
-* `cRoK Standard for Robots, Scenarios, Solutions, Costs <https://crok.cps.in.tum.de/>`_ --> Documentation
+* `CoBRA Benchmark with descriptions for Robots, Scenarios, Solutions, Costs <cobra.cps.cit.tum.de/>`_ --> Documentation
