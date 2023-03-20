@@ -272,6 +272,13 @@ class PinocchioRobotSetup(unittest.TestCase):
         self.assertIsNotNone(robot.visualize())
         self.assertIsNotNone(robot.visualize_self_collisions())
 
+    def test_robot_manip(self):
+        robot = PinRobot.from_urdf(self.urdf, self.package_dir)
+        # Some best guess singular / non-singular panda poses
+        self.assertAlmostEqual(0., robot.manipulability_index(np.asarray((0., 0., 0., 0., 0., 0., 0.))))
+        self.assertGreater(
+            0.5, robot.manipulability_index(np.asarray((0., -np.pi / 4, 0., np.pi / 2, 0., np.pi / 2, 0.))))
+
 
 if __name__ == '__main__':
     unittest.main()

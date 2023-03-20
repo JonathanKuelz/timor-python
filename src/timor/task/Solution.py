@@ -1,14 +1,17 @@
 from __future__ import annotations
 
 import abc
+from collections import namedtuple
+from copy import copy
 from dataclasses import dataclass, field
 import datetime
 import json
 from pathlib import Path
-from typing import Dict, List, Tuple, Union
+from typing import Dict, List, Optional, Sequence, Tuple, Union
 import uuid
 
 import jsonschema.exceptions
+from matplotlib import pyplot as plt
 import numpy as np
 import pinocchio as pin
 import scipy.interpolate
@@ -25,7 +28,7 @@ from timor.utilities.jsonable import JSONable_mixin
 from timor.utilities.schema import DEFAULT_DATE_FORMAT, get_schema_validator
 from timor.utilities.trajectory import Trajectory
 from timor.utilities.transformation import Transformation, TransformationLike
-from timor.utilities.visualization import MeshcatVisualizerWithAnimation, animation
+from timor.utilities.visualization import MeshcatVisualizerWithAnimation, animation, plot_time_series
 
 
 @dataclass
@@ -422,6 +425,17 @@ class SolutionTrajectory(SolutionBase):
         self._cost.value = None
         self._trajectory = t
 
+    @property
+    def manipulability_indices(self) -> np.ndarray:
+        """Return manipulability index at each time in time_steps."""
+        return np.fromiter((self.robot.manipulability_index(q) for q in self.trajectory.q),
+                           dtype=np.single, count=len(self.trajectory))
+
+    @property
+    def tcp_poses(self) -> Tuple[Transformation, ...]:
+        """Return TCP pose at each time in time_steps."""
+        return tuple(self.tcp_pose_at(t) for t in self.time_steps)
+
     def get_power(self, motor_inertia: bool = True, friction: bool = True):
         """
         Get mechanical power used in all joints for each time step.
@@ -452,3 +466,72 @@ class SolutionTrajectory(SolutionBase):
           solution; if both options are disabled it is the mechanical energy expanded on moving all robot links.
         """
         return np.sum(self.get_power(motor_inertia, friction))
+
+    def plot(self, data: Sequence[str] = ("q", "dq", "ddq"), show_figure: bool = True,
+             subplot_kwargs: Optional[Dict] = None) -> plt.Figure:
+        """
+        Plot time series data about this solution
+
+        :param data: Can be any combination of q, dq, ddq, tau, manipulability, goals, eef_position, eef_rotation
+        :param show_figure: execute pyplot show() function on figure; might need to disable if further figure formating
+          wanted later on; may need to activate text.usetex in the local environment where show is called.
+        :param subplot_kwargs: Kwargs handed to subplots, including pyplot.figure kwargs
+          (see https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.subplots.html)
+        :return: Figure object containing the desired plots
+        """
+        marker = {}
+        time_series = []
+        legends = []
+        available_series_data = namedtuple("available_series_data", ["time_series", "name", "legend_labels"])
+        available = {
+            "q": available_series_data(
+                time_series=self.q,
+                name="Configuration q",
+                legend_labels=tuple(r"$q_{" + str(i) + "}$" for i in range(self.trajectory.dof))),
+            "dq": available_series_data(
+                time_series=self.dq,
+                name="Joint Velocity dq",
+                legend_labels=tuple(r"$\dot{{q}}_{" + str(i) + "}$" for i in range(self.trajectory.dof))),
+            "ddq": available_series_data(
+                time_series=self.ddq,
+                name="Joint Acceleration ddq",
+                legend_labels=tuple(r"$\ddot{{q}}_{" + str(i) + "}$" for i in range(self.trajectory.dof))),
+            "tau": available_series_data(
+                time_series=self.torques,
+                name="Joint Torques",
+                legend_labels=tuple(r"$\tau_{" + str(i) + "}$" for i in range(self.trajectory.dof))),
+            "manipulablility": available_series_data(
+                time_series=self.manipulability_indices,
+                name="Manipulability Index",
+                legend_labels=("Manipulability", )),
+            "eef_position": available_series_data(
+                time_series=tuple(self.tcp_pose_at(t).translation for t in self.time_steps),
+                name="EEF Position",
+                legend_labels=(r"$x$", r"$y$", r"$z$")),
+            "eef_rotation": available_series_data(
+                time_series=tuple(self.tcp_pose_at(t).projection.roto_translation_vector for t in self.time_steps),
+                name="EEF Rotation",
+                legend_labels=("$n_x$", r"$n_y$", "$n_z$"))
+        }
+
+        for d in data:
+            if d == "goals":
+                marker = copy(marker)
+                marker.update({t: (g, "red" if g in (failed.id for failed in self.failed_goals) else "green")
+                               for g, t in self.trajectory.goal2time.items()})
+                logging.info("Showing fulfilled goals in green and failed in red.")
+                continue
+            if d not in available:
+                raise ValueError(f"Cannot plot {d} in solution")
+            time_series.append((available[d].time_series, available[d].name))
+            legends.append(available[d].legend_labels)
+
+        f = plot_time_series(self.time_steps, time_series, marker, subplot_kwargs=subplot_kwargs)
+        for i, l in enumerate(legends):
+            f.axes[i].legend(l, loc="upper right")
+
+        if show_figure:
+            with plt.rc_context({'text.usetex': True}):
+                f.show()
+
+        return f
