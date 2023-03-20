@@ -67,10 +67,12 @@ class ResultType(Enum):
     Also, it provides some handy aliases.
     """
 
-    q_goal_pose = 0
-    tau_static = 1
-    trajectory = 2
-    robot = 3
+    robot = 0
+    goal_ik_success = 1
+    q_goal_pose = 2
+    tau_static = 3
+    collision_free_goal = 4
+    trajectory = 5
 
 
 @dataclass
@@ -91,6 +93,10 @@ class IntermediateFilterResults:
         field(default_factory=lambda: EternalResult())
     # RobotBase object created
     robot: RobotBase = field(default=None, repr=False)
+    # Maps a goal ID to success in solving inverse kinematics for that goal
+    goal_ik_success: EternalResult[str, bool] = field(default_factory=lambda: EternalResult())
+    # Maps a goal ID to avoiding obstacle collisions for a previously computed q_goal_pose
+    collision_free_goal: EternalResult[str, bool] = field(default_factory=lambda: EternalResult())
 
     _filters_validated: List[AssemblyFilter] = field(default_factory=lambda: list(), repr=False)
     __allow_overwriting: bool = field(default=None, repr=False)
@@ -186,7 +192,8 @@ class AssemblyFilter(ABC):
         self._passed: int = 0
         self._failed: int = 0
 
-    def check(self, assembly: ModuleAssembly, task: Task.Task, results: IntermediateFilterResults) -> bool:
+    def check(self, assembly: ModuleAssembly, task: Task.Task, results: IntermediateFilterResults,
+              stop_early: bool = True) -> bool:
         """
         The default use of a AssemblyFilter.
 
@@ -205,11 +212,13 @@ class AssemblyFilter(ABC):
         :param task: The task that should be solved by the assembly
         :param results: An intermediate results object with previous calculations. New calcualtions by this filter will
           be added to this object.
+        :param stop_early: Whether to stop check call on first error, e.g. failing goal, or try to apply it to all goals
+          individually such that result returns best effort eventhough filter failed.
         :returns: True if the assembly is possible valid. False iff the assembly is certainly not valid.
         :raises: FilterNotApplicableException
         """
         if any(self._applies(goal) for goal in task.goals):
-            passes = self._check(assembly, task, results)
+            passes = self._check(assembly, task, results, stop_early)
         elif len(task.goals) == 0:
             passes = True
         else:  # The filter is not applicable to the solution
@@ -268,7 +277,8 @@ class AssemblyFilter(ABC):
             return goal_type in self.goal_types_filtered.__args__
 
     @abstractmethod
-    def _check(self, assembly: ModuleAssembly, task: Task.Task, results: IntermediateFilterResults) -> bool:
+    def _check(self, assembly: ModuleAssembly, task: Task.Task, results: IntermediateFilterResults,
+               stop_early: bool = True) -> bool:
         """
         The logic of the filter. Returns False if the assembly fails, true else. Used only be self.check
         """
@@ -280,7 +290,8 @@ class RobotCreationFilter(AssemblyFilter):
     provides = (ResultType.robot,)
     requires = ()
 
-    def _check(self, assembly: ModuleAssembly, task: Task.Task, results: IntermediateFilterResults) -> bool:
+    def _check(self, assembly: ModuleAssembly, task: Task.Task, results: IntermediateFilterResults,
+               stop_early: bool = True) -> bool:
         """Turns assembly into a robot and stores it in the intermediate results."""
         results.robot = assembly.robot
         return True
@@ -302,27 +313,30 @@ class GoalByGoalFilter(AssemblyFilter, abc.ABC):
         super().__init__(skip_not_applicable)
         self.use_intermediate_results: bool = use_intermediate_results
 
-    def _check(self, assembly: ModuleAssembly, task: Task.Task, results: IntermediateFilterResults) -> bool:
+    def _check(self, assembly: ModuleAssembly, task: Task.Task, results: IntermediateFilterResults,
+               stop_early: bool = True) -> bool:
         """Perform a validity check on all goals in sequence and interrupts if one fails.
 
         Takes over the looping and separation of goals that are already solved and just need to be checked
         and those that need some more calculation.
         """
+        valid = True
         for goal in self.goals_applicable(task):
             valid = True
             if self.use_intermediate_results \
                     and len(self.provides) > 0 \
                     and all(goal.id in results.__getattribute__(provided.name) for provided in self.provides):
                 # In this case, it is sufficient to check already existing intermediate results
-                valid &= self._check_given(assembly, goal, results)
+                valid &= self._check_given(assembly, goal, results, task)
             else:
-                valid &= self._check_goal(assembly, goal, results)
-            if not valid:
+                valid &= self._check_goal(assembly, goal, results, task)
+            if not valid and stop_early:
                 return False
-        return True
+        return valid
 
     @abstractmethod
-    def _check_given(self, assembly: ModuleAssembly, goal: Goals.GoalBase, results: IntermediateFilterResults):
+    def _check_given(self, assembly: ModuleAssembly, goal: Goals.GoalBase,
+                     results: IntermediateFilterResults, task: Task):
         """Checks a predefined solution.
 
         Called when all required calculations for this filter already have been done: In this case, check if they
@@ -330,7 +344,8 @@ class GoalByGoalFilter(AssemblyFilter, abc.ABC):
         """
 
     @abstractmethod
-    def _check_goal(self, assembly: ModuleAssembly, goal: Goals.GoalBase, results: IntermediateFilterResults):
+    def _check_goal(self, assembly: ModuleAssembly, goal: Goals.GoalBase,
+                    results: IntermediateFilterResults, task: Task):
         """The same logic as _check, but performed on a single goal that this filter can work with."""
 
 
@@ -341,10 +356,12 @@ class InverseKinematicsSolvable(GoalByGoalFilter):
     Does not check for collisions with the environment.
     Does only work with goals that have one pose at most. Filtering assemblies based on target trajectories needs to be
     done within another class.
+
+    :note: Can be used to also verify freedom of collision by setting ik_kwargs to the task to check collisions with
     """
 
     requires: Tuple[ResultType] = (ResultType.robot,)
-    provides: Tuple[ResultType] = (ResultType.q_goal_pose,)
+    provides: Tuple[ResultType] = (ResultType.q_goal_pose, ResultType.goal_ik_success)
     goal_types_filtered: Collection[Type[Goals.GoalBase]] = GOALS_WITH_POSE
 
     def __init__(self, skip_not_applicable: bool = True, **ik_kwargs):
@@ -353,19 +370,38 @@ class InverseKinematicsSolvable(GoalByGoalFilter):
         :param ik_kwargs: Keyword arguments to be passed to the :func:`inverse kinematics solver <timor.Robot.Robot.ik>`
         """
         self.kwargs: Dict[str, any] = ik_kwargs
+        if 'task' in self.kwargs:
+            self.provides += (ResultType.collision_free_goal,)
+        if self.kwargs.get('check_static_torques', False):
+            self.provides += (ResultType.tau_static,)
         super().__init__(skip_not_applicable)
 
-    def _check_given(self, assembly: ModuleAssembly, goal: Goals.GoalBase, results: IntermediateFilterResults):
+    @property
+    def ensures_static_torques(self) -> bool:
+        """Does this filter ensure that static torques are respected?"""
+        return self.kwargs.get('check_static_torques', False)
+
+    @property
+    def ensures_collision_free_goal(self) -> bool:
+        """Does this filter ensure collision-freedom with respect to a task's scene?"""
+        return 'task' in self.kwargs
+
+    def _check_given(self, assembly: ModuleAssembly, goal: Goals.GoalBase, results: IntermediateFilterResults,
+                     task: Task):
         """Just checks that the goal pose is reached without self collisions"""
         if not self._applies_to_type(type(goal)):
             return True  # Not applicable, so filter is not invalid
         is_pose = results.robot.fk(results.q_goal_pose[goal.id])
         passes = goal.goal_pose.valid(is_pose) and not results.robot.has_self_collision()
-        if 'task' in self.kwargs:
+        if self.ensures_collision_free_goal:
             passes &= not results.robot.has_collisions(self.kwargs['task'])
+        if self.ensures_static_torques:
+            tau = results.robot.static_torque(results.q_goal_pose[goal.id])
+            passes &= (np.abs(tau) <= results.robot.joint_torque_limits).all()
         return passes
 
-    def _check_goal(self, assembly: ModuleAssembly, goal: GOALS_WITH_POSE, results: IntermediateFilterResults) -> bool:
+    def _check_goal(self, assembly: ModuleAssembly, goal: GOALS_WITH_POSE, results: IntermediateFilterResults,
+                    task: Task) -> bool:
         """Performs the check whether the goals are valid.
 
         Assemblies pass if and only if, for all goal poses, a self-collision free inverse kinematics solution can be
@@ -373,6 +409,13 @@ class InverseKinematicsSolvable(GoalByGoalFilter):
         """
         q, valid = results.robot.ik(goal.goal_pose, **self.kwargs.copy())
         results.q_goal_pose[goal.id] = q
+        results.goal_ik_success[goal.id] = valid
+        if self.ensures_static_torques:
+            results.tau_static[goal.id] = valid or (np.abs(results.robot.static_torque(results.q_goal_pose[goal.id]))
+                                                    <= results.robot.joint_torque_limits).all()
+        if self.ensures_collision_free_goal:
+            results.robot.update_configuration(q)
+            results.collision_free_goal[goal.id] = valid or not results.robot.has_collisions(self.kwargs['task'])
         return valid
 
 
@@ -387,11 +430,13 @@ class StaticTorquesValid(GoalByGoalFilter):
     provides: Tuple[ResultType] = (ResultType.tau_static,)
     goal_types_filtered: Collection[Type[Goals.GoalBase]] = GOALS_WITH_POSE
 
-    def _check_given(self, assembly: ModuleAssembly, goal: Goals.GoalBase, results: IntermediateFilterResults):
+    def _check_given(self, assembly: ModuleAssembly, goal: Goals.GoalBase, results: IntermediateFilterResults,
+                     task: Task):
         tau = results.tau_static[goal.id]
         return (np.abs(tau) <= results.robot.joint_torque_limits).all()
 
-    def _check_goal(self, assembly: ModuleAssembly, goal: Goals.GoalBase, results: IntermediateFilterResults):
+    def _check_goal(self, assembly: ModuleAssembly, goal: Goals.GoalBase, results: IntermediateFilterResults,
+                    task: Task):
         """Calculates static torques in a goal position and compares them to the robot assembly limits.
 
         Writes the static torques to the intermediate results.
@@ -412,7 +457,8 @@ class JointLimitsMet(AssemblyFilter):
     provides: Tuple[ResultType] = ()
     goal_types_filtered: Collection[Type[Goals.GoalBase]] = tuple()  # TODO: Implement trajectory goals
 
-    def _check(self, assembly: ModuleAssembly, task: Task.Task, results: IntermediateFilterResults) -> bool:
+    def _check(self, assembly: ModuleAssembly, task: Task.Task, results: IntermediateFilterResults,
+               stop_early: bool = True) -> bool:
         """Performs the check whether the joint limits are met.
 
         Returns true if and only if joint limits, velocity limits and torque limits are held for all trajectories in
@@ -426,7 +472,7 @@ class JointLimitsMet(AssemblyFilter):
             dq_valid = np.all(np.abs(dq) <= results.robot.joint_velocity_limits)
             ddq_valid = np.all(np.abs(ddq) <= results.robot.joint_acceleration_limits)
             valid = valid and q_valid and dq_valid and ddq_valid
-            if not valid:
+            if not valid and stop_early:
                 return False
 
             tau = np.vstack([results.robot.id(p, v, a) for p, v, a in zip(q, dq, ddq)])
