@@ -21,11 +21,11 @@ from timor.Robot import PinRobot, RobotBase
 from timor.task import Constraints, Goals
 from timor.task.Obstacle import Obstacle
 from timor.utilities.dtypes import TypedHeader
-from timor.utilities.file_locations import map2path
+from timor.utilities.file_locations import map2path, schema_dir
 from timor.utilities.json_serialization_formatting import compress_json_vectors
 from timor.utilities.jsonable import JSONable_mixin
 import timor.utilities.logging as logging
-from timor.utilities.schema import DEFAULT_DATE_FORMAT
+from timor.utilities.schema import DEFAULT_DATE_FORMAT, get_schema_validator
 from timor.utilities.visualization import center_camera
 
 GRAVITY = np.array([0, 0, -9.81], dtype=float)  # Default gravity for z upwards TODO : Move to global configuration?!
@@ -103,6 +103,10 @@ class Task(JSONable_mixin):
         :param d: The parsed json data
         :param package_dir: The path to the package directory of contained mesh files.
         """
+        _, validator = get_schema_validator(schema_dir.joinpath("TaskSchema.json"))
+        if not validator.is_valid(d):
+            logging.debug(f"Errors: {tuple(validator.iter_errors(d))}")
+            raise ValueError("task.json invalid.")
         content = deepcopy(d)  # Make sure we don't modify the original data while popping items
         header = TaskHeader(**{key: arg for key, arg in content.pop('header').items()})
         obstacles = [Obstacle.from_json_data(
