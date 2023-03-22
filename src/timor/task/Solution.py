@@ -279,6 +279,9 @@ class SolutionBase(abc.ABC, JSONable_mixin):
         :param fps: fps to use for visualization
         :param center_view: Whether to try to set camera such that robot / base pose constraint visible
         """
+        if self.robot.njoints == 0:
+            logging.warning("You tried to visualize a solution for a robot with no joints. Aborting.")
+            return viz
         if self.q.size == 0:
             logging.warning("You tried to visualize a solution with an empty trajectory. Aborting.")
             return viz
