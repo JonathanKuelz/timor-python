@@ -7,6 +7,7 @@ from itertools import chain
 import json
 from pathlib import Path
 import re
+import shutil
 from typing import Dict, List, Tuple, Union
 
 from timor.utilities import logging
@@ -93,3 +94,11 @@ def map2path(p: Union[str, Path]) -> Path:
     if isinstance(p, str):
         return Path(p)
     return p
+
+
+def clean_caches():
+    """
+    Helper to clean timor caches, e.g., to download all module sets after they have been updated.
+    """
+    shutil.rmtree(cache_dir)
+    logging.info("Please reimport timor, e.g., by closing python interpreter and restarting your program.")
