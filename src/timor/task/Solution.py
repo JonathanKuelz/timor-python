@@ -89,8 +89,8 @@ class SolutionBase(abc.ABC, JSONable_mixin):
     def empty(cls) -> SolutionBase:
         """Create an empty solution"""
 
-    @staticmethod
-    def from_json_file(json_path: Union[Path, str], package_dir: Path, tasks: Dict[str, Task.Task]) -> SolutionBase:
+    @classmethod
+    def from_json_file(cls, json_path: Union[Path, str], tasks: Dict[str, Task.Task]) -> SolutionBase:
         """Factory method to load a class instance from a json file."""
         json_path = map2path(json_path)
         content = json.load(json_path.open('r'))
@@ -99,6 +99,11 @@ class SolutionBase(abc.ABC, JSONable_mixin):
             validator.validate(content)
         except jsonschema.exceptions.ValidationError:
             raise ValueError(f"Invalid solution json provided. Details: {tuple(validator.iter_errors(content))}.")
+        return cls.from_json_data(content, tasks)
+
+    @staticmethod
+    def from_json_data(content: Dict, tasks: Dict[str, Task.Task]) -> SolutionBase:
+        """Factory method to load a class instance from a dictionary."""
         _header = fuzzy_dict_key_matching(content, desired_only=SolutionHeader.fields())
         header = SolutionHeader(**_header)
         try:
@@ -307,6 +312,15 @@ class SolutionBase(abc.ABC, JSONable_mixin):
         animation(self.robot, q_new, 1 / fps, visualizer=viz)
 
         return viz
+
+    def __getstate__(self):
+        """State of solution contains json-able part and the associated task object."""
+        return self.to_json_data(), {self.header.taskID: self.task}
+
+    def __setstate__(self, state):
+        """To recreate solution use the state Tuple including the solution json and associated task object."""
+        cpy = self.__class__.from_json_data(*state)
+        self.__dict__ = cpy.__dict__
 
 
 class SolutionTrajectory(SolutionBase):

@@ -93,7 +93,17 @@ class Task(JSONable_mixin):
         cpy = self.__class__(header=deepcopy(self.header))
         cpy.obstacles = [deepcopy(o) for o in self.obstacles]
         cpy.goals = [deepcopy(t) for t in self.goals]
+        cpy.constraints = [deepcopy(c) for c in self.constraints]
         return cpy
+
+    def __getstate__(self):
+        """Return objects which will be pickled and saved."""
+        return self.to_json_data(), self._package_dir
+
+    def __setstate__(self, state):
+        """Take object from parameter and use it to retrieve class state."""
+        cpy = self.__class__.from_json_data(*state)
+        self.__dict__ = cpy.__dict__
 
     @classmethod
     def from_json_data(cls, d: Dict[str, any], package_dir: Union[Path, str]):

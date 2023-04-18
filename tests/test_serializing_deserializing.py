@@ -1,3 +1,4 @@
+from copy import deepcopy
 import json
 from pathlib import Path
 import pickle
@@ -327,30 +328,35 @@ class SerializationTests(unittest.TestCase):
         self.assertIsNotNone(json.dumps(solution_dict))
         self.assertIsNotNone(pickle.dumps(solution_dict))
         _, validator = get_schema_validator(schema_dir.joinpath("SolutionSchema.json"))
+        deserialized_sol = Solution.SolutionBase.from_json_data(solution_dict, {task.id: task})
+        deepcopy_sol = deepcopy(solution)
+        pickle_sol = pickle.loads(pickle.dumps(solution))
+
         # make sure is storable
         with tempfile.NamedTemporaryFile(mode="w+") as t:
             json.dump(solution_dict, t)
             t.flush()
             with open(t.name) as f:
                 validator.validate(json.load(f))
-            loaded_sol = Solution.SolutionBase.from_json_file(Path(t.name), Path("/"), {task.id: task})
+            loaded_sol = Solution.SolutionBase.from_json_file(Path(t.name), {task.id: task})
 
         # Also check the custom task
         with tempfile.NamedTemporaryFile(mode="w+") as t:
             task.to_json_file(t.name)
             t.flush()
 
-        self.assertEqual(solution.valid, loaded_sol.valid)
-        # Depends on robot, trajectory, position, cost function -> most important parts of solution tested
-        self.assertEqual(solution.cost, loaded_sol.cost)
-        self.assertEqual(solution.trajectory, loaded_sol.trajectory)
-        self.assertEqual(solution.header, loaded_sol.header)
+        for sol in (deserialized_sol, deepcopy_sol, pickle_sol, loaded_sol):
+            self.assertEqual(solution.valid, sol.valid)
+            # Depends on robot, trajectory, position, cost function -> most important parts of solution tested
+            self.assertEqual(solution.cost, sol.cost)
+            self.assertEqual(solution.trajectory, sol.trajectory)
+            self.assertEqual(solution.header, sol.header)
 
         with tempfile.NamedTemporaryFile(mode="w+") as t:
             json.dump({"test": "json_validator"}, t)
             t.flush()
             with self.assertRaises(ValueError):
-                Solution.SolutionBase.from_json_file(Path(t.name), Path("/"), {task.id: task})
+                Solution.SolutionBase.from_json_file(Path(t.name), {task.id: task})
 
     def test_load_then_dump_task(self):
         for task_file in self.task_files:
