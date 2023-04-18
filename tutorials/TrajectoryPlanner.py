@@ -113,7 +113,7 @@ class TrajectoryPlanner:
                 raise NotImplementedError(f"This planner cannot solve goal of type {type(goal)}")
             time_limit_per_goal = min(self.timeout - (time() - t0), self.time_limit_per_goal)
             q_previous = self._solve_reach_goal(goal_id, q_previous, time_limit_per_goal)
-            goal_traj[goal_id] = q_previous
+            goal_traj[goal_id] = q_previous.copy()
 
         trajectory = Trajectory(t=np.asarray((0,)), q=q_start)
 
@@ -174,6 +174,5 @@ class TrajectoryPlanner:
             q_init = self.robot.random_configuration()
             if time() - t_start > time_limit:
                 raise TimeoutError(f"IK not found for {str(goal)}.")
-        # TODO : Check constraints at q and if necessary try to find valid ik
 
         return np.expand_dims(q, 0)
