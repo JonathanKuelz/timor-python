@@ -4,17 +4,25 @@
 import configparser
 from pathlib import Path
 
+DEFAULT_CONFIG_TXT = """\
+# This is an auto-generated configuration file for timor-python.
+# For information on how to use it, see the project repository at https://gitlab.lrz.de/tum-cps/timor-python,
+# esp. timor.config.sample.
+"""
 
 this_file = Path(__file__).absolute()
 parent_dir = this_file
 while parent_dir.name != 'timor-python':
     parent_dir = parent_dir.parent
     if parent_dir.name == '':
-        print("Could not find the timor-python directory that comes with installation.")
         break
 TIMOR_CONFIG = configparser.ConfigParser()
-if parent_dir.name == 'timor-python':
+if parent_dir.name == 'timor-python':  # Keep the file local if timor is installed from source
     CONFIG_FILE = parent_dir.joinpath('timor.config')
-    TIMOR_CONFIG.read(CONFIG_FILE)
 else:
-    CONFIG_FILE = None
+    CONFIG_FILE = Path('~/.config/timor.config').expanduser()
+if not CONFIG_FILE.exists():
+    with open(CONFIG_FILE, 'w') as f:
+        f.write(DEFAULT_CONFIG_TXT)
+    print("Created a configuration file at", CONFIG_FILE, "for timor-python.")
+TIMOR_CONFIG.read(CONFIG_FILE)
