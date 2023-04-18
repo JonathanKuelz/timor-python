@@ -82,6 +82,14 @@ You can set custom configurations such as file paths of robot libraries or loggi
 
 For further information, please visit the `documentation <https://timor-python.readthedocs.io>`_.
 
+Updating
+--------
+
+Some timor updates might require to re-acquire the task, schema, or robot module data-bases. Try to reset the caches by running ``timor.utilities.file_location.clean_caches()`` and re-import the timor module.
+
+Typical errors indicating this action:
+ * ValueError: modules.json invalid.
+
 Support
 -------
 Do you have a question or an issue using Timor? You can either `submit an issue <https://gitlab.lrz.de/tum-cps/timor-python/-/issues>`_ or write an email to the `repository maintainer <mailto:jonathan.kuelz@tum.de>`_.
