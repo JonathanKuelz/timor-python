@@ -21,6 +21,7 @@ if parent_dir.name == 'timor-python':  # Keep the file local if timor is install
     CONFIG_FILE = parent_dir.joinpath('timor.config')
 else:
     CONFIG_FILE = Path('~/.config/timor.config').expanduser()
+    CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
 if not CONFIG_FILE.exists():
     with open(CONFIG_FILE, 'w') as f:
         f.write(DEFAULT_CONFIG_TXT)
