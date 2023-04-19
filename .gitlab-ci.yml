@@ -112,6 +112,8 @@ unittests:
   stage: unittest
   script:
     - pip install .[dev]
+    - mkdir ~/.config
+    - mv timor.unittest_config ~/.config/timor.config
     - coverage run -p --rcfile=.coveragerc -m pytest -m "not imports and not full" tests/
   artifacts:
     expose_as: 'coverage_base'
@@ -123,6 +125,8 @@ unittests full:
   stage: unittest
   script:
     - pip install .[full]
+    - mkdir ~/.config
+    - mv timor.unittest_config ~/.config/timor.config
     - coverage run -p --rcfile=.coveragerc -m pytest -m "not imports and full" tests/
   artifacts:
     expose_as: 'coverage_base'

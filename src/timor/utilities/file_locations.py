@@ -22,7 +22,7 @@ if not cache_dir.exists():
     cache_dir.mkdir()
 logging.info("Loading custom configurations from {}".format(CONFIG_FILE))
 log_conf = TIMOR_CONFIG['FILE_LOCATIONS'] if TIMOR_CONFIG.has_section('FILE_LOCATIONS') else dict()
-test_data = Path(log_conf.get('test_data', head.parent.joinpath('tests/data')))
+test_data = Path(log_conf.get('test_data', head.parent.joinpath('tests/data'))).expanduser()
 default_robot_dir = head.joinpath('timor_sample_robots')
 cache_robot_dir = cache_dir.joinpath("robots")
 if not cache_robot_dir.exists():
