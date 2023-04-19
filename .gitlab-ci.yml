@@ -53,8 +53,7 @@ pip_py_37:
   image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/python:3.7
   script:
     - pip install .[full]
-    - cd src
-    - python -m pytest -m "imports" ../tests
+    - python -m pytest -m "imports" tests/
   rules:
     - changes:
       - .gitlab-ci.yml
@@ -66,8 +65,7 @@ pip_py_38:
   image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/python:3.8
   script:
     - pip install .[full]
-    - cd src
-    - python -m pytest -m "imports" ../tests
+    - python -m pytest -m "imports" tests/
   rules:
     - changes:
       - .gitlab-ci.yml
@@ -79,8 +77,7 @@ pip_py_39:
   image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/python:3.9
   script:
     - pip install .[full]
-    - cd src
-    - python -m pytest -m "imports" ../tests
+    - python -m pytest -m "imports" tests/
   rules:
     - changes:
       - .gitlab-ci.yml
@@ -92,8 +89,7 @@ pip_py_310:
   image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/python:3.10
   script:
     - pip install .[full]
-    - cd src
-    - python -m pytest -m "imports" ../tests
+    - python -m pytest -m "imports" tests/
   rules:
     - changes:
       - .gitlab-ci.yml
@@ -105,8 +101,7 @@ pip_py_311:
   image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/python:3.11
   script:
     - pip install .[full]
-    - cd src
-    - python -m pytest -m "imports" ../tests
+    - python -m pytest -m "imports" tests/
   rules:
     - changes:
       - .gitlab-ci.yml
@@ -117,8 +112,7 @@ unittests:
   stage: unittest
   script:
     - pip install .[dev]
-    - cd src
-    - coverage run -p --rcfile=.coveragerc -m pytest -m "not imports and not full" ../tests
+    - coverage run -p --rcfile=.coveragerc -m pytest -m "not imports and not full" tests/
   artifacts:
     expose_as: 'coverage_base'
     when: always
@@ -129,8 +123,7 @@ unittests full:
   stage: unittest
   script:
     - pip install .[full]
-    - cd src
-    - coverage run -p --rcfile=.coveragerc -m pytest -m "not imports and full" ../tests
+    - coverage run -p --rcfile=.coveragerc -m pytest -m "not imports and full" tests/
   artifacts:
     expose_as: 'coverage_base'
     when: always
@@ -142,8 +135,7 @@ unittests imports:
   stage: unittest
   script:
     - pip install .[dev]
-    - cd src
-    - coverage run -p --rcfile=.coveragerc -m pytest -m "imports" ../tests
+    - coverage run -p --rcfile=.coveragerc -m pytest -m "imports" tests/
   artifacts:
     expose_as: 'coverage_imports'
     when: always
@@ -155,7 +147,6 @@ coverage:
   needs: [unittests, unittests imports]
   script:
     - pip install .[dev]
-    - cd src
     - coverage combine --rcfile=.coveragerc
     - coverage report --rcfile=.coveragerc
   after_script:
