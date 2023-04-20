@@ -3,4 +3,4 @@
 level = DEBUG
 
 [FILE_LOCATIONS]
-test_data = ~/timor-python/tests/data
+test_data = /builds/unittest/timor-python/tests/data
