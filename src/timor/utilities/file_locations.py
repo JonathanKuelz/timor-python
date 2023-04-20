@@ -23,6 +23,8 @@ if not cache_dir.exists():
 logging.info("Loading custom configurations from {}".format(CONFIG_FILE))
 log_conf = TIMOR_CONFIG['FILE_LOCATIONS'] if TIMOR_CONFIG.has_section('FILE_LOCATIONS') else dict()
 test_data = Path(log_conf.get('test_data', head.parent.joinpath('tests/data'))).expanduser()
+if not test_data.exists():
+    test_data = None
 default_robot_dir = head.joinpath('timor_sample_robots')
 cache_robot_dir = cache_dir.joinpath("robots")
 if not cache_robot_dir.exists():
@@ -63,6 +65,8 @@ def get_test_tasks(task_name: re.Pattern = DEFAULT_TASK_FILTER) -> Dict[str, Uni
     :param task_name: A regular expression pattern that is run against task files to be loaded
     :return: A dictionary mapping the "kind" of the task or solution file to the matching path.
     """
+    if test_data is None:
+        raise FileNotFoundError("Test data not found. It is only available if the package is installed from source.")
     task_dir = test_data.joinpath('sample_tasks/simple')
     task_files = list(file for file in task_dir.iterdir() if file.name.endswith('.json'))
 
