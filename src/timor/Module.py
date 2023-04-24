@@ -599,7 +599,7 @@ class ModulesDB(SingleSet, JSONable_mixin):
         """
         Returns a set of all possible connections in this db.
 
-        As connections are symmetric, only one copy of {A --> B, B --> A} will be returned.
+        As connections are symmetric, only one copy of {(A, c_a) --> (B, c_b), (B, c_b) --> (A, c_a)} will be returned.
         """
         connections: Set[ModulesDB.connection_type] = set()
         for mod_a, mod_b in itertools.combinations_with_replacement(self, 2):
@@ -613,13 +613,14 @@ class ModulesDB(SingleSet, JSONable_mixin):
         return connections
 
     @property
-    def connectivity_graph(self) -> nx.DiGraph:
+    def connectivity_graph(self) -> nx.MultiDiGraph:
         """
         Returns a graph of all possible module connections in the db.
 
-        :return: An undirected graph
+        :return: A directed graph with anti-parallel edges for each possible connection. Multiple edges between two are
+            possible (in fact, they will almost certainly exist for standard module sets).
         """
-        G = nx.DiGraph()
+        G = nx.MultiDiGraph()
         for mod_a, con_a, mod_b, con_b in self.possible_connections:
             G.add_edge(mod_a, mod_b, connectors=(con_a, con_b))
             G.add_edge(mod_b, mod_a, connectors=(con_b, con_a))
