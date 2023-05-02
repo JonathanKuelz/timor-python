@@ -85,7 +85,7 @@ For further information, please visit the `documentation <https://timor-python.r
 Updating
 --------
 
-Some timor updates might require to re-acquire the task, schema, or robot module data-bases. Try to reset the caches by running ``timor.utilities.file_location.clean_caches()`` and re-import the timor module.
+Some timor updates might require to re-acquire the task, schema, or robot module data-bases. Try to reset the caches by running ``timor.utilities.file_locations.clean_caches()`` and re-import the timor module.
 
 Typical errors indicating this action:
  * ValueError: modules.json invalid.
