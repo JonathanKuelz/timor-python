@@ -278,11 +278,11 @@ def place_arrow(
 
     viz.viewer[name + '_arr_body'].set_object(base, material)
     base_transform = placement @ rot @ spatial.homogeneous(translation=[0, -.5 * base_length - head_length, 0])
-    viz.viewer[name + '_arr_body'].set_transform(base_transform)
+    viz.viewer[name + '_arr_body'].set_transform(base_transform.homogeneous)
 
     viz.viewer[name + '_arr_head'].set_object(head, material)
     head_transform = placement @ rot @ spatial.homogeneous(translation=[0, -.5 * head_length, 0])
-    viz.viewer[name + '_arr_head'].set_transform(head_transform)
+    viz.viewer[name + '_arr_head'].set_transform(head_transform.homogeneous)
 
 
 def scene_text(text: str, size: float = 1., **kwargs):
