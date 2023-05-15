@@ -25,7 +25,7 @@ dependencies = [
     "scipy >= 1.6",
     "requests >= 2.28.1"
 ]
-requires-python = ">=3.7"
+requires-python = ">=3.8"
 dynamic = ["version", "readme"]
 
 [project.optional-dependencies]
