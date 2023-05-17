@@ -48,18 +48,6 @@ flake8 linting:
     - pip install flake8==5.0.4
     - flake8
 
-pip_py_37:
-  stage: build
-  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/python:3.7
-  script:
-    - pip install .[full]
-    - python -m pytest -m "imports" tests/
-  rules:
-    - changes:
-      - .gitlab-ci.yml
-      - pyproject.toml
-    - if: $CI_PIPELINE_SOURCE == "schedule"  # run atleast with nightly run to make sure no external stuff changed
-
 pip_py_38:
   stage: build
   image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/python:3.8
