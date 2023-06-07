@@ -997,7 +997,7 @@ class PinRobot(RobotBase):
                 vo.placement = displacement * vo.placement
             frame.placement = displacement * frame.placement
         self.model.jointPlacements[0] = displacement * self.model.jointPlacements[0]
-        for i in range(1, self.njoints):
+        for i in range(1, self.njoints + 1):
             # Move all joints that are directly connected to "world" (i.e. the first joint[s])
             if self.model.parents[i] != 0:
                 continue
