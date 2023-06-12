@@ -7,7 +7,7 @@ from copy import deepcopy
 from dataclasses import dataclass, field
 import datetime
 import itertools
-import json
+import os
 from pathlib import Path
 from typing import Collection, Dict, Iterable, List, Optional, Sequence, Tuple, Union
 import uuid
@@ -20,9 +20,9 @@ import pinocchio as pin
 from timor.Robot import PinRobot, RobotBase
 from timor.task import Constraints, Goals
 from timor.task.Obstacle import Obstacle
+from timor.utilities import configurations
 from timor.utilities.dtypes import TypedHeader
 from timor.utilities.file_locations import map2path, schema_dir
-from timor.utilities.json_serialization_formatting import compress_json_vectors
 from timor.utilities.jsonable import JSONable_mixin
 import timor.utilities.logging as logging
 from timor.utilities.schema import DEFAULT_DATE_FORMAT, get_schema_validator
@@ -60,8 +60,6 @@ class Task(JSONable_mixin):
     Global constraints, e.g. valid base placements or the order of goals can be defined on the task-level.
     """
 
-    _package_dir: Optional[Path]  # If a task was loaded from disk, this variable stored the path to package directory
-
     def __init__(self,
                  header: Union[TaskHeader, Dict],
                  obstacles: Collection[Obstacle] = None,
@@ -86,8 +84,6 @@ class Task(JSONable_mixin):
             for obstacle in obstacles:
                 self.add_obstacle(obstacle)
 
-        self._package_dir: Optional[Path] = None
-
     def __deepcopy__(self, memodict={}):
         """Custom deepcopy for a scneario class. Experimental!"""
         cpy = self.__class__(header=deepcopy(self.header))
@@ -98,20 +94,51 @@ class Task(JSONable_mixin):
 
     def __getstate__(self):
         """Return objects which will be pickled and saved."""
-        return self.to_json_data(), self._package_dir
+        return self.to_json_data()
 
     def __setstate__(self, state):
         """Take object from parameter and use it to retrieve class state."""
-        cpy = self.__class__.from_json_data(*state)
+        cpy = self.__class__.from_json_data(state)
         self.__dict__ = cpy.__dict__
 
     @classmethod
-    def from_json_data(cls, d: Dict[str, any], package_dir: Union[Path, str]):
+    def from_id(cls, id: str, package_dir: Path) -> Task:
+        """
+        Load a task based on its id stored in package_dir/id.json.
+
+        :param id: id (including namespace with "/" to look for.
+        :param package_dir: The directory to look for the task in.
+        """
+        return cls.from_json_file(package_dir.joinpath(f"{id}.json"))
+
+    @staticmethod
+    def _deduce_package_dir(filepath: Path, content: Union[Dict, List]) -> Path:
+        """
+        Deduce the package directory from the filepath and the content of the task.
+
+        A task is always stored in <package_dir>/<task.id>.json. The package_dir is the directory; the task.id may also
+        contain subdirectories / namespacing denoted with "/".
+
+        :param filepath: The path to the task file
+        :param content: The content of the task file
+        return: The package directory that all file keys in content are relative to.
+        """
+        if not isinstance(content, dict):
+            raise ValueError(f"Content of {filepath} describing task is not a dictionary.")
+        if 'header' not in content or 'ID' not in content['header']:
+            raise ValueError(f"Content of {filepath} describing task does not contain an ID.")
+        id = content['header']['ID']
+        if not filepath.match(f"**/{id}.json"):
+            raise ValueError(f"Filepath {filepath} of task does not end in ID {id}")
+        # Only keep parts of abs path before ID
+        return Path(*filepath.with_suffix("").parts[:-len(Path(id).parts)])
+
+    @classmethod
+    def from_json_data(cls, d: Dict[str, any], *args, **kwargs):
         """
         Loads a task from a parsed json (=dictionary).
 
         :param d: The parsed json data
-        :param package_dir: The path to the package directory of contained mesh files.
         """
         _, validator = get_schema_validator(schema_dir.joinpath("TaskSchema.json"))
         if not validator.is_valid(d):
@@ -119,8 +146,7 @@ class Task(JSONable_mixin):
             raise ValueError("task.json invalid.")
         content = deepcopy(d)  # Make sure we don't modify the original data while popping items
         header = TaskHeader(**{key: arg for key, arg in content.pop('header').items()})
-        obstacles = [Obstacle.from_json_data(
-            {**specs, **{'package_dir': package_dir}}) for specs in content.pop('obstacles')]
+        obstacles = [Obstacle.from_json_data(specs) for specs in content.pop('obstacles')]
         goals = [Goals.GoalBase.goal_from_json_data(goal) for goal in content.pop('goals', [])]
         if 'Constraints' in content:
             logging.error("Constraints is written in upper case but should be lower case!")
@@ -129,20 +155,35 @@ class Task(JSONable_mixin):
         if len(content) > 0:
             raise ValueError("Unresolved keys: {}".format(', '.join(content)))
         task = cls(header, obstacles, goals=goals, constraints=constraints)
-        task._package_dir = package_dir
         return task
 
-    @classmethod
-    def from_json_file(cls, filepath: Union[Path, str], package_dir: Union[Path, str]):
+    def to_json_file(self, save_at: Union[Path, str],
+                     handle_missing_assets: Optional[str] = None, *args, **kwargs):
         """
-        Loads a task from a json file.
+        Save the task to a json file.
 
-        :param filepath: The path to the json file
-        :param package_dir: The path to the package directory, to which the mesh file paths are relative to.
+        :param save_at: The path to save the task to.
+          If it is a directory, the task will be saved to save_at/<task.id>.json.
+          If it is a file, the task will be saved to save_at and it is ensured that the filename ends in <task.id>.json.
+        :param handle_missing_assets: How to handle missing assets.
+          See :meth:`timor.utilities.helper.handle_assets` for details.
         """
-        filepath, package_dir = map(map2path, (filepath, package_dir))
-        content = json.load(filepath.open('r'))
-        return cls.from_json_data(content, package_dir)
+        if handle_missing_assets is None:
+            handle_missing_assets = configurations.task_assets_copy_behavior
+        save_at = map2path(save_at)
+        if len(save_at.suffixes) > 0:  # there is a suffix -> this is a file; is_file only true if already exists
+            if not save_at.match(f"**/{self.id}.json"):
+                raise ValueError(f"Filepath {save_at} does not end in ID {self.id} of self.")
+            new_package_dir = map2path(*save_at.with_suffix("").parts[:len(Path(self.id).parts)])
+        elif save_at.is_dir():
+            new_package_dir = save_at
+            save_at = new_package_dir / f"{self.id}.json"
+        else:
+            raise ValueError("save_at must be a file or directory.")
+        os.makedirs(save_at.parent, exist_ok=True)
+
+        super().to_json_file(save_at, new_package_dir=new_package_dir,
+                             handle_missing_assets=handle_missing_assets, *args, **kwargs)
 
     @staticmethod
     def from_srf_file(filepath: Path):
@@ -195,19 +236,6 @@ class Task(JSONable_mixin):
         # Goals
         content['goals'] = [goal.to_json_data() for goal in self.goals]
         return content
-
-    def to_json_file(self, filepath: Path):
-        """
-        Write a task to a json file.
-
-        :param filepath: The path to the file to write the json to
-        """
-        filepath = map2path(filepath)
-        content = compress_json_vectors(json.dumps(self.to_json_data(), indent=2))
-        if (self._package_dir is not None) and (not str(filepath).startswith(str(self._package_dir))):
-            logging.info("Writing task to file outside of the package directory it was loaded from.")
-        with filepath.open('w') as f:
-            f.write(content)
 
     @property
     def collision_objects(self) -> Tuple[hppfcl.CollisionObject, ...]:

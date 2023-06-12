@@ -3,7 +3,6 @@
 # Date: 17.01.22
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Dict, Optional, Union
 
 from hppfcl import hppfcl
@@ -41,7 +40,7 @@ class Obstacle(JSONable_mixin):
         self.name: Optional[str] = name
 
     @classmethod
-    def from_json_data(cls, d: Dict[str, Union[str, dict]]) -> Obstacle:
+    def from_json_data(cls, d: Dict[str, Union[str, dict]], *args, **kwargs) -> Obstacle:
         """
         Takes a json geometry specification and returns the according Obstacle.
 
@@ -50,18 +49,14 @@ class Obstacle(JSONable_mixin):
             * ID: The obstacle unique ID
             * collision: A Geometry used for collision detection
             * visual: A Geometry for visualization of this Obstacle - defaults to collision if not given
-            * package_dir: If a mesh is given, it is given relative to a package directory that must be specified
             * name: The obstacle display name
         :return: The obstacle class instance that matches the specification
         """
         ID = d['ID']
         collision = d['collision']
-        package_dir = d['package_dir'] if 'package_dir' in d else None
-        if isinstance(package_dir, str):
-            package_dir = Path(package_dir)
-        collision_geometry = Geometry.Geometry.from_json_data(collision, package_dir=package_dir)
+        collision_geometry = Geometry.Geometry.from_json_data(collision)
         if 'visual' in d:
-            visual_geometry = Geometry.Geometry.from_json_data(d['visual'], package_dir=package_dir)
+            visual_geometry = Geometry.Geometry.from_json_data(d['visual'])
         else:
             visual_geometry = None
 

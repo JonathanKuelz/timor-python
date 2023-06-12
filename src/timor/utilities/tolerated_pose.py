@@ -40,7 +40,7 @@ class ToleratedPose(JSONable_mixin):
         return self.tolerance.valid(self.nominal, other)
 
     @classmethod
-    def from_json_data(cls, d: Dict[str, any]) -> ToleratedPose:
+    def from_json_data(cls, d: Dict[str, any], *args, **kwargs) -> ToleratedPose:
         """Create a ToleratedPose from a json description.
 
         :param d: A json description as defined in the task documentation.

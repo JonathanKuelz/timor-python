@@ -118,7 +118,7 @@ class Joint(JSONable_mixin):
         return f"Joint: {self.id}"
 
     @classmethod
-    def from_json_data(cls, d: Dict, body_id_to_instance: Dict) -> Joint:
+    def from_json_data(cls, d: Dict, body_id_to_instance: Dict, *args, **kwargs) -> Joint:
         """
         Maps the serialized json description to an instance of this class.
 

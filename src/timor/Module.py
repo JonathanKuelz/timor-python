@@ -8,6 +8,7 @@ import datetime
 import itertools
 import json
 import math
+import os.path
 from pathlib import Path
 import random
 import re
@@ -25,11 +26,12 @@ from timor import Geometry, Robot
 from timor.Bodies import Body, BodyBase, BodySet, Connector, ConnectorSet, Gender
 from timor.Geometry import ComposedGeometry
 from timor.Joints import Joint, JointSet, TimorJointType
-from timor.utilities import logging, spatial, write_urdf
+from timor.utilities import configurations, logging, spatial, write_urdf
 from timor.utilities.dtypes import Lazy, SingleSet, TypedHeader, randomly
 import timor.utilities.errors as err
 from timor.utilities.file_locations import get_module_db_files, map2path, schema_dir
-from timor.utilities.json_serialization_formatting import compress_json_vectors, possibly_nest_as_list
+from timor.utilities.asset_handling import handle_assets
+from timor.utilities.json_serialization_formatting import possibly_nest_as_list
 from timor.utilities.jsonable import JSONable_mixin
 from timor.utilities.schema import DEFAULT_DATE_FORMAT, get_schema_validator
 from timor.utilities.transformation import Transformation, TransformationLike
@@ -315,7 +317,7 @@ class AtomicModule(ModuleBase):
         return module, np.asarray(colors.to_rgba(viz_colors.pop(), alpha=1))
 
     @classmethod
-    def from_json_data(cls, d: Dict, package_dir: Path) -> AtomicModule:
+    def from_json_data(cls, d: Dict, package_dir: Optional[Path] = None, **kwargs) -> AtomicModule:
         """
         Maps the json module description to an instance of this class.
 
@@ -349,15 +351,14 @@ class AtomicModule(ModuleBase):
         return cls(header, bodies, joints)
 
     @classmethod
-    def from_json_string(cls, s: str, package_dir: Path) -> AtomicModule:
+    def from_json_string(cls, s: str) -> AtomicModule:
         """
         Maps the json module string to an instance of this class.
 
-        :param package_dir: Package directory relative to which mesh file paths are defined
         :param s: A json string with relevant meta-information
         :return: An instantiated module
         """
-        return cls.from_json_data(json.loads(s), package_dir)
+        return cls.from_json_data(json.loads(s))
 
 
 class ModulesDB(SingleSet, JSONable_mixin):
@@ -373,17 +374,14 @@ class ModulesDB(SingleSet, JSONable_mixin):
 
     connection_type = Tuple[ModuleBase, Connector, ModuleBase, Connector]  # More specific than in Assembly!
     _name: Optional[str]  # Optional name of the database, i.e. for referencing them in the CoBRA API
-    _package_dir: Optional[Path]  # Optional package directory relative to which mesh file paths are defined
     _model_generation_kwargs: dict[str, Any]  # Default arguments to create a robot model from this ModulesDB with
 
-    def __init__(self, *modules: Iterable[ModuleBase], name: Optional[str] = None, package_dir: Optional[Path] = None,
-                 **model_generation_kwargs):
+    def __init__(self, *modules: Iterable[ModuleBase], name: Optional[str] = None, **model_generation_kwargs):
         """
         Initializes the database from any number of modules.
 
         :param modules: Any iterable over modules to be within the database
         :param name: Optional name of the database, i.e. for referencing them in the CoBRA API
-        :param package_dir: Optional package directory relative to which mesh file paths are defined
         :param model_generation_kwargs: Key-word arguments to pass to the robot model generation; esp. for setting
           ignore_collisions
 
@@ -391,7 +389,6 @@ class ModulesDB(SingleSet, JSONable_mixin):
         """
         super().__init__(*modules)
         self._name = name
-        self._package_dir = package_dir
         self._model_generation_kwargs = model_generation_kwargs
 
     def __contains__(self, item: ModuleBase) -> bool:
@@ -420,6 +417,14 @@ class ModulesDB(SingleSet, JSONable_mixin):
             return True
         return False
 
+    def __setstate__(self, state):
+        """
+        Overwrite jsonable; most is handled by __reduce__ and python internal set
+
+        just need to set helper properties
+        """
+        self.__dict__.update(state)
+
     def add(self, element: AtomicModule) -> None:
         """
         As the connector ID is composed of (module ID, body ID, connector ID), we need an additional check,
@@ -435,11 +440,10 @@ class ModulesDB(SingleSet, JSONable_mixin):
         Apply a custom filter to this DB to get a new DB with only the modules that pass the filter.
 
         :param func: A function that takes a module and returns a boolean
-        :return: A new DB with only the modules that pass the filter. The package_dir is preserved, the name is
-            intentionally discarded to avoid confusion.
+        :return: A new DB with only the modules that pass the filter. The name is intentionally discarded to avoid
+          confusion.
         """
         new_db = super().filter(func)
-        new_db._package_dir = self._package_dir
         return new_db
 
     @classmethod
@@ -447,71 +451,55 @@ class ModulesDB(SingleSet, JSONable_mixin):
         """
         Create module DB from name of a module DB configured as loadable robot in timor.config
         """
-        return cls.from_file(*get_module_db_files(module_db_name))
+        return cls.from_json_file(get_module_db_files(module_db_name))
 
     @classmethod
-    def from_file(cls, filepath: Union[Path, str], package_dir: Union[Path, str]) -> ModulesDB:
+    def from_json_file(cls, filepath: Union[Path, str], *args, **kwargs) -> ModulesDB:
         """
         Loads a modules Database from a json file.
 
-        :param filepath: Path to the json file of the modulesDB definition.
-        :param package_dir: Package directory relative to which mesh file paths are defined
-        :return: A ModulesDB
+        :param filepath: Path to the json file
+        :return: The loaded ModulesDB
         """
-        filepath, package_dir = map(map2path, (filepath, package_dir))
-        with filepath.open('r') as json_file:
-            content = json_file.read()
         name = filepath.parent.stem
-        return cls.from_json_string(content, package_dir, name=name)
+        return super().from_json_file(filepath, name=name, *args, **kwargs)
 
     @classmethod
-    def from_json_string(cls, json_string: str, package_dir: Path, name: Optional[str] = None) -> ModulesDB:
-        """
-        Loads a modules Database from a json string.
-
-        :param json_string: Json string of the modulesDB definition.
-        :param package_dir: Package directory relative to which mesh file paths are defined
-        :param name: Referencing name for the database
-        :return: A ModulesDB
-        """
-        return cls.from_json_data(json.loads(json_string), package_dir, name)
-
-    @classmethod
-    def from_json_data(cls, data: Iterable[dict], package_dir: Path, name: Optional[str] = None) -> ModulesDB:
+    def from_json_data(cls, data: Dict, name: Optional[str] = None,
+                       validate: Optional[bool] = True, *args, **kwargs) -> ModulesDB:
         """
         Loads a modules Database from a json string.
 
         :param data: Set of dicts describing the individual modules in the DB.
-        :param package_dir: Package directory relative to which mesh file paths are defined
         :param name: Referencing name for the database
+        :param validate: Whether to validate the data against the module schema
         :return: A ModulesDB
         """
-        _, validator = get_schema_validator(schema_dir.joinpath("ModuleSchema.json"))
-        if not validator.is_valid(data):
-            logging.debug(f"Errors: {tuple(validator.iter_errors(data))}")
-            raise ValueError("modules.json invalid.")
-        db = cls(package_dir=package_dir, name=name, **{k: data[k] for k in data if k != "modules"})
+        if validate:
+            _, validator = get_schema_validator(schema_dir.joinpath("ModuleSchema.json"))
+            if not validator.is_valid(data):
+                logging.debug(f"Errors: {tuple(validator.iter_errors(data))}")
+                raise ValueError("modules.json invalid.")
+        db = cls(name=name, **{k: data[k] for k in data if k != "modules"})
 
         for module_data in data["modules"]:
-            db.add(AtomicModule.from_json_data(module_data, package_dir))
+            db.add(AtomicModule.from_json_data(module_data))
         return db
 
-    def to_json_file(self, save_at: Union[Path, str]):
+    def to_json_file(self, save_at: Union[Path, str], *args, **kwargs):
         """
         Writes the ModulesDB to a json file.
 
         :param save_at: File location or folder to write the DB to.
         """
-        save_at = Path(save_at)
-        if save_at.is_dir():
-            if self._name is None:
-                raise ValueError("The DB needs a name if only a directory is specified for saving!")
-            save_at = save_at.joinpath(self._name + '.json')
-        content = compress_json_vectors(self.to_json_string())
-        if (self._package_dir is not None) and (not str(save_at).startswith(str(self._package_dir))):
-            logging.info("Writing ModulesDB to file outside of the package directory it was loaded from.")
-        with Path(save_at).open('w') as savefile:
-            savefile.write(content)
+        save_at = map2path(save_at)
+        if save_at.stem != "modules":
+            raise ValueError("Modules DB must be saved as 'modules.json'")
+        if self._name is not None:
+            if save_at.parent.stem != self._name:
+                raise ValueError("The name of the DB must be the same as the name of the folder it is saved in.")
+
+        return super().to_json_file(save_at, *args, **kwargs)
 
     def to_json_data(self) -> dict[str, list[Any]]:
         """
@@ -575,8 +563,7 @@ class ModulesDB(SingleSet, JSONable_mixin):
     @property
     def bases(self) -> ModulesDB[ModuleBase]:
         """Returns all modules containing at least one base connector"""
-        return self.__class__((mod for mod in self if any(c.type == 'base' for c in mod.available_connectors.values())),
-                              package_dir=self._package_dir)
+        return self.__class__((mod for mod in self if any(c.type == 'base' for c in mod.available_connectors.values())))
 
     @property
     def default_model_generation_kwargs(self):
@@ -586,8 +573,7 @@ class ModulesDB(SingleSet, JSONable_mixin):
     @property
     def end_effectors(self) -> ModulesDB[ModuleBase]:
         """Returns all modules containing at least one eef connector"""
-        return self.__class__((mod for mod in self if any(c.type == 'eef' for c in mod.available_connectors.values())),
-                              package_dir=self._package_dir)
+        return self.__class__((mod for mod in self if any(c.type == 'eef' for c in mod.available_connectors.values())))
 
     @property
     def name(self) -> str:
@@ -763,7 +749,7 @@ class ModuleAssembly(JSONable_mixin):
         return cls(db)
 
     @classmethod
-    def from_monolithic_robot(cls, robot: Robot.PinRobot, urdf: Optional[Path] = None) -> ModuleAssembly:
+    def from_monolithic_robot(cls, robot: Robot.PinRobot) -> ModuleAssembly:
         """
         Wraps a kinematic/dynamic robot model into a single module which will be the full assembly.
 
@@ -772,7 +758,6 @@ class ModuleAssembly(JSONable_mixin):
         returned by this method will as well.
 
         :param robot: A pinocchio robot model to be wrapped in an assembly.
-        :param urdf: Optional urdf to try to reconstruct mesh file paths with.
 
         :returns: A module assembly consisting of exactly one module: The robot given as input.
         """
@@ -780,9 +765,6 @@ class ModuleAssembly(JSONable_mixin):
         joints = set()
         zero_inertia = pin.Inertia()
         zero_inertia.setZero()
-
-        if urdf is not None:
-            urdf = ET.parse(urdf)
 
         # First, parse the geometries and add them to fresh bodies
         if len(robot.collision.geometryObjects) != len(robot.visual.geometryObjects):
@@ -804,31 +786,6 @@ class ModuleAssembly(JSONable_mixin):
                 if len(candidates) != 1:
                     raise IndexError(f"Search term \"{search_term}\" not unique: {candidates}")
                 return candidates[0]
-
-            if urdf is not None:
-                if not collision.name[-2:] == "_0":  # Pinocchio adds index if multiple visual / collision tags per link
-                    raise ValueError("Can only use URDF if there is a single collision geometry")
-
-                link_name_urdf = collision.name[:-2]
-                link_candidate = find_unique_child(urdf, f".//link[@name='{link_name_urdf}']")
-
-                if isinstance(vg, Geometry.Mesh):
-                    visual_candidate = find_unique_child(link_candidate, "visual/geometry")
-                    try:
-                        visual_mesh_candidate = find_unique_child(visual_candidate, "mesh")
-                    except IndexError:
-                        raise ValueError(f"No unique mesh found for visual geometry {vg}.")
-                    if "filename" in visual_mesh_candidate.attrib:
-                        vg._filepath = visual_mesh_candidate.attrib["filename"].replace("package://", "")
-
-                if isinstance(cg, Geometry.Mesh):
-                    collision_candidate = find_unique_child(link_candidate, "collision/geometry")
-                    try:
-                        collision_mesh_candidate = find_unique_child(collision_candidate, "mesh")
-                    except IndexError:
-                        raise ValueError(f"No unique mesh found for collision geometry {cg}.")
-                    if "filename" in collision_mesh_candidate.attrib:
-                        cg._filepath = collision_mesh_candidate.attrib["filename"].replace("package://", "")
 
             inertia = robot.model.inertias[collision.parentJoint]
             child_bodies[collision.parentJoint] = Body(body_id=collision.name, collision=cg, visual=vg, inertia=inertia)
@@ -1124,7 +1081,8 @@ class ModuleAssembly(JSONable_mixin):
         plt.show()
 
     @classmethod
-    def from_json_data(cls, d: Dict[str, any], module_db: Optional[ModulesDB] = None) -> ModuleAssembly:
+    def from_json_data(cls, d: Dict[str, any], module_db: Optional[ModulesDB] = None,
+                       *args, **kwargs) -> ModuleAssembly:
         """
         Create an assembly from description found in serialized solutions.
 
@@ -1304,14 +1262,20 @@ class ModuleAssembly(JSONable_mixin):
 
         return robot
 
-    def to_urdf(self, name: str = None, write_to: Optional[Path] = None, replace_wrl: bool = False) -> str:
+    def to_urdf(self, name: str = None, write_to: Optional[Path] = None, replace_wrl: bool = False,
+                handle_missing_assets: Optional[str] = None) -> str:
         """
         Creates a URDF file from the assembly.
 
         :param name: name to be given to robot inside URDF
         :param write_to: output URDF file
         :param replace_wrl: Whether to replace wrl geometries with visual geometry (if available).
+        :param handle_missing_assets: How to handle missing assets in package (parent of write_to).
+          See :meth:`timor.utilities.helper.handle_assets` for details.
         """
+        if handle_missing_assets is None:
+            handle_missing_assets = configurations.db_assets_copy_behavior
+
         G = self.assembly_graph
         edges = G.edges
         if name is None:
@@ -1415,6 +1379,21 @@ class ModuleAssembly(JSONable_mixin):
         except AttributeError:
             # indent was introduced in Python 3.9 -- for previous versions, we just don't pretty-print
             pass
+
+        if write_to is not None:
+            package_dir = write_to.parent
+            meshes = urdf.findall(".//mesh")
+            if meshes:
+                old_file_names = [m.attrib["filename"] for m in meshes]
+                old_package_dir = map2path(os.path.commonpath(old_file_names)).parent
+                for m in meshes:
+                    m.attrib["filename"] = m.attrib["filename"].replace(str(old_package_dir), "package:/")
+                new_file_names = [m.attrib["filename"] for m in meshes]
+
+                handle_assets([Path(f.replace("package:/", str(package_dir))) for f in new_file_names],
+                              [Path(o) for o in old_file_names],
+                              handle_missing_assets)
+
         urdf_string = ET.tostring(urdf, 'unicode')
 
         if write_to is not None:

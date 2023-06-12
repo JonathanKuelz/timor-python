@@ -125,7 +125,8 @@ class Geometry(abc.ABC, JSONable_mixin):
         return json.dumps(self.serialized, indent=2)
 
     @classmethod
-    def from_json_data(cls, d: Union[List, Dict[str, any]], package_dir: Optional[Path] = None) -> Geometry:
+    def from_json_data(cls, d: Union[List, Dict[str, any]], package_dir: Optional[Path] = None,
+                       *args, **kwargs) -> Geometry:
         """
         Takes a serialized geometry specification and returns the according Geometry instance.
 
@@ -144,13 +145,13 @@ class Geometry(abc.ABC, JSONable_mixin):
         class_ref = _geometry_type2class(desc.pop('type'))
 
         if class_ref is Mesh:
-            if package_dir is None:
-                raise ValueError("If your geometry contains a mesh, you need to provide the package_dir")
-            desc['parameters']['package_dir'] = package_dir
-            # The "package://" prefix might be given, but is not mandatory.
-            desc['parameters']['file'] = re.sub('package://', '', desc['parameters']['file'])
-            if not (package_dir / Path(desc['parameters']['file'])).exists():
-                raise ValueError("Mesh file {} does not exist".format(package_dir / desc['parameters']['file']))
+            if package_dir is not None:
+                # The "package://" prefix might be given, but is not mandatory.
+                desc['parameters']['file'] = re.sub('package://', '', desc['parameters']['file'])
+                desc['parameters']['file'] = package_dir / Path(desc['parameters']['file'])
+
+            if not (Path(desc['parameters']['file'])).exists():
+                raise FileNotFoundError("Mesh file {} does not exist".format(desc['parameters']['file']))
 
         return class_ref(**desc)
 
@@ -190,8 +191,10 @@ class Geometry(abc.ABC, JSONable_mixin):
                                                                               geo.placement.translation))
         if isinstance(intermediate, Mesh):
             logging.debug("Restoring mesh file information from pinocchio geometry object")
-            intermediate.parameters['file'] = geo.meshPath
-            intermediate.parameters['scale'] = geo.meshScale
+            params = intermediate.parameters
+            params['file'] = geo.meshPath
+            params['scale'] = geo.meshScale
+            intermediate.parameters = params  # Trigger setter
         return intermediate
 
     @property
@@ -422,14 +425,13 @@ class Mesh(Geometry):
     type: GeometryType = GeometryType.MESH
     _filepath: Path
     _scale: Union[float, np.ndarray]
-    package_dir: Optional[Path]
     _colors: Optional[np.ndarray] = None
 
     @classmethod
     def from_hppfcl(cls, fcl: hppfcl.CollisionObject) -> Geometry:
         """Wraps a hppfcl Mesh in a Mesh instance."""
         logging.debug("Creating mesh from hppfcl, will lose possible file location information")
-        return cls({'file': '', 'package_dir': ''}, fcl.getTransform(), fcl.collisionGeometry())
+        return cls({'file': ''}, fcl.getTransform(), fcl.collisionGeometry())
 
     @staticmethod
     def read_wrl(file: Path) -> Tuple[Tuple[np.ndarray, ...], Tuple[np.ndarray, ...]]:
@@ -488,11 +490,8 @@ class Mesh(Geometry):
 
     @property
     def abs_filepath(self) -> Path:
-        """The absolute filepath is the combination of package path and relative path of the mesh file."""
-        if self.package_dir is None:
-            raise AttributeError("package_dir not set")
-
-        return self.package_dir / self.filepath
+        """The absolute filepath of the mesh file."""
+        return self.filepath
 
     @property
     def parameters(self) -> Dict[str, Union[str, float]]:
@@ -505,15 +504,16 @@ class Mesh(Geometry):
 
     @parameters.setter
     def parameters(self, parameters: Dict[str, any]):
-        """Unpacks to filepath and scale - also expects a package_dir to be able to load the mesh."""
-        self.package_dir = parameters['package_dir']
+        """Unpacks to filepath and scale."""
         self._filepath = Path(parameters['file'])
+        if 'package_dir' in parameters:
+            self._filepath = Path(parameters['package_dir']) / self._filepath
         self._scale = np.asarray(parameters.get('scale', 1.0))
 
     @property
     def urdf_properties(self) -> Tuple[str, Dict[str, Union[str, List[float]]]]:
         """Can only be saved as a dictionary if the mesh was loaded from a file and the file location is still known."""
-        return 'mesh', {'filename': 'package://' + str(self.filepath), 'scale': self.scale.tolist()}
+        return 'mesh', {'filename': str(self.filepath), 'scale': self.scale.tolist()}
 
     @property
     def viz_object(self) -> Tuple[meshcat.geometry.Geometry, Transformation]:
@@ -551,7 +551,6 @@ class Mesh(Geometry):
     def __deepcopy__(self, memodict={}):
         """Must be implemented for Geometries, as hppfcl does not natively support it."""
         params = self.parameters
-        params['package_dir'] = self.package_dir
         return self.__class__(params, self.placement)
 
 

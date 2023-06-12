@@ -8,7 +8,7 @@ import json
 from pathlib import Path
 import re
 import shutil
-from typing import Dict, List, Tuple, Union
+from typing import Dict, List, Union
 
 from timor.utilities import logging
 from timor.utilities.configurations import CONFIG_FILE, TIMOR_CONFIG
@@ -55,7 +55,7 @@ else:
 download_additional_robots(cache_robot_dir, robots)
 module_DBs = robots  # alias
 
-DEFAULT_TASK_FILTER = re.compile(".*(PTP_1|PTP_2|PTP_2_cycle|PTP_3|Empty|traj_1|traj_window)+.json")
+DEFAULT_TASK_FILTER = re.compile(".*(task|PTP_1|PTP_2|PTP_2_cycle|PTP_3|Empty|traj_1|traj_window)+.json")
 
 
 def get_test_tasks(task_name: re.Pattern = DEFAULT_TASK_FILTER) -> Dict[str, Union[Path, List[Path]]]:
@@ -68,7 +68,7 @@ def get_test_tasks(task_name: re.Pattern = DEFAULT_TASK_FILTER) -> Dict[str, Uni
     if test_data is None:
         raise FileNotFoundError("Test data not found. It is only available if the package is installed from source.")
     task_dir = test_data.joinpath('sample_tasks/simple')
-    task_files = list(file for file in task_dir.iterdir() if file.name.endswith('.json'))
+    task_files = task_dir.rglob("**/*.json")
 
     task_files = [task for task in task_files if task_name.search(task.name)]
     asset_dir = task_dir.parent.joinpath("assets")
@@ -78,26 +78,26 @@ def get_test_tasks(task_name: re.Pattern = DEFAULT_TASK_FILTER) -> Dict[str, Uni
             "asset_dir": asset_dir}
 
 
-def get_module_db_files(name: str) -> Tuple[Path, Path]:
+def get_module_db_files(name: str) -> Path:
     """
     Returns the filepaths to the database json file and the package folder for names of valid module databases.
 
     :param name: The (folder) name of the module set
-    :return: (Path to modules.json, Path to package folder)
+    :return: Path to modules.json (all assets are in the same folder)
     """
     if name not in robots:
         raise FileNotFoundError(f"Robot of name {name} is unknown!")
     module_file = module_DBs[name].joinpath('modules.json')
     if not module_file.exists():
         raise FileNotFoundError("Module Set File {} not found.".format(module_file))
-    return module_file, module_file.parent
+    return module_file
 
 
 def map2path(p: Union[str, Path]) -> Path:
     """Maps strings to paths, but does nothing else s.t. e.g. Django paths are not casted."""
     if isinstance(p, str):
         return Path(p)
-    return p
+    return p.expanduser()
 
 
 def clean_caches():

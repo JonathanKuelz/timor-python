@@ -27,3 +27,13 @@ if not CONFIG_FILE.exists():
         f.write(DEFAULT_CONFIG_TXT)
     print("Created a configuration file at", CONFIG_FILE, "for timor-python.")
 TIMOR_CONFIG.read(CONFIG_FILE)
+
+SERIALIZING_CONFIG = TIMOR_CONFIG.get['SERIALIZING'] if TIMOR_CONFIG.has_section('SERIALIZING') else dict()
+DEFAULT_ASSETS_COPY_BEHAVIOR = "error"
+possible_copy_behaviors = {"warning", "error", "copy", "symlink", "ignore"}
+task_assets_copy_behavior = SERIALIZING_CONFIG.get("task_assets_copy_behavior", DEFAULT_ASSETS_COPY_BEHAVIOR)
+if task_assets_copy_behavior not in possible_copy_behaviors:
+    raise ValueError("Invalid task assets copy behavior: {}".format(task_assets_copy_behavior))
+db_assets_copy_behavior = SERIALIZING_CONFIG.get("db_assets_copy_behavior", DEFAULT_ASSETS_COPY_BEHAVIOR)
+if db_assets_copy_behavior not in possible_copy_behaviors:
+    raise ValueError("Invalid DB assets copy behavior: {}".format(db_assets_copy_behavior))

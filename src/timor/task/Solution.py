@@ -102,7 +102,7 @@ class SolutionBase(abc.ABC, JSONable_mixin):
         return cls.from_json_data(content, tasks)
 
     @staticmethod
-    def from_json_data(content: Dict, tasks: Dict[str, Task.Task]) -> SolutionBase:
+    def from_json_data(content: Dict, tasks: Dict[str, Task.Task], *args, **kwargs) -> SolutionBase:
         """Factory method to load a class instance from a dictionary."""
         _header = fuzzy_dict_key_matching(content, desired_only=SolutionHeader.fields())
         header = SolutionHeader(**_header)

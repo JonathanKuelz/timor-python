@@ -17,3 +17,10 @@ filename = /tmp/timor.log  # If you do not provide a filename, stdout will be th
 # Declare a "schema_dir" to define where timor stores schemata to validate JSON files for tasks, modules, and more
 [FILE_LOCATIONS]
 robots = ["/home/<username>/timor-python/src/timor_sample_robots", "/home/<username>/my_robots"]
+
+# Tasks and Module DBs often reference external 3D data files. Here you can specify how such references should be
+# handled when saving a task or module DB to file. The current options are "error", "warning", "ignore", "copy",
+# and "symlink".
+[SERIALIZING]
+task_assets_copy_behavior = "error"
+db_assets_copy_behavior = "error"

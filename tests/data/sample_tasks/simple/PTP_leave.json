@@ -1,6 +1,6 @@
 {
   "header": {
-    "ID": "7",
+    "ID": "simple/PTP_leave",
     "version": "2022",
     "taskName": "PTP_leave",
     "author": [
@@ -43,7 +43,7 @@
             [ 0, 0, 0, 1 ]
           ],
           "parameters": {
-            "file": "QUASER_MV205_v3.stl",
+            "file": "assets/QUASER_MV205_v3.stl",
             "scale": 0.001
           },
           "type": "mesh"
@@ -58,7 +58,7 @@
             [ 0, 0, 0, 1 ]
           ],
           "parameters": {
-            "file": "QUASER_MV205_v3_compressed.stl",
+            "file": "assets/QUASER_MV205_v3_compressed.stl",
             "scale": 0.001
           },
           "type": "mesh"
