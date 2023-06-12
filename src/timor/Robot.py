@@ -7,7 +7,7 @@ import abc
 import itertools
 from pathlib import Path
 import string
-from typing import Collection, Dict, List, Optional, Tuple, Union
+from typing import Callable, Collection, Dict, List, Optional, Tuple, Union
 from warnings import warn
 
 from hppfcl.hppfcl import CollisionObject, CollisionRequest, CollisionResult, Transform3f, collide
@@ -55,6 +55,26 @@ class PinBody:
                 'parentJoint': parent_joint_id,
                 'body_placement': self.placement,
                 'previous_frame': parent_frame_id}
+
+
+def default_ik_cost_function(robot: RobotBase, q: np.ndarray, goal: Transformation) -> float:
+    """
+    The default cost function to evaluate the quality of an inverse kinematic solution.
+
+    This method returns the weighted sum of the translation and rotation error between the current and the goal, where
+    the 1m of displacement equals a cost of one and 180 degree of orientation error equals a cost of 1.
+    :param robot: The robot to evaluate the solution for
+    :param q: The current joint configuration
+    :param goal: The goal transformation
+    """
+    current = robot.fk(q, kind='tcp')
+    delta = current.distance(goal)
+    translation_error = delta.translation_euclidean
+    rotation_error = delta.rotation_angle
+    translation_weight = 1.
+    rotation_weight = .5 / np.pi  # .5 meter displacement ~ 180 degree orientation error
+    return (translation_weight * translation_error + rotation_weight * rotation_error) / \
+        (translation_weight + rotation_weight)
 
 
 class RobotBase(abc.ABC):
@@ -158,12 +178,6 @@ class RobotBase(abc.ABC):
         """
 
     # ---------- Abstract Methods ----------
-    @abc.abstractmethod
-    def _ik_cost_function(self, q: np.ndarray, goal: TransformationLike) -> float:
-        """
-        A cost function to get the fitness of an forward kinematics solution when calculating the inverse kinematics.
-        """
-
     @abc.abstractmethod
     def collisions(self, task: 'Task.Task') -> List[Tuple[RobotBase, Obstacle]]:  # noqa: F821
         """
@@ -318,8 +332,9 @@ class RobotBase(abc.ABC):
                  eef_pose: ToleratedPose,
                  q_init: np.ndarray = None,
                  max_iter: int = 1000,
-                 restore_config: bool = True,
+                 restore_config: bool = False,
                  max_n_tries: int = 10,
+                 ik_cost_function: Callable[[RobotBase, np.ndarray, TransformationLike], float] = default_ik_cost_function,  # noqa: E501
                  **kwargs
                  ) -> Tuple[np.ndarray, bool]:
         """
@@ -332,6 +347,9 @@ class RobotBase(abc.ABC):
         :param restore_config: If True, the current robot configuration will be kept. If false, the found solution for
             the inverse kinematics will be kept
         :param max_n_tries: Maximum number of runs with a new random init configuration before the algorithm gives up
+        :param ik_cost_function: A custom cost function that takes a robot, its joint angles, and a
+            TransformationLike and returns a scalar cost indicating the quality of the configuration in solving the ik
+            problem. If not given, the default cost function is used (equal weighting of .5 meter / 180 degree error).
         :param kwargs: Additional arguments, including:
             - task: If a timor.Task.Task is provided here, the ik will restart if there are task collisions as long as
                 max_iter is not reached.
@@ -340,8 +358,10 @@ class RobotBase(abc.ABC):
                 disabled by setting this to False.
             - ignore_self_collision: If True, the IK will ignore self-collisions
             - method: The scipy minimize method to be used. Defaults to 'L-BFGS-B'
+            - ftol: The tolerance for the cost function, i.e. the algorithm will stop if the cost function changes less
+                than this amount between iterations. Defaults to 1e-8.
         :return: A tuple of q_solution [np.ndarray], success [boolean]. If success is False, q_solution is the
-            configuration with minimal self._ik_cost_function amongst all seen in between iterations if this method.
+            configuration with minimal IK cost amongst all seen in between iterations if this method.
         """
         if 'tolerance' in kwargs:
             raise ValueError("The pose needs to be tolerated - providing an extra tolerance is deprecated.")
@@ -370,7 +390,7 @@ class RobotBase(abc.ABC):
             return q_ik
 
         def _cost(_q: np.ndarray):
-            return self._ik_cost_function(_unmask(_q), eef_pose.nominal)
+            return ik_cost_function(self, _unmask(_q), eef_pose.nominal)
 
         lowest_cost = kwargs.get('lowest_cost', IntermediateIkResult(_unmask(q_masked), _cost(q_masked)))
 
@@ -380,7 +400,7 @@ class RobotBase(abc.ABC):
             q_masked,
             method=kwargs.get('method', 'L-BFGS-B'),
             bounds=bounds,
-            options={'maxiter': max_iter, 'ftol': 1e-12}
+            options={'maxiter': max_iter, 'ftol': kwargs.get('ftol', 1e-8)}
         )
 
         q_sol = _unmask(sol.x)
@@ -629,16 +649,6 @@ class PinRobot(RobotBase):
         return pin.getFrameAcceleration(self.model, self.data, self.tcp, reference).np
 
     # ---------- Utilities and Dynamic and Kinematics Methods ----------
-    def _ik_cost_function(self, q: np.ndarray, goal: Transformation) -> float:
-        """A custom cost function to evaluate the quality of an inverse kinematic solution."""
-        current = self.fk(q, kind='tcp')
-        translation_error = current.distance(goal).translation_euclidean
-        rotation_error = current.distance(goal).rotation_angle
-        translation_weight = 1.
-        rotation_weight = .5 / np.pi  # .5 meter displacement ~ 180 degree orientation error
-        return (translation_weight * translation_error + rotation_weight * rotation_error) / \
-            (translation_weight + rotation_weight)
-
     def _update_geometry_placement(self):
         """Updates the collision (for collision detection) and visual (for plotting) geometry placements."""
         self._update_collision_placement()
@@ -897,7 +907,7 @@ class PinRobot(RobotBase):
             diff = joint_current.actInv(joint_desired)
             error_twist = pin.log(diff).vector
             abs_translational_distance = np.linalg.norm(diff.translation)
-            if abs_translational_distance < closest_translation.distance  \
+            if abs_translational_distance < closest_translation.distance \
                     and self.q_in_joint_limits(q) \
                     and not self.has_self_collision(q):
                 closest_translation = IntermediateIkResult(q, abs_translational_distance)

@@ -177,6 +177,10 @@ class PinocchioRobotSetup(unittest.TestCase):
         panda_tcp = pin.SE3(spatial.homogeneous(np.array([0, 0, .21]), spatial.rotZ(-np.pi / 4)[:3, :3]))
         robot.add_tcp_frame('panda_joint7', panda_tcp)
 
+        def translation_cost(_r: RobotBase, _q: np.ndarray, _g: np.ndarray):
+            """A custom cost function to optimize for translation only"""
+            return _r.fk(_q, 'tcp').distance(_g).translation_euclidean
+
         error_count = {"scipy": 0, "jacobian": 0}
         N = 100
         n = 0
@@ -195,7 +199,7 @@ class PinocchioRobotSetup(unittest.TestCase):
             n += 1  # Keep track of how many examples were really worked with
             robot.model.effortLimit = inf_limits  # Make it impossible to fail due to the torque limits
             robot.update_configuration(pin.neutral(robot.model))
-            conf, success = robot.ik_scipy(ToleratedPose(goal, scipy_tolerance), check_static_torques=True)
+            conf, success = robot.ik_scipy(ToleratedPose(goal, scipy_tolerance), ik_cost_function=translation_cost)
             if success:
                 # ik_scipy optimizes only for position, therefore the Cartesian XYZ tolerance
                 self.assertTrue(scipy_tolerance.valid(goal, robot.fk(conf)))
@@ -205,7 +209,7 @@ class PinocchioRobotSetup(unittest.TestCase):
                 error_count['scipy'] += 1
 
             robot.update_configuration(pin.neutral(robot.model))  # Prevent using the scipy result as initial guess
-            conf, success = robot.ik_jacobian(ToleratedPose(goal, jacobian_tolerance), check_static_torques=True)
+            conf, success = robot.ik_jacobian(ToleratedPose(goal, jacobian_tolerance))
             if success:
                 np_test.assert_array_almost_equal(goal.homogeneous, robot.fk(conf).homogeneous, decimal=2)
                 self.assertTrue(jacobian_tolerance.valid(goal, robot.fk(conf)))
