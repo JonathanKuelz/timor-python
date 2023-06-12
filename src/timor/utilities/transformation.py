@@ -163,7 +163,7 @@ class Transformation(JSONable_mixin):
 
         self.homogeneous: np.ndarray = transformation
 
-    def distance(self, other: TransformationConvertable) -> Norm:
+    def distance(self, other: Union[Transformation, TransformationConvertable]) -> Norm:
         """
         Returns a norm  object for the transformation between self and other.
 
