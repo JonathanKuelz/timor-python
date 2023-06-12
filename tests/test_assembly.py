@@ -19,8 +19,8 @@ class TestModuleAssembly(unittest.TestCase):
 
     def setUp(self) -> None:
         """Initialize some modules"""
-        self.json_file, self.package_dir = get_module_db_files('IMPROV')
-        self.db = ModulesDB.from_file(self.json_file, package_dir=self.package_dir)
+        self.json_file = get_module_db_files('IMPROV')
+        self.db = ModulesDB.from_json_file(self.json_file)
 
     def test_graph_features(self):
         """An assembly of modules is (given some abstraction) just a graph. Check some basic graph attributes:"""

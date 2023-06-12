@@ -49,7 +49,7 @@ class TestSchemas(unittest.TestCase):
         module_sets = []
         for module_set, robot_dir in robots.items():
             try:
-                new_set = get_module_db_files(module_set)[0]
+                new_set = get_module_db_files(module_set)
             except FileNotFoundError:
                 logging.info(f"Skipping not found module set {module_set} for schema test")
                 continue

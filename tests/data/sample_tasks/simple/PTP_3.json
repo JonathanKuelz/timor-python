@@ -1,6 +1,6 @@
 {
   "header": {
-    "ID": "4",
+    "ID": "simple/PTP_3",
     "version": "2022",
     "taskName": "PTP_3",
     "author": [
@@ -43,7 +43,7 @@
             [ 0, 0, 0, 1 ]
           ],
           "parameters": {
-            "file": "QUASER_MV205_v3.stl",
+            "file": "assets/QUASER_MV205_v3.stl",
             "scale": 0.001
           },
           "type": "mesh"
@@ -58,7 +58,7 @@
             [ 0, 0, 0, 1 ]
           ],
           "parameters": {
-            "file": "QUASER_MV205_v3_compressed.stl",
+            "file": "assets/QUASER_MV205_v3_compressed.stl",
             "scale": 0.001
           },
           "type": "mesh"

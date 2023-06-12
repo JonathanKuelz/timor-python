@@ -1,6 +1,6 @@
 {
   "header": {
-    "ID": "2",
+    "ID": "simple/PTP_2",
     "version": "2022",
     "taskName": "PTP_2",
     "author": [
@@ -43,7 +43,7 @@
             [ 0, 0, 0, 1 ]
           ],
           "parameters": {
-            "file": "DMU_125P.stl",
+            "file": "assets/DMU_125P.stl",
             "scale": 0.001
           },
           "type": "mesh"
@@ -58,7 +58,7 @@
             [ 0, 0, 0, 1 ]
           ],
           "parameters": {
-            "file": "DMU_125P_compress.stl",
+            "file": "assets/DMU_125P_compress.stl",
             "scale": 0.001
           },
           "type": "mesh"

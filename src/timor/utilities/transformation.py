@@ -10,7 +10,7 @@ import pinocchio as pin
 from scipy.spatial.transform import Rotation
 
 from timor.utilities import logging, spatial
-import timor.utilities.errors as err
+from timor.utilities import errors as err
 from timor.utilities.jsonable import JSONable_mixin
 
 _TransformationConvertable = Union[

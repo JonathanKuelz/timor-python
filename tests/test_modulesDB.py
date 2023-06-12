@@ -18,16 +18,16 @@ class TestModulesDB(unittest.TestCase):
     def setUp(self) -> None:
         """Defines the filepaths before testing"""
         self.module_set_name = 'IMPROV'
-        self.json_file, self.package_dir = get_module_db_files(self.module_set_name)
-        self.db = ModulesDB.from_file(self.json_file, package_dir=self.package_dir)
+        self.json_file = get_module_db_files(self.module_set_name)
+        self.db = ModulesDB.from_json_file(self.json_file)
         random.seed(123)
         np.random.seed(123)
 
     def test_dump_json(self):
         """Tests loading and dumping from and to json."""
-        db = ModulesDB.from_file(self.json_file, package_dir=self.package_dir)
+        db = ModulesDB.from_json_file(self.json_file)
         json_string = db.to_json_string()
-        db_two = ModulesDB.from_json_string(json_string, self.package_dir)
+        db_two = ModulesDB.from_json_string(json_string)
         json_again = db_two.to_json_string()
 
         self.assertEqual(json_string, json_again)
@@ -54,7 +54,7 @@ class TestModulesDB(unittest.TestCase):
 
     def test_jointless_robot(self):
         """Test the Assembly to Robot procedure for a robot without a joint"""
-        db = ModulesDB.from_file(*get_module_db_files('geometric_primitive_modules'))
+        db = ModulesDB.from_name('geometric_primitive_modules')
         assembly = ModuleAssembly.from_serial_modules(db, ['base'] + ['l_15'] * 5)
         robot = assembly.to_pin_robot()
         self.assertEqual(robot.njoints, 0)

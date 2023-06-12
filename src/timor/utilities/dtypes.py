@@ -6,14 +6,14 @@ import datetime
 import logging
 import random
 import re
-from typing import Any, Callable, Collection, Dict, Generator, Generic, Iterable, List, Tuple, Type, TypeVar, Union, \
-    get_type_hints
+from typing import Any, Callable, Collection, Dict, Generator, Generic, Iterable, List, Tuple, Type, \
+    TypeVar, Union, get_type_hints
 
 from hppfcl import hppfcl
 import numpy as np
 import pinocchio as pin
 
-import timor.utilities.errors as err
+from timor.utilities import errors as err
 from timor.utilities.schema import DEFAULT_DATE_FORMAT
 from timor.utilities.transformation import Transformation, TransformationLike
 

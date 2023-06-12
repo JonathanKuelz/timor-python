@@ -94,7 +94,7 @@ class Connector(JSONable_mixin):
         self.size: Union[int, float, np.ndarray] = size
 
     @classmethod
-    def from_json_data(cls, d: Dict) -> Connector:
+    def from_json_data(cls, d: Dict, *args, **kwargs) -> Connector:
         """
         Maps the serialized connector description to an instance of this class.
 
@@ -320,7 +320,7 @@ class Body(BodyBase):
         self._visual: Geometry = visual
 
     @classmethod
-    def from_json_data(cls, d: Dict, package_dir: Path = None) -> Body:
+    def from_json_data(cls, d: Dict, package_dir: Path = None, *args, **kwargs) -> Body:
         """
         Maps the json-serialized body description to an instance of this class.
 

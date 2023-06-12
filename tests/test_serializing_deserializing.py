@@ -1,5 +1,6 @@
 from copy import deepcopy
 import json
+import os
 from pathlib import Path
 import pickle
 import random
@@ -7,16 +8,18 @@ import tempfile
 import unittest
 
 import hppfcl
+import networkx as nx
 import numpy as np
 import numpy.testing as np_test
 import pinocchio as pin
 
-from timor import Geometry, Transformation
+from timor import Body, Connector, Geometry, Joint, Transformation
 from timor import Robot
-from timor.Module import ModuleAssembly, ModulesDB
+from timor.Geometry import GeometryType, Mesh
+from timor.Module import AtomicModule, ModuleAssembly, ModulesDB
 from timor.task import Constraints, CostFunctions, Obstacle, Solution, Task, Tolerance
 from timor.utilities import file_locations, prebuilt_robots, logging
-from timor.utilities.file_locations import get_module_db_files, schema_dir
+from timor.utilities.file_locations import schema_dir
 from timor.utilities.prebuilt_robots import random_assembly
 from timor.utilities.schema import get_schema_validator
 from timor.utilities.tolerated_pose import ToleratedPose
@@ -169,6 +172,84 @@ def pin_geometry_models_functionally_equal(r1: Robot.RobotBase, r2: Robot.RobotB
     return difference / iterations
 
 
+def equivalent_module(m1: AtomicModule, m2: AtomicModule) -> bool:
+    return m1.header == m2.header and equivalent_set(m1.joints, m2.joints, equivalent_joint) and \
+        equivalent_set(m1.bodies, m2.bodies, equivalent_body) and nx.is_isomorphic(m1.module_graph, m2.module_graph)
+
+
+def equivalent_set(s1, s2, test):
+    if len(s1) != len(s2):
+        return False
+
+    for e in s1:
+        if not any(test(e, e2) for e2 in s2):
+            return False
+
+    return True
+
+
+def equivalent_joint(j1: Joint, j2: Joint) -> bool:
+    if all((j1.id == j2.id,
+            j1.type == j2.type,
+            j1.parent_body.id == j2.parent_body.id,
+            j1.child_body.id == j2.child_body.id,
+            all(j1.limits == j2.limits),
+            j1.velocity_limit == j2.velocity_limit,
+            j1.acceleration_limit == j2.acceleration_limit,
+            j1.torque_limit == j2.torque_limit,
+            j1.gear_ratio == j2.gear_ratio,
+            j1.motor_inertia == j2.motor_inertia,
+            j1.friction_coulomb == j2.friction_coulomb,
+            j1.friction_viscous == j2.friction_viscous,
+            j1.parent2joint == j2.parent2joint,
+            j1.joint2parent == j2.joint2parent)):
+        return True
+    return False
+
+
+def equivalent_body(b1: Body, b2: Body) -> bool:
+    if all((b1.id == b2.id,
+            b1.inertia == b2.inertia,
+            equivalent_set(b1.connectors, b2.connectors, equivalent_connector),
+            equivalent_geometry(b1.collision, b2.collision),
+            equivalent_geometry(b1.visual, b2.visual))):
+        return True
+    return False
+
+
+def equivalent_connector(c1: Connector, c2: Connector) -> bool:
+    if all((c1.id == c2.id,
+            c1.body2connector == c2.body2connector,
+            c1.parent.id == c2.parent.id,
+            c1.gender == c2.gender,
+            c1.type == c2.type,
+            c1.size == c2.size)):
+        return True
+    return False
+
+
+def equivalent_geometry(g1: Geometry, g2: Geometry) -> bool:
+    if g1.type != g2.type:
+        return False
+    if g1.type == GeometryType.COMPOSED:
+        for g, other_g in zip(g1._composing_geometries, g2._composing_geometries):
+            if not equivalent_geometry(g, other_g):
+                return False
+        return True
+    else:
+        return g1.parameters == g2.parameters and g1.placement == g2.placement
+
+
+def equivalent_task(t1: Task, t2: Task):
+    """Test if two tasks are more or less the same."""
+    return all((
+        t1.header == t2.header,
+        equivalent_set(t1.goals, t2.goals, lambda g1, g2: g1.id == g2.id and type(g1) is type(g2)),
+        equivalent_set(t1.constraints, t2.constraints, lambda c1, c2: type(c1) is type(c2)),
+        equivalent_set(t1.obstacles, t2.obstacles, lambda o1, o2: o1.id == o2.id and type(o1) is type(o2))
+    ))
+
+
 class SerializationTests(unittest.TestCase):
     """Tests all relevant json (de)serialization methods"""
 
@@ -213,6 +294,54 @@ class SerializationTests(unittest.TestCase):
         self.constraints = [goal_order, joint_constraints, base_placement, collision, eef_constraint_pose,
                             eef_constraint_v, eef_constraint_all]
 
+    def test_modules_db_serialized(self):
+        """Tests if all modules dbs can be serialized and deserialized"""
+        for db_name in ('IMPROV', 'PROMODULAR', 'modrob-gen2'):
+            logging.debug(f"Testing with {db_name}")
+            db = ModulesDB.from_name(db_name)
+            self.assertEqual(db.name, db_name)  # Ensure name correctly inferred from path
+            for m in db:
+                pickle_mod = pickle.loads(pickle.dumps(m))
+                deepcopy_mod = deepcopy(m)
+                self.assertTrue(equivalent_module(m, pickle_mod))
+                self.assertTrue(equivalent_module(m, deepcopy_mod))
+            db_json = db.to_json_data()
+            new_db = ModulesDB.from_json_data(db_json)
+            self.assertTrue(equivalent_set(db, new_db, equivalent_module))
+            deep_copy_db = deepcopy(db)
+            self.assertTrue(equivalent_set(db, deep_copy_db, equivalent_module))
+            s = pickle.dumps(db)
+            pickle_db = pickle.loads(s)
+            self.assertTrue(equivalent_set(db, pickle_db, equivalent_module))
+
+            # Test different to_json_file modes
+            with tempfile.TemporaryDirectory() as tmp_dir:
+                os.makedirs(Path(tmp_dir, db.name), exist_ok=True)
+                db_file = Path(tmp_dir, f"{db.name}/modules.json")
+                # Broken - error as not existent file
+                with self.assertRaises(FileNotFoundError):
+                    db.to_json_file(db_file, handle_missing_assets='error')
+                # Broken - no copy
+                db.to_json_file(db_file, handle_missing_assets="warning")
+                with self.assertRaises(FileNotFoundError):
+                    new_db = ModulesDB.from_json_file(db_file)
+                # Broken - no copy
+                db.to_json_file(db_file, handle_missing_assets='ignore')
+                with self.assertRaises(FileNotFoundError):
+                    new_db = ModulesDB.from_json_file(db_file)
+                # Should work with copy
+                db.to_json_file(db_file, handle_missing_assets='copy')
+                new_db = ModulesDB.from_json_file(db_file)
+                # self.assertTrue(equivalent_set(db, new_db, equivalent_module))  # Other filepath -> not same geometry
+
+            with tempfile.TemporaryDirectory() as tmp_dir:  # Cleanup copied files
+                os.makedirs(Path(tmp_dir, db.name), exist_ok=True)
+                db_file = Path(tmp_dir, f"{db.name}/modules.json")
+                # Should work with symlink
+                db.to_json_file(db_file, handle_missing_assets='symlink')
+                new_db = ModulesDB.from_json_file(db_file)
+                # self.assertTrue(equivalent_set(db, new_db, equivalent_module))  # Other filepath -> not same geometry
+
     def test_assembly_to_serialized(self):
         """Tests both, assembly to pickle and to json"""
         for db_name in ('IMPROV', 'PROMODULAR', 'modrob-gen2'):
@@ -253,7 +382,7 @@ class SerializationTests(unittest.TestCase):
                 pin_geometry_models_functionally_equal(robot, reconstructed_robot)
 
     def test_assembly_to_urdf(self):
-        _, db_assets = file_locations.get_module_db_files('IMPROV')
+        db_file = file_locations.get_module_db_files('IMPROV')
         db = ModulesDB.from_name('IMPROV')
         for _ in range(5):
             assembly = prebuilt_robots.random_assembly(n_joints=6, module_db=db)
@@ -261,10 +390,17 @@ class SerializationTests(unittest.TestCase):
 
             r1 = assembly.to_pin_robot()
             r1._remove_home_collisions()  # This is done per default when loading from URDF
-            with tempfile.NamedTemporaryFile() as tmp_urdf:
-                urdf = assembly.to_urdf('test_robot', Path(tmp_urdf.name), replace_wrl=True)
-                tmp_urdf.flush()
-                r2 = Robot.PinRobot.from_urdf(Path(tmp_urdf.name), db_assets)
+            with tempfile.TemporaryDirectory() as tmp_dir:
+                tmp_urdf = Path(tmp_dir, 'test.urdf')
+                urdf = assembly.to_urdf('test_robot', Path(tmp_urdf),
+                                        replace_wrl=True, handle_missing_assets="warning")
+                with self.assertRaises(ValueError):
+                    Robot.PinRobot.from_urdf(Path(tmp_urdf), tmp_urdf.parent)
+                with self.assertRaises(FileNotFoundError):
+                    assembly.to_urdf('test_robot', Path(tmp_urdf), replace_wrl=True, handle_missing_assets="error")
+                urdf = assembly.to_urdf('test_robot', Path(tmp_urdf),
+                                        replace_wrl=True, handle_missing_assets="symlink")
+                r2 = Robot.PinRobot.from_urdf(Path(tmp_urdf), tmp_urdf.parent)
                 self.assertTrue(pin_models_functionally_equal(r1.model, r2.model))
                 self.assertLess(pin_geometry_models_functionally_equal(r1, r2), 0.01,
                                 msg=f"Varying self-collisions for assembly {assembly}")
@@ -341,9 +477,10 @@ class SerializationTests(unittest.TestCase):
             loaded_sol = Solution.SolutionBase.from_json_file(Path(t.name), {task.id: task})
 
         # Also check the custom task
-        with tempfile.NamedTemporaryFile(mode="w+") as t:
-            task.to_json_file(t.name)
-            t.flush()
+        with tempfile.TemporaryDirectory() as t:
+            task.to_json_file(Path(t))
+            with self.assertRaises(ValueError):
+                task.to_json_file(Path(t).joinpath(f"{task.id}_5.json"))
 
         for sol in (deserialized_sol, deepcopy_sol, pickle_sol, loaded_sol):
             self.assertEqual(solution.valid, sol.valid)
@@ -360,18 +497,31 @@ class SerializationTests(unittest.TestCase):
 
     def test_load_then_dump_task(self):
         for task_file in self.task_files:
-            task = Task.Task.from_json_file(task_file, self.assets)
+            task = Task.Task.from_json_file(task_file)
+            self.assertTrue(equivalent_task(task, deepcopy(task)))
+            self.assertTrue(equivalent_task(task, pickle.loads(pickle.dumps(task))))
+            self.assertTrue(equivalent_task(task, Task.Task.from_json_data(task.to_json_data())))
 
-            with tempfile.NamedTemporaryFile() as tmp_json_dump:
-                task.to_json_file(Path(tmp_json_dump.name))
-                tmp_json_dump.flush()  # Necessary to certainly write to tempfile!
-                another_copy = Task.Task.from_json_file(Path(tmp_json_dump.name), self.assets)
+            with tempfile.TemporaryDirectory() as tmp_dir:
+                tmp_json_file = Path(tmp_dir).joinpath(f"{task.id}.json")
+                if any(isinstance(o.visual, Mesh) for o in task.obstacles) or \
+                   any(isinstance(o.collision, Mesh) for o in task.obstacles):
+                    with self.assertRaises(FileNotFoundError):
+                        task.to_json_file(tmp_dir, handle_missing_assets="error")
+                    task.to_json_file(tmp_dir, handle_missing_assets="warning")
+                    self.assertTrue(tmp_json_file.exists())
+                    with self.assertRaises(FileNotFoundError):
+                        Task.Task.from_json_file(tmp_json_file)
+                    task.to_json_file(tmp_dir, handle_missing_assets="ignore")
+                    self.assertTrue(tmp_json_file.exists())
+                    with self.assertRaises(FileNotFoundError):
+                        Task.Task.from_json_file(tmp_json_file)
+
+                task.to_json_file(Path(tmp_dir), handle_missing_assets="copy")
+                self.assertTrue(tmp_json_file.exists())
+                another_copy = Task.Task.from_json_file(tmp_json_file, self.assets)
                 # This does not test 100% for equality but should cover the most central sanity checks
-                self.assertEqual(task.header, another_copy.header)
-                self.assertEqual(set(o.id for o in task.obstacles), set(o.id for o in another_copy.obstacles))
-                self.assertEqual(set(g.id for g in task.goals), set(g.id for g in another_copy.goals))
-                self.assertEqual(set(type(c) for c in task.constraints),
-                                 set(type(c) for c in another_copy.constraints))
+                self.assertTrue(equivalent_task(task, another_copy))
 
     def test_pickle_robot(self):
         """Tests whether the kinematic model remains when pickling - geometry cannot be preserved at the moment"""
@@ -472,7 +622,7 @@ class SerializationTests(unittest.TestCase):
 
         # Test with more complex modular robot that also has joint inertias / friction / ...
         modular_complex = ModuleAssembly.from_serial_modules(
-            ModulesDB.from_file(*get_module_db_files('IMPROV')),
+            ModulesDB.from_name('IMPROV'),
             ["1", "21", "14", "21", "14", "23", "13"]
         ).robot
         fresh_robot = ModuleAssembly.from_monolithic_robot(modular_complex).robot
@@ -482,15 +632,15 @@ class SerializationTests(unittest.TestCase):
         self.assertTrue(pin_geometry_models_structurally_equal(modular_complex.visual, fresh_robot.visual))
 
     def test_urdf2json(self):
-        assembly = ModuleAssembly.from_monolithic_robot(self.robot, self.panda_urdf)
+        assembly = ModuleAssembly.from_monolithic_robot(self.robot)
         db_data = assembly.db.to_json_data()
-        reconstructed_db = ModulesDB.from_json_data(db_data, self.panda_assets, "panda")
+        reconstructed_db = ModulesDB.from_json_data(db_data, "panda")
         assembly_from_json = ModuleAssembly.from_serial_modules(reconstructed_db, ("panda",))
-        with tempfile.NamedTemporaryFile() as f:
-            assembly.to_urdf(write_to=Path(f.name))
-            f.flush()
+        with tempfile.TemporaryDirectory() as d:
+            urdf_file = Path(d, "panda.urdf")
+            assembly.to_urdf(write_to=urdf_file, handle_missing_assets="symlink")
             assembly_from_urdf = ModuleAssembly.from_monolithic_robot(
-                Robot.PinRobot.from_urdf(Path(f.name), self.panda_assets))
+                Robot.PinRobot.from_urdf(urdf_file, urdf_file.parent))
 
         for recreated_assembly in (assembly_from_json, assembly_from_urdf):
             self.assertTrue(pin_models_functionally_equal(self.robot.model, recreated_assembly.robot.model))

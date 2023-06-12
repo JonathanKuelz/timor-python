@@ -1,8 +1,8 @@
 {
   "header": {
-    "ID": "simple/PTP_2_cycle",
+    "ID": "simple/tests/test/task",
     "version": "2022",
-    "taskName": "PTP_2_cycle",
+    "taskName": "Copy of PTP_2",
     "author": [
       "Matthias Mayer"
     ],
@@ -18,9 +18,9 @@
       "PTP",
       "CNC",
       "mill",
-      "cycle"
+      "package_dir_test"
     ],
-    "date": "2022-02-09",
+    "date": "2022-01-25",
     "timeStepSize": 0.01,
     "gravity": [ 0, 0, -9.81 ]
   },
@@ -85,15 +85,6 @@
     },
     {
       "type": "allGoalsFulfilled"
-    },
-    {
-      "type": "allGoalsFulfilledInOrder",
-      "order": [
-        "1",
-        "2",
-        "3",
-        "4"
-      ]
     },
     {
       "type": "basePlacement",
@@ -167,10 +158,6 @@
           [ -0.1, 0.1 ]
         ]
       }
-    },
-    {
-      "ID": "4",
-      "type": "returnTo"
     }
   ]
 }

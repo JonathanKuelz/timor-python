@@ -1,6 +1,6 @@
 {
   "header": {
-    "ID": "9",
+    "ID": "simple/traj_window",
     "version": "2022",
     "taskName": "traj_window",
     "author": [
@@ -43,7 +43,7 @@
             [ 0, 0, 0, 1 ]
           ],
           "parameters": {
-            "file": "aircraftWindowFrame.stl",
+            "file": "assets/aircraftWindowFrame.stl",
             "scale": 1.0
           },
           "type": "mesh"
@@ -58,7 +58,7 @@
             [ 0, 0, 0, 1 ]
           ],
           "parameters": {
-            "file": "aircraftWindowFrame.stl",
+            "file": "assets/aircraftWindowFrame.stl",
             "scale": 1.0
           },
           "type": "mesh"

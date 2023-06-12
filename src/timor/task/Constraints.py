@@ -21,7 +21,7 @@ class ConstraintBase(ABC, JSONable_mixin):
     global_only: bool = False  # If this is True, the constraint cannot be used as a local goal constraint.
 
     @classmethod
-    def from_json_data(cls, d: Dict[str, Any]) -> ConstraintBase:
+    def from_json_data(cls, d: Dict[str, Any], *args, **kwargs) -> ConstraintBase:
         """
         Converts a description (string, parsed from json) to a constraint
 

@@ -22,8 +22,8 @@ class TestObstacles(unittest.TestCase):
         mesh_loader = hppfcl.MeshLoader()
         m = mesh_loader.load(str(self.demo_stl))
 
-        geometry_desc = {'type': 'mesh', 'parameters': {"file": self.demo_stl.name}}
-        obs = Obstacle.from_json_data(dict(ID='123', collision=geometry_desc, package_dir=self.demo_stl.parent))
+        geometry_desc = {'type': 'mesh', 'parameters': {"file": self.demo_stl}}
+        obs = Obstacle.from_json_data(dict(ID='123', collision=geometry_desc))
 
         with open(self.demo_stl, "rb") as f:
             header = f.read(80)
@@ -45,12 +45,12 @@ class TestObstacles(unittest.TestCase):
             np.testing.assert_array_equal(coll_geom.vertices()[coll_geom.tri_indices(0)[2], :], thirdVertex)
 
     def test_visualize(self):
-        geometry_desc = [{'type': 'mesh', 'parameters': {"file": self.demo_stl.name}},
+        geometry_desc = [{'type': 'mesh', 'parameters': {"file": self.demo_stl}},
                          {'type': 'box', 'parameters': {'x': 1, 'y': 2, 'z': 3}},
                          {'type': 'cylinder', 'parameters': {'r': 2, 'z': 3}},
                          {'type': 'sphere', 'parameters': {'r': 3}}]
         for desc in (geometry_desc, *geometry_desc):  # Check composed and each individually
-            obs = Obstacle.from_json_data(dict(ID='123', collision=desc, package_dir=self.demo_stl.parent))
+            obs = Obstacle.from_json_data(dict(ID='123', collision=desc))
             vis = pin.visualize.MeshcatVisualizer()
             vis.initViewer()
             obs.visualize(vis)

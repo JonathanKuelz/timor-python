@@ -71,7 +71,7 @@ class GoalBase(ABC, JSONable_mixin):
 
     @classmethod
     @abstractmethod
-    def from_json_data(cls, d: Dict[str, any]):
+    def from_json_data(cls, d: Dict[str, any], *args, **kwargs):
         """Deserializes a goal from a dictionary"""
 
     @abstractmethod
@@ -216,7 +216,7 @@ class At(GoalBase):
         self.goal_pose.visualize(viz, scale=scale, name=f"goal_{self.id}", text=f"Goal {self.id}" * show_name)
 
     @classmethod
-    def from_json_data(cls, d: Dict[str, any]):
+    def from_json_data(cls, d: Dict[str, any], *args, **kwargs):
         """Loads the At goal to a dictionary description."""
         return cls(
             ID=d['ID'],
@@ -270,7 +270,7 @@ class Reach(At):
         self.velocity_tolerance = velocity_tolerance
 
     @classmethod
-    def from_json_data(cls, d: Dict[str, any]):
+    def from_json_data(cls, d: Dict[str, any], *args, **kwargs):
         """Loads the Reach goal to a dictionary description."""
         return cls(
             ID=d['ID'],
@@ -322,7 +322,7 @@ class ReturnTo(GoalBase):
         self.desired_pose: Optional[ToleratedPose] = None
 
     @classmethod
-    def from_json_data(cls, d: Dict[str, any]):
+    def from_json_data(cls, d: Dict[str, any], *args, **kwargs):
         """Loads the Return goal to a dictionary description."""
         return cls(
             ID=d['ID'],
@@ -380,7 +380,7 @@ class Pause(GoalWithDuration):
         return self._duration
 
     @classmethod
-    def from_json_data(cls, d: Dict[str, any]):
+    def from_json_data(cls, d: Dict[str, any], *args, **kwargs):
         """Loads the Pause goal from a dictionary description."""
         return cls(
             ID=d['ID'],
@@ -439,7 +439,7 @@ class Follow(GoalWithDuration):
         return self._trajectory
 
     @classmethod
-    def from_json_data(cls, d: Dict[str, any]):
+    def from_json_data(cls, d: Dict[str, any], *args, **kwargs):
         """Loads the Follow goal from a dictionary description."""
         return cls(
             ID=d['ID'],
