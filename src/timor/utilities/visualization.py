@@ -14,7 +14,7 @@ from pinocchio.visualize.meshcat_visualizer import MeshcatVisualizer, isMesh
 
 from timor import ModuleAssembly
 from timor.utilities import module_classification, spatial, transformation
-
+from timor.utilities.transformation import Transformation
 
 DEFAULT_COLOR_MAP = {  # Type enumeration from module_classification - import not possibility (circular import)
     module_classification.ModuleType.BASE: np.array([165 / 255, 165 / 255, 165 / 255, 1.]),
@@ -283,6 +283,21 @@ def place_arrow(
     viz.viewer[name + '_arr_head'].set_object(head, material)
     head_transform = placement @ rot @ spatial.homogeneous(translation=[0, -.5 * head_length, 0])
     viz.viewer[name + '_arr_head'].set_transform(head_transform.homogeneous)
+
+
+def place_sphere(viewer: meshcat.visualizer.Visualizer, name: str, radius: float, placement: Transformation,
+                 material: meshcat.geometry.Material = meshcat.geometry.MeshBasicMaterial()):
+    """
+    Place a sphere with name, radius and color at a specific placement.
+
+    :param viewer: meshcat.visualizer.Visualizer instance to draw into (viz.viewer if you have a MeshcatVisualizer)
+    :param name: Unique object name within the visualizer
+    :param radius: Sphere radius in meters
+    :param placement: Defines placement of the sphere.
+    :param material: material used to render this sphere
+    """
+    viewer[name].set_object(meshcat.geometry.Sphere(radius), material)
+    viewer[name].set_transform(placement.homogeneous)
 
 
 def scene_text(text: str, size: float = 1., **kwargs):
