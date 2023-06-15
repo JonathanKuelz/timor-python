@@ -43,7 +43,8 @@ class JSONable_mixin:
         :param kwargs: Additional arguments to pass to the from_json_data factory method of the specific class.
         """
         filepath = map2path(filepath)
-        content = json.load(filepath.open('r'))
+        with filepath.open('r') as f:
+            content = json.load(f)
         package_dir = cls._deduce_package_dir(filepath, content)
 
         # Replace relative paths in content "file" fields with absolute paths

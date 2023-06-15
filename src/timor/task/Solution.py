@@ -93,7 +93,8 @@ class SolutionBase(abc.ABC, JSONable_mixin):
     def from_json_file(cls, json_path: Union[Path, str], tasks: Dict[str, Task.Task]) -> SolutionBase:
         """Factory method to load a class instance from a json file."""
         json_path = map2path(json_path)
-        content = json.load(json_path.open('r'))
+        with json_path.open('r') as f:
+            content = json.load(f)
         _, validator = get_schema_validator(schema_dir.joinpath("SolutionSchema.json"))
         try:
             validator.validate(content)
