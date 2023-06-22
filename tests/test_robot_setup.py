@@ -5,6 +5,7 @@ import numpy as np
 import numpy.testing as np_test
 import pinocchio as pin
 
+from timor.Module import ModuleAssembly, ModulesDB
 from timor.Robot import PinRobot, RobotBase
 from timor.task import Tolerance
 from timor.utilities import logging, prebuilt_robots, spatial
@@ -48,6 +49,16 @@ class PinocchioRobotSetup(unittest.TestCase):
             np_test.assert_array_almost_equal(original, robot_one.placement.homogeneous)
             robot_one.set_base_placement(original)  # Should change nothing
             np_test.assert_array_almost_equal(original, robot_one.placement.homogeneous)
+
+        # Test displacement for a robot built from a module
+        db = ModulesDB.from_name('geometric_primitive_modules')
+        mini_assembly = ModuleAssembly(db, ['J2'], base_connector=(0, 'J2_proximal'))
+        jnt_displacement = (Transformation(spatial.rotX(np.pi)) @
+                            db.all_connectors_by_id[('J2', 'J2_proximal', 'J2_proximal')].connector2body @
+                            list(db.by_id['J2'].joints)[0].parent2joint).homogeneous
+        mini_robot = mini_assembly.to_pin_robot(base_placement=new_placement)
+        np_test.assert_array_almost_equal(mini_robot.model.jointPlacements[1].homogeneous,
+                                          new_placement.homogeneous @ jnt_displacement)
 
     def test_empty_robot(self):
         wrapper = pin.RobotWrapper(pin.Model())

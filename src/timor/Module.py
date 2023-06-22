@@ -1136,7 +1136,10 @@ class ModuleAssembly(JSONable_mixin):
         """
         Creates a pinocchio robot from a module tree
 
-        :param base_placement: placement for the (single) base connector as 4x4 hom. transformation
+        :param base_placement: Relative placement of the base in the world frame -- attention! This is not the placement
+            for the "base connector" which is pointing "away" from the base, but it is the base connector placement
+            rotated by 180° degrees around its x-axis. This way, an identity "base placement" (for the typical DB)
+            corresponds to a base standing upright on the ground, centered in (0, 0, 0).
         :param add_com_frames: Add frames for the center of mass of each Body
         :param ignore_collisions: Should be one of 'rigid', 'via_joint' or 'rigid_via_joint'. This argument defines,
             which pairs of bodies of the robot are IGNORED when checking for collisions. All possible collision pairs
