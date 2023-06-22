@@ -1,3 +1,4 @@
+import logging
 import time
 import unittest
 
@@ -72,6 +73,16 @@ class TestModuleAssembly(unittest.TestCase):
         assembly.add_random_from_db()
         self.assertIsNotNone(assembly.base_connector)
         self.assertEqual(len(assembly.module_instances), 2)
+
+        # Check that the assembly can be (de)serialized and we have a functional (in)equality
+        new_assembly = assembly.from_json_string(assembly.to_json_string())
+        self.assertEqual(assembly, new_assembly)
+        try:
+            new_assembly.add_random_from_db()
+        except LookupError:
+            logging.debug("No modules left to add. Removing one module for inequality test")
+            new_assembly.connections.pop()
+        self.assertNotEqual(assembly, new_assembly)
 
     def test_parameterizable_assembly(self):
         """Tests assemblies containing at least on parameterizable module."""

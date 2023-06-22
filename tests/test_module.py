@@ -85,6 +85,7 @@ class TestModule(unittest.TestCase):
         h = Bodies.Gender.hermaphroditic
 
         first = Bodies.Connector('1', Transformation.random(), gender=f, connector_type='test', size=80)
+        first_duplicate = Bodies.Connector('1', first.body2connector, gender=f, connector_type='test', size=80)
         second = Bodies.Connector('2', Transformation.random(), gender=m, connector_type='test', size=80)
         third = Bodies.Connector('3', Transformation.random(), gender=h, connector_type='test', size=80)
         fourth = Bodies.Connector('4', Transformation.random(), gender=h, connector_type='test', size=80)
@@ -96,6 +97,9 @@ class TestModule(unittest.TestCase):
         # First, let's do a custom sanity checks
         self.assertTrue(first.connects(second))  # Basic male - female
         self.assertTrue(third.connects(fourth))  # Basic hermaphroditic - hermaphroditic
+        self.assertEqual(first, first_duplicate)  # Equality check
+        for other in all_connectors[1:]:
+            self.assertNotEqual(first, other)  # Inequality check
 
         # Check incompatibility to others due to type and size
         for other in all_connectors:
@@ -142,6 +146,8 @@ class TestModule(unittest.TestCase):
         with self.assertRaises(err.UniqueValueError):
             joint = Joint(1, TimorJointType.revolute, parent, child)
 
+        self.assertEqual(joint, joint)
+
     def test_module(self):
         """Tests a module on instantiation, uniqueness of contained elements, and hand-crafted IDs"""
         # Setup: Some connectors, bodies and a joint - important is, that some ID's overlap
@@ -174,8 +180,13 @@ class TestModule(unittest.TestCase):
 
         # ----- Let's go -----
         module = AtomicModule(header_one, [generic_body, box_body, another_body], [jnt, jnt_works])
+        same_module = AtomicModule(header_one, [generic_body, box_body, another_body], [jnt, jnt_works])
 
+        self.assertEqual(module, same_module)
         self.assertEqual(module.mass, generic_body.mass + box_body.mass + another_body.mass)
+
+        same_module.bodies.pop()  # Don't do this at home
+        self.assertNotEqual(module, same_module)
 
         with self.assertRaises(ValueError):
             # Joint body missing in module
@@ -191,6 +202,7 @@ class TestModule(unittest.TestCase):
                           child_body=Bodies.Body('1001', collision=box))
         new = AtomicModule(header_two, [generic_body, box_body, new_joint.parent_body, new_joint.child_body],
                            [jnt, new_joint])
+        self.assertNotEqual(module, new)
 
         self.assertEqual(Bodies.ConnectorSet(new.available_connectors.values()),
                          generic_body.connectors
@@ -221,6 +233,11 @@ class TestModule(unittest.TestCase):
         l_shaped = ParameterizedOrthogonalLink(l_header, lengths=(1, 3), radius=.2)
         long_cylinder = ParameterizedCylinderLink(cyl_header, length=2)
         constrained_cylinder = ParameterizedCylinderLink(cyl_header, length=2, radius=1, limits=((.1, 1.1), (0, 4)))
+
+        self.assertEqual(cylinder, cylinder)
+        self.assertNotEqual(cylinder, l_shaped)
+        self.assertNotEqual(cylinder, long_cylinder)
+        self.assertNotEqual(cylinder, constrained_cylinder)
 
         bottom = cylinder.connectors_by_own_id['proximal']
         top = cylinder.connectors_by_own_id['distal']

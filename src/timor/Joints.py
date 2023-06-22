@@ -12,7 +12,7 @@ import numpy as np
 import pinocchio as pin
 
 from timor.Bodies import BodyBase, ConnectorSet
-from timor.utilities.dtypes import SingleSet, fuzzy_dict_key_matching
+from timor.utilities.dtypes import SingleSetWithID, fuzzy_dict_key_matching
 import timor.utilities.errors as err
 from timor.utilities.jsonable import JSONable_mixin
 from timor.utilities.transformation import Transformation, TransformationLike
@@ -112,10 +112,6 @@ class Joint(JSONable_mixin):
 
         self.parent2joint: Transformation = Transformation(parent2joint)
         self.joint2child: Transformation = Transformation(joint2child)
-
-    def __str__(self):
-        """Joint representation of the joint"""
-        return f"Joint: {self.id}"
 
     @classmethod
     def from_json_data(cls, d: Dict, body_id_to_instance: Dict, *args, **kwargs) -> Joint:
@@ -258,6 +254,20 @@ class Joint(JSONable_mixin):
         else:
             raise ValueError("Unknown joint type")
 
+    def __eq__(self, other):
+        """Equality check for joints"""
+        if not isinstance(other, Joint):
+            return NotImplemented
+        return self._id == other._id and self.type == other.type and np.all(self.limits == other.limits) and \
+            self.acceleration_limit == other.acceleration_limit and self.velocity_limit == other.velocity_limit and \
+            self.parent2joint == other.parent2joint and self.joint2child == other.joint2child and \
+            self.gear_ratio == other.gear_ratio and self.motor_inertia == other.motor_inertia and \
+            self.friction_coulomb == other.friction_coulomb and self.friction_viscous == other.friction_viscous
+
+    def __hash__(self):
+        """Hash of the joint - we assume the ID is unique"""
+        return hash(self.id)
+
     def __getstate__(self):
         """Returns the state of this object as a dictionary"""
         state = self.to_json_data()
@@ -269,10 +279,10 @@ class Joint(JSONable_mixin):
         cpy = self.__class__.from_json_data(state, state.pop('body_id_to_instance'))
         self.__dict__ = cpy.__dict__
 
+    def __str__(self):
+        """Joint representation of the joint"""
+        return f"Joint: {self.id}"
 
-class JointSet(SingleSet):
+
+class JointSet(SingleSetWithID):
     """A set that raises an error if a duplicate joint is added"""
-
-    def __contains__(self, item: Joint) -> bool:
-        """Custom check for duplicate joints (same ID)"""
-        return item.id in (jnt.id for jnt in self)

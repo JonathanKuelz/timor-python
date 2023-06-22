@@ -175,6 +175,18 @@ class ParameterizableBody(BodyBase, abc.ABC):
         return self.__class__(self._id, self.parameters, self.parameter_limits, self.mass_density, in_module=None,
                               connectors=[copy.copy(con) for con in self.connectors])
 
+    def __eq__(self, other):
+        """Parameterizable body equality is given by the original parameters - no need to compute the geometry."""
+        if not isinstance(other, ParameterizableBody):
+            return NotImplemented
+        this_attributes = (self._id, tuple(self.parameters), self.mass_density, self._geometry_transformation)
+        other_attributes = (other._id, tuple(other.parameters), other.mass_density, other._geometry_transformation)
+        return this_attributes == other_attributes
+
+    def __hash__(self):
+        """Hashing is equal to hashes of regular bodies - ID should be unique."""
+        return super().__hash__()
+
     def __getstate__(self):
         """For parameterized bodies, we can rely on the python builtin actually"""
         return self.__dict__

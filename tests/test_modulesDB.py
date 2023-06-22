@@ -44,6 +44,18 @@ class TestModulesDB(unittest.TestCase):
         with self.assertRaises(LookupError):
             assembly.add_random_from_db()  # The db is empty
 
+    def test_equality(self):
+        """Test that two DBs with same modules and attributes are equal"""
+        db1 = ModulesDB.from_name('IMPROV')
+        db2 = ModulesDB.from_name('geometric_primitive_modules')
+        self.assertNotEqual(db1, db2)
+        self.assertEqual(db1, db1)
+        self.assertEqual(db2, db2)
+        self.assertFalse(db1 == ModulesDB(tuple(db1)))
+        self.assertNotEqual(db1, ModulesDB(tuple(db1)))  # Different names
+        self.assertEqual(db1, ModulesDB(tuple(db1), name=db1.name, **db1._model_generation_kwargs))
+        self.assertEqual(db2, ModulesDB(tuple(db2), name=db2.name, **db2._model_generation_kwargs))
+
     def test_load_all_from_file(self):
         for db_name, db_dir in robots.items():
             if len(tuple(db_dir.rglob('*.json'))) == 0:

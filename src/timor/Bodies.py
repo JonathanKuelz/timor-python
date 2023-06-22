@@ -18,7 +18,7 @@ import pinocchio as pin
 from timor.Geometry import ComposedGeometry, EmptyGeometry, Geometry
 from timor.Robot import PinBody
 from timor.utilities import logging
-from timor.utilities.dtypes import SingleSet, hppfcl_collision2pin_geometry
+from timor.utilities.dtypes import SingleSet, SingleSetWithID, hppfcl_collision2pin_geometry
 import timor.utilities.errors as err
 from timor.utilities.json_serialization_formatting import possibly_nest_as_list
 from timor.utilities.jsonable import JSONable_mixin
@@ -91,6 +91,8 @@ class Connector(JSONable_mixin):
         self.parent: 'BodyBase' = parent
         self.gender: Gender = gender if isinstance(gender, Gender) else Gender[gender]  # Enforce typing
         self._type: str = connector_type
+        if isinstance(size, Iterable) and not isinstance(size, np.ndarray):
+            size = np.array(size)
         self.size: Union[int, float, np.ndarray] = size
 
     @classmethod
@@ -165,17 +167,24 @@ class Connector(JSONable_mixin):
         """Custom copy behavior: Remove the reference to the parent body."""
         return self.__class__(self._id, self.body2connector, None, self.gender, self._type, self.size)
 
+    def __eq__(self, other):
+        """Equality check: Same ID, gender, type, size, and pose"""
+        if not isinstance(other, Connector):
+            return NotImplemented
+        return self.id == other.id and self.gender is other.gender and self.type == other.type \
+            and np.all(self.size == other.size) and self.body2connector == other.body2connector
+
+    def __hash__(self):
+        """Hashing: We assume IDs are unique, so it poses a valid hash."""
+        return hash(self.id)
+
     def __str__(self) -> str:
         """The string representation of the connector"""
         return f"Connector: {self.id}"
 
 
-class ConnectorSet(SingleSet):
+class ConnectorSet(SingleSetWithID):
     """A set that raises an error if a duplicate connector is added."""
-
-    def __contains__(self, item: Connector):
-        """Custom duplicate check (unique ID)"""
-        return item.id in (con.id for con in self)
 
 
 class BodyBase(abc.ABC, JSONable_mixin):
@@ -237,7 +246,7 @@ class BodyBase(abc.ABC, JSONable_mixin):
 
     def possible_connections_with(self, other: 'BodyBase') -> SingleSet:
         """
-        Returns a list of connectors that can connect this with other body.
+        Returns a set of connectors that can connect this with other body.
 
         This method does not check whether the connector IDs of the other body overlap with the connector IDs
         of this body - this has to be achieved by e.g. putting both bodies in a module or in the same ModulesDB.
@@ -251,7 +260,6 @@ class BodyBase(abc.ABC, JSONable_mixin):
         for own, foreign in itertools.product(self.connectors, other.connectors):
             if own.connects(foreign):
                 matches.add((own, foreign))
-
         return matches
 
     def to_json_data(self) -> Dict[str, any]:
@@ -277,6 +285,17 @@ class BodyBase(abc.ABC, JSONable_mixin):
     def __copy__(self):
         """Returns a copy of the body"""
         pass
+
+    def __eq__(self, other):
+        """Equality check. The visual attribute is not checked as it does not provide relevant functionality."""
+        if not isinstance(other, BodyBase):
+            return NotImplemented
+        return self.collision == other.collision and self.connectors == other.connectors and \
+            self.inertia == other.inertia and self._id == other._id
+
+    def __hash__(self):
+        """Hashing: We assume IDs are unique, so it poses a valid hash."""
+        return hash(self.id)
 
     def __str__(self) -> str:
         """The string representation of a body"""
@@ -391,9 +410,5 @@ class Body(BodyBase):
         )
 
 
-class BodySet(SingleSet):
+class BodySet(SingleSetWithID):
     """A set that raises an error if a duplicate body is added"""
-
-    def __contains__(self, item: BodyBase):
-        """Custom duplicate check (unique ID)"""
-        return item.id in (bod.id for bod in self)

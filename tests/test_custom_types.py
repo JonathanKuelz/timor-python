@@ -58,7 +58,9 @@ class CustomTypeUnitTests(unittest.TestCase):
             numbers = np.random.randint(0, 20, (20,))
             original_set = set(numbers)
             if len(numbers) == len(original_set):  # No duplicates
-                self.assertIsNone(SingleSet(numbers))
+                self.assertEqual(original_set, SingleSet(numbers))
+                original_set.pop()
+                self.assertNotEqual(original_set, SingleSet(numbers))
             else:
                 with self.assertRaises(err.UniqueValueError):
                     SingleSet(numbers)
