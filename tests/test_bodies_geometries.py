@@ -1,5 +1,6 @@
 from copy import copy, deepcopy
 import importlib
+import itertools
 import logging
 import pickle
 import unittest
@@ -64,6 +65,12 @@ class TestBodiesAndGeometries(unittest.TestCase):
         self.assertEqual(composed.volume, box.volume + cylinder.volume + sphere.volume + mesh.volume)
         composed._composing_geometries.append(empty)
         self.assertEqual(composed.volume, box.volume + cylinder.volume + sphere.volume + mesh.volume)
+
+        another_composed = Geometry.ComposedGeometry([mesh, sphere, box, cylinder])
+        self.assertEqual(composed, another_composed)
+
+        for g1, g2 in itertools.combinations([box, cylinder, sphere, mesh], 2):
+            self.assertNotEqual(g1, g2)
 
         # Deepcopy
         for g in (box, cylinder, sphere, mesh):

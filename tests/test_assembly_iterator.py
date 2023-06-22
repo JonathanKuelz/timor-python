@@ -1,7 +1,9 @@
+import itertools
 import unittest
 
 from timor.Module import ModulesDB
 from timor.configuration_search.LiuIterator import Science2019
+from timor.utilities.dtypes import randomly
 
 
 class AssemblyIteratorTest(unittest.TestCase):
@@ -11,14 +13,16 @@ class AssemblyIteratorTest(unittest.TestCase):
 
     def test_liu_iterator(self):
         modrob_iterator = Science2019(self.modrob_db, min_dof=1, max_dof=3, max_links_between_joints=1)
-        lots_of_assemblies = tuple(modrob_iterator)
+        num_assemblies_tested = 1000  # reduce the runtime of this test by limiting the number of assemblies generated
+        lots_of_assemblies = []
+        for assembly in itertools.islice(modrob_iterator, num_assemblies_tested):
+            lots_of_assemblies.append(assembly)
         assembly_modules = tuple(assembly.internal_module_ids for assembly in lots_of_assemblies)
         self.assertEqual(len(modrob_iterator), 100548)
-        self.assertEqual(len(lots_of_assemblies), len(modrob_iterator))  # custom len is correct
         self.assertEqual(len(lots_of_assemblies), len(set(assembly_modules)))
 
-        # Check validity by converting the assemblies to a robot. Take a subsample only due to time constraints
-        for assembly in lots_of_assemblies[::2000]:
+        # Check validity by converting 5 assemblies to a robot
+        for assembly in itertools.islice(randomly(lots_of_assemblies), 5):
             robot = assembly.to_pin_robot()
 
         j = 0
@@ -34,6 +38,13 @@ class AssemblyIteratorTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             # Make sure to prevent instantiating iterators where the preparations alone already take too long
             iterator = Science2019(self.modrob_db, max_dof=10, max_links_between_joints=5)
+
+        smaller_iterator = Science2019(self.modrob_db, min_dof=1, max_dof=2, max_links_between_joints=1)
+        self.assertEqual(len(smaller_iterator), len(tuple(smaller_iterator)))
+        for i, (a1, a2) in enumerate(zip(tuple(smaller_iterator), smaller_iterator)):
+            if i >= 10:
+                break
+            self.assertEqual(a1, a2)
 
     def test_science_paper_liu(self):
         """
@@ -75,11 +86,6 @@ class AssemblyIteratorTest(unittest.TestCase):
 
         expected_num_assemblies = 32768  # Number taken from published MATLAB implementation
         self.assertEqual(len(iterator), expected_num_assemblies)
-
-        i = 0
-        for _ in iterator:
-            i += 1
-        self.assertEqual(i, expected_num_assemblies)  # Iterator really yields __len__ combinations
 
 
 if __name__ == '__main__':

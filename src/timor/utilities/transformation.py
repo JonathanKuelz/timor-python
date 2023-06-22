@@ -162,6 +162,7 @@ class Transformation(JSONable_mixin):
                 err.assert_is_homogeneous_transformation(transformation)
 
         self.homogeneous: np.ndarray = transformation
+        self.homogeneous: np.ndarray = transformation
 
     def distance(self, other: Union[Transformation, TransformationConvertable]) -> Norm:
         """

@@ -250,6 +250,19 @@ class Geometry(abc.ABC, JSONable_mixin):
         """Must be implemented for Geometries, as hppfcl does not natively support it."""
         return self.__class__(self.parameters, self.placement)
 
+    def __eq__(self, other: Geometry):
+        """Compares two Geometry instances based on their type, parameters and placement."""
+        if isinstance(other, Geometry) and not isinstance(other, Mesh):
+            this_parameters = tuple(sorted(((k, v) for k, v in self.parameters.items()), key=lambda x: x[0]))
+            other_parameters = tuple(sorted(((k, v) for k, v in other.parameters.items()), key=lambda x: x[0]))
+            return self.type == other.type and this_parameters == other_parameters and self.placement == other.placement
+        else:
+            return NotImplemented
+
+    def __hash__(self):
+        """Hashes the Geometry instance based on its type, parameters and placement."""
+        return hash((self.type, tuple(hash(p) for p in self.parameters.items()), self.placement.to_json_string()))
+
 
 class Box(Geometry):
     """A simple geometry with a box extending in x, y and z direction."""
@@ -553,6 +566,19 @@ class Mesh(Geometry):
         params = self.parameters
         return self.__class__(params, self.placement)
 
+    def __eq__(self, other: Geometry):
+        """We don't care about Mesh file paths, but equality of their collision geometries."""
+        if isinstance(other, Mesh):
+            return self.type == other.type \
+                and np.all(self.scale == other.scale) \
+                and self.placement == other.placement \
+                and self.collision_geometry == other.collision_geometry
+        return NotImplemented
+
+    def __hash__(self):
+        """Scale can't always be hashed as it can be a numpy array"""
+        return hash((self.type, np.array(self.scale).tobytes(), self.placement.to_json_string()))
+
 
 class ComposedGeometry(Geometry):
     """A composed geometry is a collection of geometries that are combined in one instance."""
@@ -625,6 +651,17 @@ class ComposedGeometry(Geometry):
         """The volume of a composed geometry is the sum of the volumes of the composing geometries."""
         return sum(g.volume for g in self.composing_geometries)
 
+    def __eq__(self, other):
+        """Equality is defined as having the same composing geometries."""
+        if not isinstance(other, ComposedGeometry):
+            return False
+        return set(g for g in self.composing_geometries if not isinstance(g, EmptyGeometry)) == \
+            set(g for g in other.composing_geometries if not isinstance(g, EmptyGeometry))
+
+    def __hash__(self):
+        """Hash is defined as the hash of the composing geometries."""
+        return sum(hash(g) for g in self.composing_geometries if not isinstance(g, EmptyGeometry))
+
 
 class EmptyGeometry(Geometry):
     """This is a dummy geometry to being able to prevent setting a geometry to None."""
@@ -637,6 +674,8 @@ class EmptyGeometry(Geometry):
                  hppfcl_representation: Optional[hppfcl.CollisionGeometry] = None
                  ):
         """For an empty geometry, the parameters are not used."""
+        if parameters is not None:
+            logging.warning("EmptyGeometry does not use parameters, but they were given.")
         parameters = dict()
         super().__init__(parameters, pose, hppfcl_representation)
 
@@ -683,3 +722,13 @@ class EmptyGeometry(Geometry):
     def _make_collision_geometry(self) -> hppfcl.CollisionGeometry:
         """No Geometry, no collision object."""
         pass
+
+    def __eq__(self, other):
+        """Empty geometries are equal to other empty geometries."""
+        if isinstance(other, EmptyGeometry):
+            return True
+        return NotImplemented
+
+    def __hash__(self):
+        """Empty geometries are equal to other empty geometries."""
+        return hash(self.__class__.__name__)

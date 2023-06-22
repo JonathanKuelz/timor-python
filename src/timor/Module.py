@@ -49,6 +49,10 @@ class ModuleHeader(TypedHeader):
     affiliation: List[str] = TypedHeader.string_list_factory()
     cost: float = 0.
 
+    def __hash__(self):
+        """Hash the header by hashing the unique ID and name."""
+        return hash((self.ID, self.name))
+
 
 class ModuleBase(abc.ABC, JSONable_mixin):
     """Base class for any robot module."""
@@ -80,14 +84,6 @@ class ModuleBase(abc.ABC, JSONable_mixin):
         self._joints: JointSet = JointSet(joints)
         self._check_unique_connectors()
         self._module_graph: nx.DiGraph = self._build_module_graph()
-
-    def __copy__(self):
-        """Disable builtin copy, there should be no use case for two instances of a module with the same ID."""
-        raise NotImplementedError("Use custom module copy function and provide an ID suffix")
-
-    def __str__(self):
-        """String representation for the module."""
-        return f"Module {self.name}, ID: {self.id}"
 
     @property
     def connectors_by_own_id(self) -> Dict[str, Connector]:
@@ -157,33 +153,10 @@ class ModuleBase(abc.ABC, JSONable_mixin):
         """Returns the unique name of this module."""
         return self.header.name
 
-    def _build_module_graph(self) -> nx.DiGraph:
-        """Builds the directed graph of atomic module elements. See module_graph property for more information."""
-        G_m = nx.DiGraph()
-        for body in self.bodies:
-            G_m.add_node(body)
-        for jnt in self.joints:
-            G_m.add_node(jnt)
-            # If a node is defined twice, networkx just interprets it as the same node
-            G_m.add_edge(jnt.parent_body, jnt, transform=jnt.parent2joint)
-            G_m.add_edge(jnt, jnt.child_body, transform=jnt.joint2child)
-
-        for connector_id, connector in self.available_connectors.items():
-            G_m.add_edge(connector.parent, connector, transform=connector.body2connector)
-
-        for u, v, t in G_m.edges.data('transform'):
-            # Generate the edges in opposing directing
-            G_m.add_edge(v, u, transform=t.inv)
-
-        return G_m
-
-    def _check_unique_connectors(self):
-        """Sanity check that all connectors are unique"""
-        if len(self.available_connectors) == 0:
-            return
-        counter = Counter(c._id for c in itertools.chain.from_iterable(b.connectors for b in self.bodies))
-        if max(counter.values()) > 1:
-            raise err.UniqueValueError("A module cannot contain multiple connectors with the same id.")
+    def can_connect(self, other: ModuleBase) -> bool:
+        """Returns true if at least one of the connectors of this module matches at least one connector of other"""
+        return any(this_con.connects(other_con) for this_con, other_con
+                   in itertools.product(self.available_connectors.values(), other.available_connectors.values()))
 
     def copy(self, suffix: str) -> ModuleBase:
         """
@@ -232,11 +205,6 @@ class ModuleBase(abc.ABC, JSONable_mixin):
 
         return tmp_ass.to_pin_robot(add_com_frames=show_com, base_placement=base_placement).visualize(viz, 'full')
 
-    def can_connect(self, other: ModuleBase) -> bool:
-        """Returns true if at least one of the connectors of this module matches at least one connector of other"""
-        return any(this_con.connects(other_con) for this_con, other_con
-                   in itertools.product(self.available_connectors.values(), other.available_connectors.values()))
-
     def to_json_data(self) -> Dict:
         """
         Write a json in that fully describes this module.
@@ -251,6 +219,52 @@ class ModuleBase(abc.ABC, JSONable_mixin):
             'bodies': [body.to_json_data() for body in sorted(self.bodies, key=lambda b: b.id)],
             'joints': [joint.to_json_data() for joint in sorted(self.joints, key=lambda j: j.id)]
         }
+
+    def _build_module_graph(self) -> nx.DiGraph:
+        """Builds the directed graph of atomic module elements. See module_graph property for more information."""
+        G_m = nx.DiGraph()
+        for body in self.bodies:
+            G_m.add_node(body)
+        for jnt in self.joints:
+            G_m.add_node(jnt)
+            # If a node is defined twice, networkx just interprets it as the same node
+            G_m.add_edge(jnt.parent_body, jnt, transform=jnt.parent2joint)
+            G_m.add_edge(jnt, jnt.child_body, transform=jnt.joint2child)
+
+        for connector_id, connector in self.available_connectors.items():
+            G_m.add_edge(connector.parent, connector, transform=connector.body2connector)
+
+        for u, v, t in G_m.edges.data('transform'):
+            # Generate the edges in opposing directing
+            G_m.add_edge(v, u, transform=t.inv)
+
+        return G_m
+
+    def _check_unique_connectors(self):
+        """Sanity check that all connectors are unique"""
+        if len(self.available_connectors) == 0:
+            return
+        counter = Counter(c._id for c in itertools.chain.from_iterable(b.connectors for b in self.bodies))
+        if max(counter.values()) > 1:
+            raise err.UniqueValueError("A module cannot contain multiple connectors with the same id.")
+
+    def __copy__(self):
+        """Disable builtin copy, there should be no use case for two instances of a module with the same ID."""
+        raise NotImplementedError("Use custom module copy function and provide an ID suffix")
+
+    def __eq__(self, other):
+        """Equality check for modules. Two modules are equal if they have the same header, bodies, names, and joints."""
+        if not isinstance(other, ModuleBase):
+            return NotImplemented
+        return self.header == other.header and self.bodies == other.bodies and self.joints == other.joints
+
+    def __hash__(self):
+        """Custom hash function for modules that should be uniquely determined by their ID."""
+        return hash(self.id)
+
+    def __str__(self):
+        """String representation for the module."""
+        return f"Module {self.name}, ID: {self.id}"
 
 
 class AtomicModule(ModuleBase):
@@ -390,40 +404,6 @@ class ModulesDB(SingleSet, JSONable_mixin):
         super().__init__(*modules)
         self._name = name
         self._model_generation_kwargs = model_generation_kwargs
-
-    def __contains__(self, item: ModuleBase) -> bool:
-        """
-        If a new module should be added to a Module DB, the following properties must be preserved:
-
-        (All of the below holds for modules and their sub-modules and their sub-sub-modules, and...
-        to keep it short, all of those are just described as "modules")
-
-          * All module IDs in the DB are unique
-          * All module names in the DB are unique
-          * All JointIDs in the DB are unique
-          * All BodyIDs in the DB are unique
-          * All ConnectorIDs in the DB are unique
-
-        :param item: A module
-        :return: Boolean indicator whether the module OR ANY OF THE INHERENT IDs are already in the DB
-        """
-        if item.id in self.all_module_ids:
-            return True
-        if item.name in self.all_module_names:
-            return True
-        if item.bodies.intersection(self.all_bodies):
-            return True
-        if item.joints.intersection(self.all_joints):
-            return True
-        return False
-
-    def __setstate__(self, state):
-        """
-        Overwrite jsonable; most is handled by __reduce__ and python internal set
-
-        just need to set helper properties
-        """
-        self.__dict__.update(state)
 
     def add(self, element: AtomicModule) -> None:
         """
@@ -633,6 +613,48 @@ class ModulesDB(SingleSet, JSONable_mixin):
                 viz=viz, base_placement=spatial.homogeneous((stride * math.floor(i / cols), stride * i % cols, 0)))
 
         return viz
+
+    def __contains__(self, item: ModuleBase) -> bool:
+        """
+        If a new module should be added to a Module DB, the following properties must be preserved:
+
+        (All of the below holds for modules and their sub-modules and their sub-sub-modules, and...
+        to keep it short, all of those are just described as "modules")
+
+          * All module IDs in the DB are unique
+          * All module names in the DB are unique
+          * All JointIDs in the DB are unique
+          * All BodyIDs in the DB are unique
+          * All ConnectorIDs in the DB are unique
+
+        :param item: A module
+        :return: Boolean indicator whether the module OR ANY OF THE INHERENT IDs are already in the DB
+        """
+        if item.id in self.all_module_ids:
+            return True
+        if item.name in self.all_module_names:
+            return True
+        if item.bodies.intersection(self.all_bodies):
+            return True
+        if item.joints.intersection(self.all_joints):
+            return True
+        return False
+
+    def __eq__(self, other):
+        """Two DBs are equal if they contain the same modules, have the same name, and generate the same robot model."""
+        if not isinstance(other, ModulesDB):
+            return NotImplemented
+        return self.name == other.name \
+            and self.default_model_generation_kwargs == other.default_model_generation_kwargs \
+            and super().__eq__(other)
+
+    def __setstate__(self, state):
+        """
+        Overwrite jsonable; most is handled by __reduce__ and python internal set
+
+        just need to set helper properties
+        """
+        self.__dict__.update(state)
 
 
 class ModuleAssembly(JSONable_mixin):
@@ -1127,7 +1149,7 @@ class ModuleAssembly(JSONable_mixin):
                 'moduleConnection': module_connections,
                 # For now assumed only one base
                 'baseConnection': [(self.internal_module_ids.index(self.base_module.id), self.base_connector.id[2], 0)],
-                'basePose': [self.robot.placement.homogeneous]}
+                'basePose': [self.robot.placement.to_json_data()]}
 
     def to_pin_robot(self,
                      base_placement: TransformationLike = Transformation.neutral(),
@@ -1195,9 +1217,9 @@ class ModuleAssembly(JSONable_mixin):
                                                 parent_joints[successor.id],
                                                 frames[successor.id],
                                                 pin.SE3((
-                                                        Transformation(transforms[successor.id]) @
-                                                        Transformation.from_translation(successor.inertia.lever)
-                                                        ).homogeneous),
+                                                    Transformation(transforms[successor.id]) @
+                                                    Transformation.from_translation(successor.inertia.lever)
+                                                ).homogeneous),
                                                 pin.FrameType.OP_FRAME))
                         frames[successor.id + ("CoM",)] = new_frame
                         parent_joints[successor.id + ("CoM",)] = parent_joints[successor.id]
@@ -1487,6 +1509,30 @@ class ModuleAssembly(JSONable_mixin):
             raise ValueError(f"Not every module in the assembly seems to be connect!\n"
                              f"Connected: {len(seen_modules)}\n"
                              f"Modules in the assembly: {len(self.module_instances)}")
+
+    def _deterministic_connections(self) -> Tuple[Tuple[ModuleBase, Connector, ModuleBase, Connector], ...]:
+        """
+        Returns the connections in a deterministic order, so that the assembly can be hashed and compared.
+        """
+        return tuple(sorted(self.connections, key=lambda x: tuple(el.id for el in x)))
+
+    def __eq__(self, other):
+        """
+        Two assemblies are basically equal when they describe the same robot with equal modules.
+
+        Equality is given by equal connections (which implies equal connectors and modules) and equal kwargs for the
+        model generation: This means that equal assemblies must not necessarily be constructed from modules coming from
+        the same DB. However, all modules must be equal and the resulting robots must have the same kinematic, dynamic,
+        and geometric properties.
+        """
+        if not isinstance(other, ModuleAssembly):
+            return False
+        return self.connections == other.connections \
+            and self.db.default_model_generation_kwargs == other.db.default_model_generation_kwargs
+
+    def __hash__(self):
+        """Hash is based on the connections, as they are the defining property of an assembly."""
+        return hash(self._deterministic_connections())
 
     def __getstate__(self):
         """Used for pickling"""

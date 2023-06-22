@@ -52,6 +52,12 @@ class TaskHeader(TypedHeader):
         """Returns an empty task header"""
         return cls(ID=f'tmp_{uuid.uuid4()}')
 
+    def __eq__(self, other):
+        """Equality of headers is given by equality of attributes"""
+        if not isinstance(other, TaskHeader):
+            return NotImplemented
+        return all(getattr(self, attr) == getattr(other, attr) for attr in self.__annotations__.keys())
+
 
 class Task(JSONable_mixin):
     """A task describes a problem that must be solved by one or multiple robots.
@@ -83,23 +89,6 @@ class Task(JSONable_mixin):
         if obstacles is not None:
             for obstacle in obstacles:
                 self.add_obstacle(obstacle)
-
-    def __deepcopy__(self, memodict={}):
-        """Custom deepcopy for a scneario class. Experimental!"""
-        cpy = self.__class__(header=deepcopy(self.header))
-        cpy.obstacles = [deepcopy(o) for o in self.obstacles]
-        cpy.goals = [deepcopy(t) for t in self.goals]
-        cpy.constraints = [deepcopy(c) for c in self.constraints]
-        return cpy
-
-    def __getstate__(self):
-        """Return objects which will be pickled and saved."""
-        return self.to_json_data()
-
-    def __setstate__(self, state):
-        """Take object from parameter and use it to retrieve class state."""
-        cpy = self.__class__.from_json_data(state)
-        self.__dict__ = cpy.__dict__
 
     @classmethod
     def from_id(cls, id: str, package_dir: Path) -> Task:
@@ -341,3 +330,33 @@ class Task(JSONable_mixin):
                 logging.info("Cannot recenter visualizer view to base.")
 
         return viz
+
+    def __deepcopy__(self, memodict={}):
+        """Custom deepcopy for a scneario class. Experimental!"""
+        cpy = self.__class__(header=deepcopy(self.header))
+        cpy.obstacles = [deepcopy(o) for o in self.obstacles]
+        cpy.goals = tuple(deepcopy(t) for t in self.goals)
+        cpy.constraints = tuple(deepcopy(c) for c in self.constraints)
+        return cpy
+
+    def __eq__(self, other):
+        """Tasks are equal if headers, goals, constraints, and obstacles are equal."""
+        if not isinstance(other, Task):
+            return NotImplemented
+        return (self.header == other.header
+                and self.obstacles == other.obstacles
+                and self.goals == other.goals
+                and self.constraints == other.constraints)
+
+    def __getstate__(self):
+        """Return objects which will be pickled and saved."""
+        return self.to_json_data()
+
+    def __hash__(self):
+        """Hash is given by the unique ID."""
+        return hash(self.id)
+
+    def __setstate__(self, state):
+        """Take object from parameter and use it to retrieve class state."""
+        cpy = self.__class__.from_json_data(state)
+        self.__dict__ = cpy.__dict__

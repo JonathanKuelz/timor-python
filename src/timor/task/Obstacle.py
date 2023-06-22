@@ -169,3 +169,13 @@ class Obstacle(JSONable_mixin):
     def __copy__(self):
         """Not supported!"""
         raise NotImplementedError("Cannot shallow-copy hppfcl geometries. Use deepcopy.")
+
+    def __eq__(self, other):
+        """Compare two obstacles by their ID, name, and geometry"""
+        if not isinstance(other, Obstacle):
+            return NotImplemented
+        return self.id == other.id and self.name == other.name and self.collision == other.collision
+
+    def __hash__(self):
+        """The ID is sufficient to hash an obstacle"""
+        return hash(self.id)

@@ -174,6 +174,43 @@ class SingleSet(set):
                 elements.add(element)
         return self.__class__(super().union(elements))
 
+    @classmethod
+    def _sorting_key(cls, element: any) -> any:
+        """Key function for sorting elements in this set"""
+        raise NotImplementedError(f"There is no way to uniquely sort elements in sets of type {cls.__name__}.")
+
+    def __eq__(self, other):
+        """If there is a unique ordering to this set, try to sort the elements and compare them"""
+        if not isinstance(other, SingleSet):
+            return NotImplemented
+        try:
+            ordered_self = sorted(self, key=self._sorting_key)
+            ordered_other = sorted(other, key=other._sorting_key)
+        except NotImplementedError:
+            return super().__eq__(other)
+        return ordered_self == ordered_other
+
+    def __hash__(self):
+        """Hash all the contained elements"""
+        return sum(hash(element) for element in self)
+
+    def __ne__(self, other):
+        """Override the not equal operatorof a set"""
+        return not self == other
+
+
+class SingleSetWithID(SingleSet):
+    """A class for SingleSets where every element has a unique ID"""
+
+    @classmethod
+    def _sorting_key(cls, element: any) -> any:
+        """Key function for sorting elements in this set"""
+        return element.id
+
+    def __contains__(self, item: any):
+        """Custom duplicate check (unique ID)"""
+        return item.id in (element.id for element in self)
+
 
 @dataclass
 class TypedHeader:

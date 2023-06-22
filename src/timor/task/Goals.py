@@ -142,6 +142,14 @@ class GoalBase(ABC, JSONable_mixin):
 
         return t_goal, id_goal
 
+    def __eq__(self, other):
+        """Enforce the implementation"""
+        raise NotImplementedError(f"Equality of {self.__class__.__name__} objects is not implemented.")
+
+    def __hash__(self):
+        """Hashes the goal by its id"""
+        return hash(self.id)
+
 
 class GoalWithDuration(GoalBase, ABC):
     """
@@ -248,6 +256,12 @@ class At(GoalBase):
         is_pose = solution.tcp_pose_at(t_goal)
         return self.goal_pose.valid(is_pose)
 
+    def __eq__(self, other):
+        """At goals are same if they have the same constraints and desired pose"""
+        if not isinstance(other, At):
+            return False
+        return self.constraints == other.constraints and self.goal_pose == other.goal_pose
+
 
 class Reach(At):
     """A goal that is achieved when the robot is at a certain position for at least one time step at zero velocity"""
@@ -297,6 +311,12 @@ class Reach(At):
             return False
         is_velocity = solution.tcp_velocity_at(t_goal)
         return at_achieved and self.velocity_tolerance.valid(np.zeros(is_velocity.shape), is_velocity)
+
+    def __eq__(self, other):
+        """Reach goals are same if they have the same constraints, velocity, and desired pose"""
+        if not isinstance(other, Reach):
+            return NotImplemented
+        return super().__eq__(other) and self.velocity_tolerance == other.velocity_tolerance
 
 
 class ReturnTo(GoalBase):
@@ -362,6 +382,14 @@ class ReturnTo(GoalBase):
                 and self.distance_tolerance.valid(desired_velocity, is_velocity)
                 and self.distance_tolerance.valid(desired_acceleration, is_acceleration))
 
+    def __eq__(self, other):
+        """Return goals are same if they have the same constraints, tolerance, and return to option"""
+        if not isinstance(other, ReturnTo):
+            return NotImplemented
+        return self.constraints == other.constraints \
+            and self.distance_tolerance == other.distance_tolerance \
+            and self.return_to_goal == other.return_to_goal
+
 
 class Pause(GoalWithDuration):
     """
@@ -410,6 +438,13 @@ class Pause(GoalWithDuration):
                    and not solution.dq[idx].any()
                    and not solution.ddq[idx].any()
                    for idx in sol_idx)
+
+    def __eq__(self, other):
+        """Two pause goals are equal if there's (almost) the same pause and constraints."""
+        if not isinstance(other, Pause):
+            return NotImplemented
+        return self.constraints == other.constraints \
+            and abs(self.duration - other.duration) < self.epsilon
 
 
 class Follow(GoalWithDuration):
@@ -502,3 +537,11 @@ class Follow(GoalWithDuration):
                         return False
             self._duration = solution.time_steps[idx_goal] - solution.time_steps[idx_goal_start]
             return True
+
+    def __eq__(self, other):
+        """Two follow goals are equal if they have the same duration, trajectory and constraints."""
+        if not isinstance(other, Follow):
+            return NotImplemented
+        return self.constraints == other.constraints \
+            and self._duration == other._duration \
+            and self.trajectory == other.trajectory

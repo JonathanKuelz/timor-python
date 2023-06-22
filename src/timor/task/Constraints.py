@@ -82,6 +82,11 @@ class ConstraintBase(ABC, JSONable_mixin):
     def to_json_data(self) -> Dict[str, any]:
         """Should be implemented to convert the constraint to a json-serializable dictionary"""
 
+    @property
+    @abstractmethod
+    def _equality_parameters(self) -> Tuple[any, ...]:
+        """Returns the parameters that should be used to check equality of constraints"""
+
     def visualize(self, viz: pinocchio.visualize.MeshcatVisualizer, scale: float = 1.) -> None:
         """Visualize the constraint in an existing meshcat window.
 
@@ -93,6 +98,12 @@ class ConstraintBase(ABC, JSONable_mixin):
             to adapt for significantly different sizes of robots and/or obstacles.
         """
         pass
+
+    def __eq__(self, other):
+        """Checks if two constraints are equal"""
+        if type(self) is not type(other):
+            return NotImplemented
+        return self._equality_parameters == other._equality_parameters
 
 
 class AlwaysTrueConstraint(ConstraintBase):
@@ -112,6 +123,11 @@ class AlwaysTrueConstraint(ConstraintBase):
         """Dumps this constraint to a dictionary"""
         logging.info("Always true constraint is skipped during serialization")
         return {}
+
+    @property
+    def _equality_parameters(self) -> Tuple[any, ...]:
+        """Two always true constraints are always equal"""
+        return tuple()
 
 
 class GoalsBySameRobot(ConstraintBase):
@@ -149,6 +165,11 @@ class GoalsBySameRobot(ConstraintBase):
             'goals': list(self.goals)
         }
 
+    @property
+    def _equality_parameters(self) -> Tuple[str, ...]:
+        """Same goals, same constraint"""
+        return tuple(sorted(self.goals, key=lambda g: g.id))
+
 
 class GoalOrderConstraint(ConstraintBase):
     """Checks that the goals in the task are fulfilled in the right order."""
@@ -179,6 +200,11 @@ class GoalOrderConstraint(ConstraintBase):
             'order': self.order
         }
 
+    @property
+    def _equality_parameters(self) -> Tuple[str, ...]:
+        """Same order, same constraint"""
+        return tuple(self.order)
+
 
 class AllGoalsFulfilled(ConstraintBase):
     """Checks whether all goals are fulfilled"""
@@ -196,6 +222,11 @@ class AllGoalsFulfilled(ConstraintBase):
     def to_json_data(self) -> Dict[str, any]:
         """Return json-able dict of this constraint."""
         return {'type': 'allGoalsFulfilled'}
+
+    @property
+    def _equality_parameters(self) -> Tuple[any, ...]:
+        """All goals, same constraint"""
+        return tuple()
 
 
 class JointLimits(ConstraintBase):
@@ -252,6 +283,11 @@ class JointLimits(ConstraintBase):
             'type': 'joint',
             'parts': [kind for kind in self.robot_limit_types if getattr(self, kind)]
         }
+
+    @property
+    def _equality_parameters(self) -> Tuple[str, ...]:
+        """Same parts, same constraint"""
+        return tuple(kind for kind in self.robot_limit_types if getattr(self, kind))
 
 
 class BasePlacement(ConstraintBase):
@@ -323,6 +359,11 @@ class BasePlacement(ConstraintBase):
         """Visualize the constraint"""
         self.base_pose.visualize(viz, scale=scale, name="base_constraint")
 
+    @property
+    def _equality_parameters(self) -> Tuple[ToleratedPose]:
+        """Equal if the placements are equal"""
+        return (self.base_pose,)
+
 
 class CoterminalJointAngles(ConstraintBase):
     """Constrains a robot can reach a certain pose, being ignorant about full circle rotation deviations
@@ -369,6 +410,11 @@ class CoterminalJointAngles(ConstraintBase):
         """Dumps this constraint to a dictionary"""
         raise NotImplementedError("Coterminal Joint Angles not yet available.")
 
+    @property
+    def _equality_parameters(self) -> Tuple[float, ...]:
+        """Flatten the limits to a 1d array"""
+        return tuple(self.limits.flatten())
+
 
 class JointAngles(CoterminalJointAngles):
     """This is a stronger constraint than coterminal joint angles, verifying exact angles against joint limits."""
@@ -406,6 +452,11 @@ class CollisionFree(ConstraintBase):
         """Dumps this constraint to a dictionary"""
         return {'type': 'collisionFree'}
 
+    @property
+    def _equality_parameters(self) -> Tuple[any, ...]:
+        """Collision-free is equal to itself"""
+        return ()
+
 
 class SelfCollisionFree(CollisionFree):
     """A constraint that checks whether the robot is in collision with itself."""
@@ -438,9 +489,10 @@ class EndEffector(ConstraintBase):
         :param rotation_velocity_lim: Minimal / Maximal rotation velocity :math:`\omega` of the end-effector in
           :math:`\frac{rad}{s}`; defaults to any allowed
         """
-        self.pose = pose
-        self.velocity_lim = self.default_velocity_limits.copy() if velocity_lim is None else velocity_lim
-        self.rotation_velocity_lim = self.default_velocity_limits.copy() \
+        self.pose: Optional[ToleratedPose] = pose
+        self.velocity_lim: Optional[np.ndarray] = self.default_velocity_limits.copy() \
+            if velocity_lim is None else velocity_lim
+        self.rotation_velocity_lim: Optional[np.ndarray] = self.default_velocity_limits.copy() \
             if rotation_velocity_lim is None else rotation_velocity_lim
         if self.velocity_lim[0] > self.velocity_lim[1] or self.rotation_velocity_lim[0] > self.rotation_velocity_lim[1]:
             logging.warning("velocity_lim_min > velocity_lim_max or "
@@ -486,3 +538,8 @@ class EndEffector(ConstraintBase):
         if self.pose is not None:
             data['pose'] = self.pose.to_json_data()
         return data
+
+    @property
+    def _equality_parameters(self) -> Tuple[any, ...]:
+        """End-effector constraints are equal if they have the same pose and limits"""
+        return (self.pose,) + tuple(self.velocity_lim.flat) + tuple(self.rotation_velocity_lim.flat)

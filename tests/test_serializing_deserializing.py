@@ -8,15 +8,14 @@ import tempfile
 import unittest
 
 import hppfcl
-import networkx as nx
 import numpy as np
 import numpy.testing as np_test
 import pinocchio as pin
 
-from timor import Body, Connector, Geometry, Joint, Transformation
+from timor import Geometry, Transformation
 from timor import Robot
-from timor.Geometry import GeometryType, Mesh
-from timor.Module import AtomicModule, ModuleAssembly, ModulesDB
+from timor.Geometry import Mesh
+from timor.Module import ModuleAssembly, ModulesDB
 from timor.task import Constraints, CostFunctions, Obstacle, Solution, Task, Tolerance
 from timor.utilities import file_locations, prebuilt_robots, logging
 from timor.utilities.file_locations import schema_dir
@@ -172,84 +171,6 @@ def pin_geometry_models_functionally_equal(r1: Robot.RobotBase, r2: Robot.RobotB
     return difference / iterations
 
 
-def equivalent_module(m1: AtomicModule, m2: AtomicModule) -> bool:
-    return m1.header == m2.header and equivalent_set(m1.joints, m2.joints, equivalent_joint) and \
-        equivalent_set(m1.bodies, m2.bodies, equivalent_body) and nx.is_isomorphic(m1.module_graph, m2.module_graph)
-
-
-def equivalent_set(s1, s2, test):
-    if len(s1) != len(s2):
-        return False
-
-    for e in s1:
-        if not any(test(e, e2) for e2 in s2):
-            return False
-
-    return True
-
-
-def equivalent_joint(j1: Joint, j2: Joint) -> bool:
-    if all((j1.id == j2.id,
-            j1.type == j2.type,
-            j1.parent_body.id == j2.parent_body.id,
-            j1.child_body.id == j2.child_body.id,
-            all(j1.limits == j2.limits),
-            j1.velocity_limit == j2.velocity_limit,
-            j1.acceleration_limit == j2.acceleration_limit,
-            j1.torque_limit == j2.torque_limit,
-            j1.gear_ratio == j2.gear_ratio,
-            j1.motor_inertia == j2.motor_inertia,
-            j1.friction_coulomb == j2.friction_coulomb,
-            j1.friction_viscous == j2.friction_viscous,
-            j1.parent2joint == j2.parent2joint,
-            j1.joint2parent == j2.joint2parent)):
-        return True
-    return False
-
-
-def equivalent_body(b1: Body, b2: Body) -> bool:
-    if all((b1.id == b2.id,
-            b1.inertia == b2.inertia,
-            equivalent_set(b1.connectors, b2.connectors, equivalent_connector),
-            equivalent_geometry(b1.collision, b2.collision),
-            equivalent_geometry(b1.visual, b2.visual))):
-        return True
-    return False
-
-
-def equivalent_connector(c1: Connector, c2: Connector) -> bool:
-    if all((c1.id == c2.id,
-            c1.body2connector == c2.body2connector,
-            c1.parent.id == c2.parent.id,
-            c1.gender == c2.gender,
-            c1.type == c2.type,
-            c1.size == c2.size)):
-        return True
-    return False
-
-
-def equivalent_geometry(g1: Geometry, g2: Geometry) -> bool:
-    if g1.type != g2.type:
-        return False
-    if g1.type == GeometryType.COMPOSED:
-        for g, other_g in zip(g1._composing_geometries, g2._composing_geometries):
-            if not equivalent_geometry(g, other_g):
-                return False
-        return True
-    else:
-        return g1.parameters == g2.parameters and g1.placement == g2.placement
-
-
-def equivalent_task(t1: Task, t2: Task):
-    """Test if two tasks are more or less the same."""
-    return all((
-        t1.header == t2.header,
-        equivalent_set(t1.goals, t2.goals, lambda g1, g2: g1.id == g2.id and type(g1) is type(g2)),
-        equivalent_set(t1.constraints, t2.constraints, lambda c1, c2: type(c1) is type(c2)),
-        equivalent_set(t1.obstacles, t2.obstacles, lambda o1, o2: o1.id == o2.id and type(o1) is type(o2))
-    ))
-
-
 class SerializationTests(unittest.TestCase):
     """Tests all relevant json (de)serialization methods"""
 
@@ -303,16 +224,17 @@ class SerializationTests(unittest.TestCase):
             for m in db:
                 pickle_mod = pickle.loads(pickle.dumps(m))
                 deepcopy_mod = deepcopy(m)
-                self.assertTrue(equivalent_module(m, pickle_mod))
-                self.assertTrue(equivalent_module(m, deepcopy_mod))
+                self.assertEqual(m, pickle_mod)
+                self.assertEqual(m, deepcopy_mod)
             db_json = db.to_json_data()
             new_db = ModulesDB.from_json_data(db_json)
-            self.assertTrue(equivalent_set(db, new_db, equivalent_module))
+            new_db._name = db.name
+            self.assertEqual(db, new_db)
             deep_copy_db = deepcopy(db)
-            self.assertTrue(equivalent_set(db, deep_copy_db, equivalent_module))
+            self.assertEqual(db, deep_copy_db)
             s = pickle.dumps(db)
             pickle_db = pickle.loads(s)
-            self.assertTrue(equivalent_set(db, pickle_db, equivalent_module))
+            self.assertEqual(db, pickle_db)
 
             # Test different to_json_file modes
             with tempfile.TemporaryDirectory() as tmp_dir:
@@ -498,9 +420,9 @@ class SerializationTests(unittest.TestCase):
     def test_load_then_dump_task(self):
         for task_file in self.task_files:
             task = Task.Task.from_json_file(task_file)
-            self.assertTrue(equivalent_task(task, deepcopy(task)))
-            self.assertTrue(equivalent_task(task, pickle.loads(pickle.dumps(task))))
-            self.assertTrue(equivalent_task(task, Task.Task.from_json_data(task.to_json_data())))
+            self.assertEqual(task, deepcopy(task))
+            self.assertEqual(task, pickle.loads(pickle.dumps(task)))
+            self.assertEqual(task, Task.Task.from_json_data(task.to_json_data()))
 
             with tempfile.TemporaryDirectory() as tmp_dir:
                 tmp_json_file = Path(tmp_dir).joinpath(f"{task.id}.json")
@@ -521,7 +443,7 @@ class SerializationTests(unittest.TestCase):
                 self.assertTrue(tmp_json_file.exists())
                 another_copy = Task.Task.from_json_file(tmp_json_file, self.assets)
                 # This does not test 100% for equality but should cover the most central sanity checks
-                self.assertTrue(equivalent_task(task, another_copy))
+                self.assertEqual(task, another_copy)
 
     def test_pickle_robot(self):
         """Tests whether the kinematic model remains when pickling - geometry cannot be preserved at the moment"""
