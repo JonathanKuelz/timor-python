@@ -56,7 +56,7 @@ Nagivate to the timor-python repository you cloned and enter::
 
 to install it in editeable mode. This requires :code:`setuptools>=61` and :code:`pip>=21.3` (previous versions of setuptools require a :code:`setup.py`-file). To install optional dependencies, proceed in the same manner as for PyPI installs.
 
-To run unittest locally, you need to `setup git lfs<https://git-lfs.com/>`_ in order to download assets.
+To run unittest locally, you need to `setup git lfs <https://git-lfs.com/>`_ in order to download assets.
 
 If you want to use pre-commit hooks provided with Timor, for installation please use::
 
