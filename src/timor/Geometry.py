@@ -567,12 +567,19 @@ class Mesh(Geometry):
         return self.__class__(params, self.placement)
 
     def __eq__(self, other: Geometry):
-        """We don't care about Mesh file paths, but equality of their collision geometries."""
+        """
+        We don't care about Mesh file paths, but equality of their collision geometries.
+
+        Instead of using the undocumented equality operator of hppfcl, we compare the collision geometries directly.
+        It should be valid to assume that two meshes with equal volume, radius, and center of their AABB are equal.
+        """
         if isinstance(other, Mesh):
             return self.type == other.type \
                 and np.all(self.scale == other.scale) \
                 and self.placement == other.placement \
-                and self.collision_geometry == other.collision_geometry
+                and self.collision_geometry.computeVolume() == other.collision_geometry.computeVolume() \
+                and np.all(self.collision_geometry.aabb_center == other.collision_geometry.aabb_center) \
+                and self.collision_geometry.aabb_radius == other.collision_geometry.aabb_radius
         return NotImplemented
 
     def __hash__(self):
