@@ -13,7 +13,7 @@ def compress_json_vectors(content: str) -> str:
     return pattern.sub(lambda m: re.sub(r"\s+", " ", m.group()), content)  # replace newline + whitespace in innermost
 
 
-def numpy2list(d: Dict[str, any]) -> Dict[str, any]:
+def numpy2list(d: Dict[any, any]) -> Dict[any, any]:
     """Converts all numpy arrays in a dictionary to lists and returns the according copy"""
     ret = {}
     for key, value in d.items():

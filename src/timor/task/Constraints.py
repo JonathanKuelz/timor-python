@@ -71,12 +71,10 @@ class ConstraintBase(ABC, JSONable_mixin):
     @abstractmethod
     def is_valid_until(self, solution: Solution.SolutionBase, t: float) -> bool:
         """Should be implemented to check a constraint on a subset of a solution until time t."""
-        pass
 
     @abstractmethod
     def fulfilled(self, solution: Solution.SolutionBase) -> bool:
         """Main access point to check constraints"""
-        pass
 
     @abstractmethod
     def to_json_data(self) -> Dict[str, any]:
@@ -102,7 +100,7 @@ class ConstraintBase(ABC, JSONable_mixin):
     def __eq__(self, other):
         """Checks if two constraints are equal"""
         if type(self) is not type(other):
-            return NotImplemented
+            return NotImplemented  # pragma: no cover
         return self._equality_parameters == other._equality_parameters
 
 

@@ -183,6 +183,9 @@ class TestModule(unittest.TestCase):
         same_module = AtomicModule(header_one, [generic_body, box_body, another_body], [jnt, jnt_works])
 
         self.assertEqual(module, same_module)
+        self.assertEqual(hash(module), hash(same_module))
+        self.assertEqual(module.num_connectors,
+                         len(generic_body.connectors.union(box_body.connectors).union(another_body.connectors)))
         self.assertEqual(module.mass, generic_body.mass + box_body.mass + another_body.mass)
 
         same_module.bodies.pop()  # Don't do this at home

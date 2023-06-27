@@ -120,12 +120,14 @@ def axis_angle2rot_mat(axis_angle: np.ndarray) -> np.ndarray:
 
 def axis_angle_rotation(vec: np.ndarray, axis_angle: np.ndarray) -> np.ndarray:
     """
-    Rotates a vector by a given axis-angle representation.
+    Rotates a 3x1 vector by a given axis-angle representation.
 
     Equivalent to spatial.axis_angle2rot_mat(axis_angle) @ vec, but computationally more efficient.
+    :param vec: The vector to be rotated
+    :param axis_angle: The axis-angle representation of the rotation, either 4x1 or 3x1 array
     :source: https://en.wikipedia.org/wiki/Axis%E2%80%93angle_representation
     """
-    if vec.squeeze().shape == (3,):
+    if axis_angle.squeeze().shape == (3,):
         theta = np.linalg.norm(axis_angle)
         axis = axis_angle / theta
     else:

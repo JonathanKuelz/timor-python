@@ -72,9 +72,66 @@ class TestFilterRobotsForTasks(unittest.TestCase):
         self.assertLessEqual(modrob_solved, num_tests)  # Can at most solve all tests
         self.assertLess(0, modrob_solved)  # Expect at least one successful ik
 
+    def test_intermediate_results(self):
+        ir = AssemblyFilter.IntermediateFilterResults(
+            q_goal_pose=AssemblyFilter.EternalResult(g1=np.random.rand(10, 6)),
+            tau_static=AssemblyFilter.EternalResult(g1=.1)
+        )
+
+        # Adding new key-value pairs should be fine
+        ir.tau_static['g2'] = .2
+
+        with self.assertRaises(AssemblyFilter.OverwritesIntermediateResult):
+            ir.q_goal_pose = {'g1': np.random.rand(10, 6)}
+        with self.assertRaises(AssemblyFilter.OverwritesIntermediateResult):
+            ir.tau_static['g1'] = .1
+
+        # Within the context manager, overwriting is fine
+        with ir.allow_changes():
+            ir.tau_static['g1'] = .999
+
+        # But not outside
+        with self.assertRaises(AssemblyFilter.OverwritesIntermediateResult):
+            ir.tau_static['g1'] = .1
+
+        self.assertEqual(ir.tau_static['g1'], .999)
+
+    def test_limits_met_filter(self):
+        """Partially tests the filter by omitting the task and just plugging trajectories in"""
+        test_filter = AssemblyFilter.JointLimitsMet()
+
+        time_steps = 1000
+        robot = self.modrob_assembly.robot
+        dt = .1
+        t_wait = Trajectory(t=dt, q=np.zeros((time_steps, robot.njoints)))
+        q_edge_case = np.empty((time_steps, robot.njoints), dtype=float)
+        dq_edge_case = np.empty((time_steps, robot.njoints), dtype=float)
+        ddq_realistic = np.empty((time_steps, robot.njoints), dtype=float)
+        acc_limit = dt * .2 * robot.joint_velocity_limits
+        for i in range(time_steps):
+            # Create a trajectory with random but valid accelerations
+            sign = -1 if random.random() < .5 else 1
+            factor = random.random() * sign * 0.5
+            ddq = factor * acc_limit
+            # Provisional integration
+            dq = robot.dq + dt * ddq
+            q = (robot.q + dt * dq + np.pi) % (2 * np.pi) - np.pi
+            robot.update_configuration(q, dq, ddq)
+            q_edge_case[i, :] = q
+            dq_edge_case[i, :] = dq
+            ddq_realistic[i, :] = ddq
+        t_edge_case = Trajectory(t=dt, q=q_edge_case, dq=dq_edge_case, ddq=ddq_realistic)
+        t_failing = Trajectory(t=dt, q=q_edge_case, dq=100 * dq_edge_case, ddq=100 * ddq_realistic)
+
+        for trajectory, passes in ((t_wait, True), (t_edge_case, True), (t_failing, False)):
+            intermediate_result = AssemblyFilter.IntermediateFilterResults(
+                trajectory=AssemblyFilter.EternalResult({'some_goal_id': trajectory}),
+                robot=robot)
+            self.assertEqual(passes, test_filter._check(self.modrob_assembly, None, intermediate_result))
+
     def test_InverseKinematicSolvableWithObstacle(self, n_iter: int = 100):
         obstacle = Obstacle.Obstacle("tmp", collision=Box(parameters={"x": 2., "y": 2., "z": 2.},
-                                     pose=Transformation.from_translation((1.5, 0., 1.))))
+                                                          pose=Transformation.from_translation((1.5, 0., 1.))))
         for _ in range(n_iter):
             q_sample = self.panda_assembly.robot.random_configuration()
             task = Task.Task(Task.TaskHeader("tmp"), obstacles=(obstacle, ),
@@ -120,39 +177,6 @@ class TestFilterRobotsForTasks(unittest.TestCase):
                     or (np.abs(tau) >= self.panda_assembly.robot.joint_torque_limits).any())
 
         self.panda_assembly.robot.model.inertias[-1].mass /= 10  # Reset
-
-    def test_limits_met_filter(self):
-        """Partially tests the filter by omitting the task and just plugging trajectories in"""
-        test_filter = AssemblyFilter.JointLimitsMet()
-
-        time_steps = 1000
-        robot = self.modrob_assembly.robot
-        dt = .1
-        t_wait = Trajectory(t=dt, q=np.zeros((time_steps, robot.njoints)))
-        q_edge_case = np.empty((time_steps, robot.njoints), dtype=float)
-        dq_edge_case = np.empty((time_steps, robot.njoints), dtype=float)
-        ddq_realistic = np.empty((time_steps, robot.njoints), dtype=float)
-        acc_limit = dt * .2 * robot.joint_velocity_limits
-        for i in range(time_steps):
-            # Create a trajectory with random but valid accelerations
-            sign = -1 if random.random() < .5 else 1
-            factor = random.random() * sign * 0.5
-            ddq = factor * acc_limit
-            # Provisional integration
-            dq = robot.dq + dt * ddq
-            q = (robot.q + dt * dq + np.pi) % (2 * np.pi) - np.pi
-            robot.update_configuration(q, dq, ddq)
-            q_edge_case[i, :] = q
-            dq_edge_case[i, :] = dq
-            ddq_realistic[i, :] = ddq
-        t_edge_case = Trajectory(t=dt, q=q_edge_case, dq=dq_edge_case, ddq=ddq_realistic)
-        t_failing = Trajectory(t=dt, q=q_edge_case, dq=100 * dq_edge_case, ddq=100 * ddq_realistic)
-
-        for trajectory, passes in ((t_wait, True), (t_edge_case, True), (t_failing, False)):
-            intermediate_result = AssemblyFilter.IntermediateFilterResults(
-                trajectory=AssemblyFilter.EternalResult({'some_goal_id': trajectory}),
-                robot=robot)
-            self.assertEqual(passes, test_filter._check(self.modrob_assembly, None, intermediate_result))
 
 
 if __name__ == '__main__':

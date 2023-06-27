@@ -354,7 +354,7 @@ class Transformation(JSONable_mixin):
         return self.__str__(3)
 
     def visualize(self, viz: 'pin.visualize.MeshcatVisualizer', name: str,
-                  scale: float = 1., text: Optional[str] = None):
+                  scale: float = 1., text: Optional[str] = None):  # pragma: no cover
         """
         Draws this placement inside the visualizer object
 
