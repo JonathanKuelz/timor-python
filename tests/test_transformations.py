@@ -30,7 +30,13 @@ class TestSpatialTransformations(unittest.TestCase):
         for _ in range(20):
             # Equality operator and inverse
             t = Transformation.random()
+            self.assertEqual(t, t.homogeneous)
             self.assertEqual(t, t.inv.inv)
+
+        for _ in range(10):
+            t1, t2, t3, t4 = [Transformation.random() for _ in range(4)]
+            t_res = t1 @ t2 @ t3 @ t4
+            self.assertEqual(t_res, Transformation(np.asarray([t1, t2, t3, t4])))
 
     def test_multiplication(self):
         """Makes sure multiplication of homogeneous transformations work as expected"""

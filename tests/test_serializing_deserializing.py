@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 import pickle
 import random
+import string
 import tempfile
 import unittest
 
@@ -17,7 +18,8 @@ from timor import Robot
 from timor.Geometry import Mesh
 from timor.Module import ModuleAssembly, ModulesDB
 from timor.task import Constraints, CostFunctions, Obstacle, Solution, Task, Tolerance
-from timor.utilities import file_locations, prebuilt_robots, logging
+from timor.utilities import file_locations, json_serialization_formatting, prebuilt_robots, logging
+from timor.utilities.dtypes import randomly
 from timor.utilities.file_locations import schema_dir
 from timor.utilities.prebuilt_robots import random_assembly
 from timor.utilities.schema import get_schema_validator
@@ -213,7 +215,7 @@ class SerializationTests(unittest.TestCase):
                                                      rotation_velocity_lim=np.asarray((-random.random(),
                                                                                        random.random())))
         self.constraints = [goal_order, joint_constraints, base_placement, collision, eef_constraint_pose,
-                            eef_constraint_v, eef_constraint_all]
+                            eef_constraint_v, eef_constraint_all, Constraints.AlwaysTrueConstraint()]
 
     def test_modules_db_serialized(self):
         """Tests if all modules dbs can be serialized and deserialized"""
@@ -357,6 +359,28 @@ class SerializationTests(unittest.TestCase):
                     self.assertIsNotNone(from_string_2)
                     with self.assertRaises(ValueError):
                         Constraints.EndEffector.from_json_string(constraint.to_json_string())
+
+    def test_custom_formatting_utils(self, num_random_arrays=10):
+        some_arrays = [np.random.rand(3, 4) for _ in range(num_random_arrays)]
+        some_numbers = [np.random.rand() for _ in range(num_random_arrays)]
+        some_strings = [''.join(random.choice(string.ascii_letters) for _ in range(10))
+                        for _ in range(num_random_arrays)]
+
+        data = {}
+        for key, element in enumerate(randomly(some_arrays + some_numbers + some_strings)):
+            data[key] = element
+        original = deepcopy(data)
+
+        serializable = json_serialization_formatting.numpy2list(data)
+        for key in original:
+            if isinstance(original[key], np.ndarray):
+                self.assertEqual(serializable[key], original[key].tolist())
+            self.assertFalse(isinstance(serializable[key], np.ndarray))
+
+        ser = json.dumps(serializable, indent=4)
+        reloaded = json.loads(json_serialization_formatting.compress_json_vectors(ser))
+        self.assertEqual(json.loads(json.dumps(serializable)), reloaded)
+        self.assertLess(len(json_serialization_formatting.compress_json_vectors(ser)), len(ser))
 
     def test_de_serialize_solution_and_task(self):
         assembly = prebuilt_robots.get_six_axis_assembly()

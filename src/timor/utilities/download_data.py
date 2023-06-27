@@ -30,9 +30,9 @@ def download_schemata(schema_dir: Path) -> Dict[str, Path]:
             with open(schema_file_name, 'wb') as f:
                 f.write(r.content)
             schemata[schema] = schema_file_name
-        except TimeoutError:
+        except TimeoutError:  # pragma: no cover
             logging.warning("Could not get updated schemata from CoBRA website.")
-        except Exception as e:
+        except Exception as e:  # pragma: no cover
             logging.warning(f"Could not download from {url}: {e}")
     # --- End download schemata ---
     return schemata
@@ -44,10 +44,10 @@ def download_additional_robots(default_robot_dir: Path, robots: Dict[str, Path])
     additional_robots = set()
     try:
         additional_robots = set(json.loads(requests.get(robot_tld, timeout=2.).content))
-    except TimeoutError:
+    except TimeoutError:  # pragma: no cover
         logging.warning("Could not fetch additional robots from CoBRA website.")
         return
-    except Exception as e:
+    except Exception as e:  # pragma: no cover
         logging.warning(f"Could not fetch additional robots due to {e}.")
 
     # Download additional robots found in CoBRA
@@ -67,8 +67,8 @@ def download_additional_robots(default_robot_dir: Path, robots: Dict[str, Path])
             zip_file.extractall(output_dir)
             robots[additional_robot] = output_dir
             logging.info(f"Stored as {additional_robot} in {output_dir}.")
-        except TimeoutError:
+        except TimeoutError:  # pragma: no cover
             logging.warning(f"Could not fetch {additional_robot} from CoBRA website.")
             continue
-        except Exception as e:
+        except Exception as e:  # pragma: no cover
             logging.warning(f"Could not fetch robot {additional_robot} due to {e}.")

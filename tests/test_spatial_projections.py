@@ -82,6 +82,16 @@ class TestSpatialutilities(unittest.TestCase):
             T_dash = Transformation.from_roto_translation(rot, T.translation)
             self.assertEqual(T, T_dash)
 
+            rand_translation = T.translation
+            np_test.assert_array_almost_equal(
+                spatial.axis_angle_rotation(rand_translation, axis_angles),
+                spatial.axis_angle_rotation(rand_translation, axis_angles3),
+            )
+            np_test.assert_array_almost_equal(
+                spatial.axis_angle_rotation(rand_translation, axis_angles),
+                spatial.axis_angle2rot_mat(axis_angles) @ rand_translation
+            )
+
         no_rotation = np.zeros((4,))
         no_rotation3 = np.zeros((3,))
         identity = Transformation.neutral()

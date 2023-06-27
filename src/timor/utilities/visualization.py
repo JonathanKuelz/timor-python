@@ -146,9 +146,10 @@ def color_visualization(viz: MeshcatVisualizer,
     assembly.robot.visualize(viz)
 
 
-def animation(robot: 'Robot.PinRobot', q: np.ndarray, dt: float,  # pragma: no cover # noqa: F821
+def animation(robot: 'Robot.PinRobot', q: np.ndarray, dt: float,  # noqa: F821
               visualizer: Union[pin.visualize.MeshcatVisualizer,
-                                MeshcatVisualizerWithAnimation] = None) -> MeshcatVisualizerWithAnimation:
+                                MeshcatVisualizerWithAnimation] = None
+              ) -> MeshcatVisualizerWithAnimation:  # pragma: no cover
     """
     Creates an animation of a robot movement.
 

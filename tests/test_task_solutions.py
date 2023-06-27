@@ -279,6 +279,10 @@ class TestSolution(unittest.TestCase):
 
             self.assertTrue(pause_goal.achieved(valid))
             self.assertFalse(pause_goal.achieved(invalid))
+            pause_goal.constraints.append(Constraints.AlwaysTrueConstraint())  # should not change anything
+            self.assertTrue(pause_goal.achieved(valid))
+            self.assertFalse(pause_goal.achieved(invalid))
+
             good_trajectory.dq = np.random.random(q_array_shape)
             self.assertFalse(pause_goal.achieved(valid))
 

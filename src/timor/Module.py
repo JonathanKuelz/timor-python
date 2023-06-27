@@ -180,10 +180,11 @@ class ModuleBase(abc.ABC, JSONable_mixin):
             new_joints.add(new)
         return self.__class__(new_header, new_bodies, new_joints)
 
-    def debug_visualization(self,  # pragma: no cover
+    def debug_visualization(self,
                             viz: pin.visualize.MeshcatVisualizer = None,
                             show_com: bool = True,
-                            base_placement: np.array = Transformation.neutral()) -> pin.visualize.MeshcatVisualizer:
+                            base_placement: np.array = Transformation.neutral()
+                            ) -> pin.visualize.MeshcatVisualizer:  # pragma: no cover
         """
         Do not use this method in proper environment visualizations
 
@@ -592,9 +593,9 @@ class ModulesDB(SingleSet, JSONable_mixin):
             G.add_edge(mod_b, mod_a, connectors=(con_b, con_a))
         return G
 
-    def debug_visualization(self,  # pragma: no cover
+    def debug_visualization(self,
                             viz: pin.visualize.MeshcatVisualizer = None,
-                            stride: float = 1) -> pin.visualize.MeshcatVisualizer:
+                            stride: float = 1) -> pin.visualize.MeshcatVisualizer:  # pragma: no cover
         """
         Show debug visualization of all contained modules (show them in a square array)
 
@@ -802,12 +803,6 @@ class ModuleAssembly(JSONable_mixin):
                 child_bodies[collision.parentJoint]._visual = \
                     ComposedGeometry((child_bodies[collision.parentJoint].visual, vg))
                 continue
-
-            def find_unique_child(tree, search_term):
-                candidates = tree.findall(search_term)
-                if len(candidates) != 1:
-                    raise IndexError(f"Search term \"{search_term}\" not unique: {candidates}")
-                return candidates[0]
 
             inertia = robot.model.inertias[collision.parentJoint]
             child_bodies[collision.parentJoint] = Body(body_id=collision.name, collision=cg, visual=vg, inertia=inertia)
@@ -1093,7 +1088,7 @@ class ModuleAssembly(JSONable_mixin):
         mod_b = self.module_instances[mod_b]
         return {connection for connection in self.connections if (mod_a in connection and mod_b in connection)}
 
-    def plot_graph(self):
+    def plot_graph(self):  # pragma: no cover
         """Draws the assembly graph."""
         G = self.assembly_graph
         plt.subplots(figsize=(12, 12))

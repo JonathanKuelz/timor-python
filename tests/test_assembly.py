@@ -10,7 +10,7 @@ from timor import AtomicModule, Body, Connector, Geometry, ModuleAssembly, Modul
     Transformation
 from timor.parameterized import ParameterizedCylinderLink, ParameterizedOrthogonalJoint, ParameterizedOrthogonalLink, \
     ParameterizedStraightJoint
-from timor.utilities import spatial
+from timor.utilities import prebuilt_robots, spatial
 import timor.utilities.errors as err
 from timor.utilities.file_locations import get_module_db_files
 from timor.Joints import TimorJointType
@@ -60,6 +60,12 @@ class TestModuleAssembly(unittest.TestCase):
         # Now, add a "loose" module and see if it fails
         with self.assertRaises(ValueError):
             assembly = ModuleAssembly(self.db, module_ids + ['1'], connections)
+        with self.assertRaises(IndexError):
+            assembly = ModuleAssembly(self.db, module_ids, connections + [(8, '12_distal_connector', 9, 'base')])
+        with self.assertRaises(KeyError):
+            assembly = ModuleAssembly(self.db, module_ids, connections[:-1] + [(7, '12_proximal_connector', -1, '')])
+        with self.assertRaises(KeyError):
+            assembly = ModuleAssembly(self.db, module_ids, connections[:-1] + [(7, 'hulu', 6, '7_distal_connector')])
 
         # Add an invalid connection
         module_ids = module_ids + ['1']  # base
@@ -77,12 +83,18 @@ class TestModuleAssembly(unittest.TestCase):
         # Check that the assembly can be (de)serialized and we have a functional (in)equality
         new_assembly = assembly.from_json_string(assembly.to_json_string())
         self.assertEqual(assembly, new_assembly)
+        self.assertEqual(hash(assembly), hash(new_assembly))
         try:
             new_assembly.add_random_from_db()
         except LookupError:
             logging.debug("No modules left to add. Removing one module for inequality test")
             new_assembly.connections.pop()
         self.assertNotEqual(assembly, new_assembly)
+        self.assertNotEqual(hash(assembly), hash(new_assembly))
+
+        assembly = prebuilt_robots.get_six_axis_assembly()  # This assembly doesn't have any free connectors
+        with self.assertRaises(LookupError):
+            assembly.add_random_from_db()
 
     def test_parameterizable_assembly(self):
         """Tests assemblies containing at least on parameterizable module."""
