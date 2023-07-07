@@ -38,7 +38,7 @@ class TestFilterRobotsForTasks(unittest.TestCase):
         self.asset_dir = test_data["asset_dir"]
 
     def test_ik_filter(self):
-        test_filter = AssemblyFilter.InverseKinematicsSolvable(max_n_tries=5)
+        test_filter = AssemblyFilter.InverseKinematicsSolvable()
         modrob_solved = 0
         num_tests = 20
         for test_task in range(num_tests):
