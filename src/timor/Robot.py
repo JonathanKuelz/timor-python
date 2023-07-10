@@ -381,15 +381,15 @@ class RobotBase(abc.ABC):
 
         q_masked = q_start[joint_mask]
 
-        def _unmask(q_partial):
+        def compute_cost(_q: np.ndarray):
+            return ik_cost_function(self, unmask(_q), eef_pose.nominal)
+
+        def unmask(q_partial):
             q_ik = q_start
             q_ik[joint_mask] = q_partial
             return q_ik
 
-        def _cost(_q: np.ndarray):
-            return ik_cost_function(self, _unmask(_q), eef_pose.nominal)
-
-        lowest_cost = kwargs.get('lowest_cost', IntermediateIkResult(_unmask(q_masked), _cost(q_masked)))
+        lowest_cost = kwargs.get('lowest_cost', IntermediateIkResult(unmask(q_masked), compute_cost(q_masked)))
 
         def random_restart(iter_left: int) -> Tuple[np.ndarray, bool]:
             """
@@ -398,7 +398,7 @@ class RobotBase(abc.ABC):
             :param iter_left: number of iterations left till iter_max
             :return: Same as parent method
             """
-            if not kwargs.get("allow_random_restart", True):
+            if not kwargs.get("allow_random_restart", True) or iter_left <= 0:
                 return lowest_cost.q, False
             new_init = self.random_configuration()
             if 'joint_mask' in kwargs:
@@ -411,14 +411,14 @@ class RobotBase(abc.ABC):
 
         bounds = optimize.Bounds(self.joint_limits[0, joint_mask], self.joint_limits[1, joint_mask])
         sol = optimize.minimize(
-            _cost,
+            compute_cost,
             q_masked,
             method=kwargs.get('method', 'L-BFGS-B'),
             bounds=bounds,
             options={'maxiter': max_iter, 'ftol': kwargs.get('ftol', 1e-8)}
         )
 
-        q_sol = _unmask(sol.x)
+        q_sol = unmask(sol.x)
         if sol.fun < lowest_cost.distance:
             lowest_cost = IntermediateIkResult(q_sol, sol.fun)
 
@@ -439,7 +439,7 @@ class RobotBase(abc.ABC):
         logging.debug("Scipy IK ends with message: %s", sol.message)
         if not success:
             kwargs['lowest_cost'] = lowest_cost
-            random_restart(max_iter - sol.nit)
+            return random_restart(max_iter - sol.nit)
 
         if success or 'lowest_cost' not in kwargs:
             q = q_sol
