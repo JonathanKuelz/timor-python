@@ -104,12 +104,20 @@ def color_visualization(viz: MeshcatVisualizer,
     """
     Adds colors to a visualized robot in viz, depending on module types.
 
+    This method only works for visualizers that already contain a (colorless) visualization of the robot based on the
+    provided assembly. It will then color the robot according to the provided color_map.
     :param viz: The visualizer to color
     :param assembly: The assembly (that can already be visualized in viz) to color
     :param color_map: A dictionary mapping module integer enumerated module types OR module IDs to colors. If color_map
       maps module IDs to colors, this method first tries to interpret them as custom module IDs matching the internal
       representation in the assembly. If this fails, it will interpret them as original module IDs.
     """
+    # We can't perform a proper equality check but at least we can perform some necessary conditions
+    if not (tuple(viz.model.names) == tuple(assembly.robot.model.names)
+            and set(g.name for g in viz.visual_model.geometryObjects)
+            == set(g.name for g in assembly.robot.visual.geometryObjects)):
+        raise ValueError("The provided visualizer and assembly do not match."
+                         "Make sure to call viz = assembly.robot.visualize() first.")
     if color_map is None:
         color_map = DEFAULT_COLOR_MAP
     if all(isinstance(k, str) for k in color_map.keys()):
@@ -140,16 +148,14 @@ def color_visualization(viz: MeshcatVisualizer,
     for go in assembly.robot.visual.geometryObjects:
         stem = '.'.join(go.name.split('.')[:-1])
         if stem in viz_cmap:
-            go.meshColor = viz_cmap[stem]
+            viz.viewer[viz.viewerVisualGroupName + '/' + go.name].set_property(u'color', viz_cmap[stem].tolist())
         else:
             logging.warning(f"Could not find color for robot geometry {go.name}.")
-    assembly.robot.visualize(viz)
 
 
-def animation(robot: 'Robot.PinRobot', q: np.ndarray, dt: float,  # noqa: F821
-              visualizer: Union[pin.visualize.MeshcatVisualizer,
-                                MeshcatVisualizerWithAnimation] = None
-              ) -> MeshcatVisualizerWithAnimation:  # pragma: no cover
+def animation(robot: 'Robot.PinRobot', q: np.ndarray, dt: float,  # pragma: no cover # noqa: F821
+              visualizer: Union[pin.visualize.MeshcatVisualizer, MeshcatVisualizerWithAnimation] = None
+              ) -> MeshcatVisualizerWithAnimation:
     """
     Creates an animation of a robot movement.
 
@@ -341,7 +347,7 @@ def plot_time_series(times: Sequence[float], data: Sequence[Tuple[np.ndarray, st
     default_subplot_kwargs.update({} if subplot_kwargs is None else subplot_kwargs)
     f, axes = plt.subplots(len(data) + additional_subplots, 1, **default_subplot_kwargs)
     if not isinstance(axes, Iterable):
-        axes = (axes, )
+        axes = (axes,)
 
     for idx, d in enumerate(data):
         axes[idx].plot(times, d[0])
