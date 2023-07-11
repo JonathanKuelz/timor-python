@@ -25,9 +25,8 @@ def prepare_for_user_study(db: ModulesDB) -> ModulesDB:
 def default_filters(task: Task.Task) -> Tuple[AssemblyFilter.AssemblyFilter, ...]:
     """Returns the default filters used in the user study."""
     create_robot = AssemblyFilter.RobotCreationFilter()
-    ik_simple = AssemblyFilter.InverseKinematicsSolvable(ignore_self_collision=True, max_iter=150, max_n_tries=3)
-    ik_complex = AssemblyFilter.InverseKinematicsSolvable(task=task, max_iter=5000, max_n_tries=100,
-                                                          check_static_torques=True)
+    ik_simple = AssemblyFilter.InverseKinematicsSolvable(ignore_self_collision=True, max_iter=150)
+    ik_complex = AssemblyFilter.InverseKinematicsSolvable(task=task, max_iter=5000, check_static_torques=True)
     return create_robot, ik_simple, ik_complex
 
 
@@ -40,7 +39,7 @@ def evaluate(assembly: ModuleAssembly, task: Task.Task, info: bool = True) -> Tu
         assert isinstance(goal, Goals.At), "Error in the user study, unexpected goal."
         q, success = assembly.robot.ik(goal.goal_pose, max_iter=1000, ignore_self_collision=True)
         if success:  # We don't even try if we do not find a solution without collisions
-            q, success = assembly.robot.ik(goal.goal_pose, task=task, q_init=q, max_iter=5000, max_n_tries=100)
+            q, success = assembly.robot.ik(goal.goal_pose, task=task, q_init=q, max_iter=5000)
         if success:
             successes += 1
             if info:

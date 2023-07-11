@@ -15,13 +15,20 @@ from timor.utilities.transformation import Transformation
 
 
 class PinocchioRobotSetup(unittest.TestCase):
-    """Test if robots can instantiated, and works as expected."""
+    """Test if robots can be instantiated, and works as expected."""
+
+    @staticmethod
+    def get_random_config(rng: np.random.Generator, robot: RobotBase):
+        """Random configuration generator depending on numpy only (no pinocchio, so randomness is controlled)"""
+        lim_lower = np.maximum(robot.joint_limits[0, :], -2 * np.pi)
+        lim_upper = np.minimum(robot.joint_limits[1, :], 2 * np.pi)
+        return (lim_upper - lim_lower) * rng.random(robot.njoints) + lim_lower
 
     def setUp(self) -> None:
         self.package_dir = robots['panda'].parent
         self.urdf = robots['panda'].joinpath('urdf').joinpath('panda.urdf')
         random.seed(1234)
-        np.random.seed(1234)
+        self.rng = np.random.default_rng(1234)
 
     def test__first_load_robot(self):
         """Double underscore because tests are run alphabetically and this one should run first"""
@@ -30,14 +37,13 @@ class PinocchioRobotSetup(unittest.TestCase):
         self.assertIsInstance(robot, RobotBase)
 
     def test_base_placement(self):
-        np.random.seed(99)
         new_placement = Transformation.random()
 
         # Check that moving the robot to a new placement works
         robot_one = PinRobot.from_urdf(self.urdf, self.package_dir)
         robot_two = PinRobot.from_urdf(self.urdf, self.package_dir, base_placement=new_placement)
         robot_one.move(new_placement)
-        np_test.assert_array_equal(robot_one.placement, robot_two.placement)
+        np_test.assert_array_equal(robot_one.placement.homogeneous, robot_two.placement.homogeneous)
 
         for _ in range(5):
             robot_one = PinRobot.from_urdf(self.urdf, self.package_dir)
@@ -91,7 +97,7 @@ class PinocchioRobotSetup(unittest.TestCase):
 
         # Velocity should be close to omega x r if single joint moves
         for _ in range(100):
-            q = robot.random_configuration()
+            q = self.get_random_config(self.rng, robot)
             # First joint movement. Needs relative movement of 5th (= 1st joint) and EEF frame; specific to Panda robot
             robot.update_configuration(q, dq0)
             fks = robot.fk(kind="full")
@@ -112,7 +118,7 @@ class PinocchioRobotSetup(unittest.TestCase):
             np_test.assert_array_almost_equal(v_rob[3:], fks[7].rotation @ np.asarray((0., 0., 1.)))
 
             # Velocity should not change with translation of base
-            robot.set_base_placement(Transformation.from_translation(np.random.random((3,))))
+            robot.set_base_placement(Transformation.from_translation(self.rng.random((3,))))
             robot.update_configuration(q, dq1)
             v_rob_moved = robot.tcp_velocity
             np_test.assert_array_almost_equal(v_rob, v_rob_moved)
@@ -132,7 +138,7 @@ class PinocchioRobotSetup(unittest.TestCase):
         robot = PinRobot.from_urdf(self.urdf, self.package_dir)
         self.assertIsInstance(robot.fk(robot.configuration, 'tcp'), Transformation)
 
-        conf = pin.randomConfiguration(robot.model)
+        conf = self.get_random_config(self.rng, robot)
         for kind in ('tcp', 'joints', 'full'):
             # Updating geometry placements should not change kinematics
             self.assertEqual(
@@ -154,17 +160,14 @@ class PinocchioRobotSetup(unittest.TestCase):
 
         def random_values(limits: np.ndarray, N: int = 100):
             """Expects positive limits end returns random values between -limits and +limits"""
-            sign_mask = (np.random.random([N, len(limits)]) > .5)
-            rand_val = np.random.random([N, len(limits)]) * limits
+            sign_mask = (self.rng.random([N, len(limits)]) > .5)
+            rand_val = self.rng.random([N, len(limits)]) * limits
             rand_val[sign_mask] = rand_val[sign_mask] * -1
             return rand_val
 
-        q = np.vstack([pin.randomConfiguration(robot.model) for _ in range(100)])
+        q = np.vstack([self.get_random_config(self.rng, robot) for _ in range(100)])
         dq = random_values(robot.joint_velocity_limits, 100)
         tau = random_values(robot.model.effortLimit, 100)
-
-        random.seed(1001)
-        np.random.seed(1001)
 
         for i in range(q.shape[0]):
             # Only considers robot bodies; ignores motor dynamics and friction
@@ -193,7 +196,7 @@ class PinocchioRobotSetup(unittest.TestCase):
             return _r.fk(_q, 'tcp').distance(_g).translation_euclidean
 
         error_count = {"scipy": 0, "jacobian": 0}
-        N = 100
+        N = 50
         n = 0
         scipy_tolerance = Tolerance.CartesianXYZ.default()
         jacobian_tolerance = Tolerance.DEFAULT_SPATIAL
@@ -202,24 +205,26 @@ class PinocchioRobotSetup(unittest.TestCase):
         zero_limits = np.zeros_like(robot.joint_torque_limits)
         for _ in range(N):
             # Using a random example for which we know, there's at least one goal configuration
-            conf = pin.randomConfiguration(robot.model)
+            conf = self.get_random_config(self.rng, robot)
+            q_init = self.get_random_config(self.rng, robot)
             goal = robot.fk(conf)
             if robot.has_self_collision():
                 # Don't test ik in these cases - it might fail due to avoiding self collisions
                 continue
             n += 1  # Keep track of how many examples were really worked with
             robot.model.effortLimit = inf_limits  # Make it impossible to fail due to the torque limits
-            robot.update_configuration(pin.neutral(robot.model))
-            conf, success = robot.ik_scipy(ToleratedPose(goal, scipy_tolerance), ik_cost_function=translation_cost)
+            robot.update_configuration(q_init)
+            conf, success = robot.ik_scipy(ToleratedPose(goal, scipy_tolerance), q_init=q_init,
+                                           ik_cost_function=translation_cost)
             if success:
-                # ik_scipy optimizes only for position, therefore the Cartesian XYZ tolerance
+                # Here, we only optimize for position, therefore the Cartesian XYZ tolerance
                 self.assertTrue(scipy_tolerance.valid(goal, robot.fk(conf)))
                 self.assertTrue(max(abs(conf)) < 2 * np.pi)  # IK result should be mapped to (-2pi, 2pi)
                 self.assertFalse(robot.has_self_collision(conf))
             else:
                 error_count['scipy'] += 1
 
-            robot.update_configuration(pin.neutral(robot.model))  # Prevent using the scipy result as initial guess
+            robot.update_configuration(q_init)  # Prevent using the scipy result as initial guess
             conf, success = robot.ik_jacobian(ToleratedPose(goal, jacobian_tolerance))
             if success:
                 np_test.assert_array_almost_equal(goal.homogeneous, robot.fk(conf).homogeneous, decimal=2)
@@ -231,7 +236,7 @@ class PinocchioRobotSetup(unittest.TestCase):
                 fails.append((goal, conf))
 
             # Test that masking joints in the ik works
-            q_start = robot.random_configuration()
+            q_start = self.get_random_config(self.rng, robot)
             mask = np.array([random.random() > 0.5 for _ in range(len(conf))])
             conf, success = robot.ik_jacobian(ToleratedPose(goal, jacobian_tolerance), q_init=q_start, joint_mask=mask)
             np_test.assert_array_almost_equal(q_start[~mask], conf[~mask])
@@ -248,7 +253,7 @@ class PinocchioRobotSetup(unittest.TestCase):
             self.assertFalse(success)
 
         for k, v in error_count.items():
-            self.assertLess(v, 0.05 * n, f"ik should be able to resolve almost any fk; "
+            self.assertLess(v, 0.03 * n, f"ik should be able to resolve almost any fk; "
                                          f"not for {k} with {v / n * 100:.2f}% errors.")
 
         if error_count['scipy'] + error_count['jacobian'] > 0:
@@ -264,7 +269,7 @@ class PinocchioRobotSetup(unittest.TestCase):
         wrapper_two = pin.RobotWrapper.BuildFromURDF(str(self.urdf), str(self.package_dir))
         robot_default = PinRobot(wrapper=wrapper_one)
         robot_moved = PinRobot(wrapper=wrapper_two, base_placement=displacement.copy())
-        conf = pin.randomConfiguration(robot_default.model)
+        conf = self.get_random_config(self.rng, robot_default)
 
         self.assertEqual(
             tuple(p.multiply_from_left(displacement) for p in robot_default.fk(conf, 'full')[1:]),

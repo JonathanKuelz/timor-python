@@ -333,7 +333,6 @@ class RobotBase(abc.ABC):
                  q_init: np.ndarray = None,
                  max_iter: int = 1000,
                  restore_config: bool = False,
-                 max_n_tries: int = 10,
                  ik_cost_function: Callable[[RobotBase, np.ndarray, TransformationLike], float] = default_ik_cost_function,  # noqa: E501
                  **kwargs
                  ) -> Tuple[np.ndarray, bool]:
@@ -342,11 +341,9 @@ class RobotBase(abc.ABC):
 
         :param eef_pose: Desired end effector pose with tolerances.
         :param q_init: Initial joint angles to start searching from. If not given, uses current configuration
-        :param max_iter: Maximum number of iterations before the algorithm gives up. If max_n_tries is larger than 1,
-            max_iter is counted over all n tries.
+        :param max_iter: Maximum number of iterations before the algorithm gives up.
         :param restore_config: If True, the current robot configuration will be kept. If false, the found solution for
             the inverse kinematics will be kept
-        :param max_n_tries: Maximum number of runs with a new random init configuration before the algorithm gives up
         :param ik_cost_function: A custom cost function that takes a robot, its joint angles, and a
             TransformationLike and returns a scalar cost indicating the quality of the configuration in solving the ik
             problem. If not given, the default cost function is used (equal weighting of .5 meter / 180 degree error).
@@ -384,26 +381,44 @@ class RobotBase(abc.ABC):
 
         q_masked = q_start[joint_mask]
 
-        def _unmask(q_partial):
+        def compute_cost(_q: np.ndarray):
+            return ik_cost_function(self, unmask(_q), eef_pose.nominal)
+
+        def unmask(q_partial):
             q_ik = q_start
             q_ik[joint_mask] = q_partial
             return q_ik
 
-        def _cost(_q: np.ndarray):
-            return ik_cost_function(self, _unmask(_q), eef_pose.nominal)
+        lowest_cost = kwargs.get('lowest_cost', IntermediateIkResult(unmask(q_masked), compute_cost(q_masked)))
 
-        lowest_cost = kwargs.get('lowest_cost', IntermediateIkResult(_unmask(q_masked), _cost(q_masked)))
+        def random_restart(iter_left: int) -> Tuple[np.ndarray, bool]:
+            """
+            Evaluate a random restart given the number of iterations left and whether restarts are allowed.
+
+            :param iter_left: number of iterations left till iter_max
+            :return: Same as parent method
+            """
+            if not kwargs.get("allow_random_restart", True) or iter_left <= 0:
+                return lowest_cost.q, False
+            new_init = self.random_configuration()
+            if 'joint_mask' in kwargs:
+                inverted_mask = ~kwargs['joint_mask'].astype(bool)
+                new_init[inverted_mask] = q_init[inverted_mask]
+            logging.debug("Trying IK scipy again with {} iterations left".format(iter_left))
+            new_kwargs = kwargs.copy()
+            new_kwargs['lowest_cost'] = lowest_cost
+            return self.ik_scipy(eef_pose, new_init, iter_left, restore_config, ik_cost_function, **new_kwargs)
 
         bounds = optimize.Bounds(self.joint_limits[0, joint_mask], self.joint_limits[1, joint_mask])
         sol = optimize.minimize(
-            _cost,
+            compute_cost,
             q_masked,
             method=kwargs.get('method', 'L-BFGS-B'),
             bounds=bounds,
             options={'maxiter': max_iter, 'ftol': kwargs.get('ftol', 1e-8)}
         )
 
-        q_sol = _unmask(sol.x)
+        q_sol = unmask(sol.x)
         if sol.fun < lowest_cost.distance:
             lowest_cost = IntermediateIkResult(q_sol, sol.fun)
 
@@ -422,10 +437,9 @@ class RobotBase(abc.ABC):
             success = (np.abs(tau) <= self.joint_torque_limits).all()
 
         logging.debug("Scipy IK ends with message: %s", sol.message)
-        if not success and max_n_tries > 0:
-            logging.debug("Scipy IK failed, trying again with new random init configuration")
+        if not success:
             kwargs['lowest_cost'] = lowest_cost
-            return self.ik_scipy(eef_pose, q_init, max_iter - sol.nit, restore_config, max_n_tries - 1, **kwargs)
+            return random_restart(max_iter - sol.nit)
 
         if success or 'lowest_cost' not in kwargs:
             q = q_sol
@@ -894,7 +908,7 @@ class PinRobot(RobotBase):
             :param iter_left: number of iterations left till iter_max
             :return: Same as parent method
             """
-            if kwargs.get("allow_random_restart", False):
+            if not kwargs.get("allow_random_restart", True):
                 return closest_translation.q, False
             new_init = self.random_configuration()
             if 'joint_mask' in kwargs:
