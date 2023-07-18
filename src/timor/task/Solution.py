@@ -100,6 +100,8 @@ class SolutionBase(abc.ABC, JSONable_mixin):
             validator.validate(content)
         except jsonschema.exceptions.ValidationError:
             raise ValueError(f"Invalid solution json provided. Details: {tuple(validator.iter_errors(content))}.")
+        except jsonschema.RefResolutionError:
+            logging.warning("Schema validation failed -- unable to resolve a remote reference!")
         return cls.from_json_data(content, tasks)
 
     @staticmethod
