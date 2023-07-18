@@ -101,7 +101,7 @@ class Projection:
     @property
     def roto_translation_vector(self) -> np.ndarray:
         r"""
-        Stacks the translation and axis-angle-rotation parameters of a transformation in a (6,)-shaped vector.
+        Stacks the axis-angle-rotation vec[:3] and translation vec[3:] of a transformation in a (6,)-vector.
 
         :returns: A vector :math:`(n_x * \theta_R, n_y * \theta_R, n_z * \theta_R, x, y, z)`, where the first three
             elements are the rotation (in axis angle representation) of the transformation and the last three elements
@@ -249,10 +249,10 @@ class Transformation(JSONable_mixin):
     @classmethod
     def from_roto_translation_vector(cls, v: Collection[float]) -> Transformation:
         r"""
-        Create a transformation from a stacked roto-translation vector.
+        Create a transformation from a stacked roto-translation vector with v[:3]~rotation, v[3:]~translation.
 
-        :param v: A vector :math:`(n_x * \theta_R, n_y * \theta_R, n_z * \theta_R, x, y, z)`, where last three elements
-            are the rotation (in axis angle representation) and the first three elements are the translation of the
+        :param v: A vector :math:`(n_x * \theta_R, n_y * \theta_R, n_z * \theta_R, x, y, z)`, where first three elements
+            are the rotation (in axis angle representation) and the last three elements are the translation of the
             transformation.
         """
         v = np.asarray(v, dtype=float)

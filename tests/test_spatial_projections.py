@@ -71,8 +71,8 @@ class TestSpatialutilities(unittest.TestCase):
             axis_angles = T.projection.axis_angles
             axis_angles3 = T.projection.axis_angles3
             vec = T.projection.roto_translation_vector
-            np_test.assert_array_almost_equal(T.translation, vec[3:])
             np_test.assert_array_almost_equal(axis_angles3, vec[:3])
+            np_test.assert_array_almost_equal(T.translation, vec[3:])
             np_test.assert_array_almost_equal(axis_angles3, axis_angles[:3] * axis_angles[3])
 
             T_dash = Transformation.from_roto_translation_vector(vec)
