@@ -17,6 +17,7 @@ import uuid
 import warnings
 import xml.etree.ElementTree as ET
 
+import jsonschema
 import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
@@ -458,7 +459,12 @@ class ModulesDB(SingleSet, JSONable_mixin):
         """
         if validate:
             _, validator = get_schema_validator(schema_dir.joinpath("ModuleSchema.json"))
-            if not validator.is_valid(data):
+            try:
+                valid = validator.is_valid(data)
+            except jsonschema.RefResolutionError:
+                valid = True
+                logging.warning("Schema validation failed -- unable to resolve a remote reference!")
+            if not valid:
                 logging.debug(f"Errors: {tuple(validator.iter_errors(data))}")
                 raise ValueError("modules.json invalid.")
         db = cls(name=name, **{k: data[k] for k in data if k != "modules"})

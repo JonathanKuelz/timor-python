@@ -28,7 +28,7 @@ if not CONFIG_FILE.exists():
     print("Created a configuration file at", CONFIG_FILE, "for timor-python.")
 TIMOR_CONFIG.read(CONFIG_FILE)
 
-SERIALIZING_CONFIG = TIMOR_CONFIG.get['SERIALIZING'] if TIMOR_CONFIG.has_section('SERIALIZING') else dict()
+SERIALIZING_CONFIG = TIMOR_CONFIG['SERIALIZING'] if TIMOR_CONFIG.has_section('SERIALIZING') else dict()
 DEFAULT_ASSETS_COPY_BEHAVIOR = "error"
 possible_copy_behaviors = {"warning", "error", "copy", "symlink", "ignore"}
 task_assets_copy_behavior = SERIALIZING_CONFIG.get("task_assets_copy_behavior", DEFAULT_ASSETS_COPY_BEHAVIOR)

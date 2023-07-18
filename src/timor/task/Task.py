@@ -14,6 +14,7 @@ import uuid
 import warnings
 
 from hppfcl import hppfcl
+import jsonschema
 import numpy as np
 import pinocchio as pin
 
@@ -130,7 +131,12 @@ class Task(JSONable_mixin):
         :param d: The parsed json data
         """
         _, validator = get_schema_validator(schema_dir.joinpath("TaskSchema.json"))
-        if not validator.is_valid(d):
+        try:
+            valid = validator.is_valid(d)
+        except jsonschema.RefResolutionError:
+            valid = True
+            logging.warning("Schema validation failed -- unable to resolve a remote reference!")
+        if not valid:
             logging.debug(f"Errors: {tuple(validator.iter_errors(d))}")
             raise ValueError("task.json invalid.")
         content = deepcopy(d)  # Make sure we don't modify the original data while popping items
