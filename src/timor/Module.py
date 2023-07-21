@@ -621,6 +621,25 @@ class ModulesDB(SingleSet, JSONable_mixin):
 
         return viz
 
+    def find_modules_with_same_connectors(self, module: ModuleBase) -> List[ModuleBase]:
+        """
+        Serves as a helper function for the mutation operation.
+
+        Find all modules that can potentially replace the module given. In order to do so, we look for modules with the
+        same connectors regarding its type, size and gender, including itself.
+
+        :param module: The module for which we are looking for replacement candidates.
+        """
+        initial_properties = [(c.type, np.asarray(c.size).tobytes(), c.gender)
+                              for c in module.available_connectors.values()]
+        modules_with_same_connectors = []
+        for m in self:
+            other_properties = [(c.type, np.asarray(c.size).tobytes(), c.gender)
+                                for c in m.available_connectors.values()]
+            if len(initial_properties) == len(other_properties) and set(initial_properties) == set(other_properties):
+                modules_with_same_connectors.append(module)
+        return modules_with_same_connectors
+
     def __contains__(self, item: ModuleBase) -> bool:
         """
         If a new module should be added to a Module DB, the following properties must be preserved:

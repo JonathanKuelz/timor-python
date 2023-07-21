@@ -5,7 +5,7 @@ import unittest
 
 import numpy as np
 
-from timor.utilities.dtypes import EternalDict, SingleSet, TypedHeader
+from timor.utilities.dtypes import EternalDict, LimitedSizeMap, SingleSet, TypedHeader
 import timor.utilities.errors as err
 
 
@@ -31,6 +31,36 @@ class CustomTypeUnitTests(unittest.TestCase):
             d_3 = d_1.update(d_2)
         with self.assertRaises(TypeError):
             del d[2]
+
+    def test_LimitedSizeMap(self):
+        with self.assertRaises(ValueError):
+            LimitedSizeMap({'a': 1, 'b': 2}, maxsize=-1)
+        with self.assertRaises(ValueError):
+            LimitedSizeMap(maxsize=0)
+        with self.assertRaises(ValueError):
+            LimitedSizeMap()
+
+        d = LimitedSizeMap({'a': 1, 'b': 2}, maxsize=1)
+        self.assertEqual(len(d), 1)
+        d.update({'c': 3, 'd': 4})
+        self.assertEqual(len(d), 1)
+
+        d = LimitedSizeMap(maxsize=10)
+        for i in range(100):
+            d[i] = i
+        self.assertEqual(len(d), 10)
+        self.assertEqual(list(d), list(range(99, 89, -1)))
+        d[90] = 'a new value'
+        d['a new key'] = 100
+        self.assertEqual(list(d), ['a new key', 90] + list(range(99, 91, -1)))
+
+        d.get(95)  # When accessed, we move an element to the left
+        self.assertEqual(95, list(d)[0])
+
+        # Test auto-provided __contains__ and pop
+        self.assertTrue(95 in d)
+        d.pop(95)
+        self.assertFalse(95 in d)
 
     def test_SingleSet(self):
         robots = SingleSet()
