@@ -60,6 +60,7 @@ def basicConfig(filename: str = None,
         handler = root_logging.StreamHandler()
     handler.setFormatter(root_logging.Formatter(fmt=output_format, datefmt=datefmt))
     getLogger().addHandler(handler)
+    getLogger().propagate = False
     setLevel(level)
 
 

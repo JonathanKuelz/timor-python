@@ -24,3 +24,11 @@ robots = ["/home/<username>/timor-python/src/timor_sample_robots", "/home/<usern
 [SERIALIZING]
 task_assets_copy_behavior = "error"
 db_assets_copy_behavior = "error"
+
+# Here, you can specify hyperparameters preferences for optimizers used in Timor.
+[Optimizers]
+save_solutions_dir = <path_to_folder>
+[Optimizers.GA]
+population_size = 15
+num_generations = 200
+mutation_probability = 0.2

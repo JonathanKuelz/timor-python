@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from collections import namedtuple
+from collections import namedtuple, OrderedDict
+from collections.abc import MutableMapping
 from dataclasses import asdict, dataclass, field, fields
 import datetime
 import logging
@@ -100,6 +101,60 @@ class Lazy(Generic[T]):
         lazy_variable = cls(ret)
         lazy_variable.value = variable
         return lazy_variable
+
+
+class LimitedSizeMap(MutableMapping):
+    """
+    This class behaves like a dictionary with a limited size of elements it can hold.
+
+    The implementation is based on an ordered dict that, by default, pops elements in lifo order. In contrast to that,
+    the LimitedSizeMap is FIFO: The most recent element is stored on the left and we pop from the right.
+    The size limit has to be given in the number of elements contained.
+    This class exhibits the following behavior:
+    - If the cache is exceeded, the oldest element is removed (FIFO)
+    - If a key is accessed, the according element is moved to the left end (beginning) of the dictionary
+    - If a key is updated, the according element is moved to the left end (beginning) of the dictionary
+    However, note that this is not subclassing OrderedDict, but MutableMapping, as subclassing of builtins that are not
+    constructed for this kind of behavior can lead to unexpected failure.
+
+    :ref: https://stackoverflow.com/questions/2437617/how-to-limit-the-size-of-a-dictionary
+    :ref: https://stackoverflow.com/questions/3387691/how-to-perfectly-override-a-dict
+    """
+
+    def __init__(self, *args, maxsize: int = None, **kwargs):
+        """Initialize a LimitedSizeDict as any other dictionary"""
+        if maxsize is None:
+            raise ValueError("maxsize must be set")
+        if maxsize <= 0:
+            raise ValueError("maxsize must be positive")
+        self.__maxsize: int = int(maxsize)  # Don't even try giving me a float
+        self.store: OrderedDict = OrderedDict()
+        self.update(*args, **kwargs)
+
+    def __delitem__(self, key):
+        """Delete an item from the store"""
+        del self.store[key]
+
+    def __iter__(self):
+        """Return an iterator over the store"""
+        return iter(self.store)
+
+    def __len__(self):
+        """Return the number of elements currently cached"""
+        return len(self.store)
+
+    def __getitem__(self, key):
+        """Make sure accessing keys moves them to the left end of the dictionary"""
+        value = self.store[key]
+        self.store.move_to_end(key, last=False)
+        return value
+
+    def __setitem__(self, key, value):
+        """Make sure updating keys moves them to the left end of the store"""
+        if len(self) >= self.__maxsize and key not in self:
+            self.store.popitem(last=True)
+        self.store[key] = value
+        self.store.move_to_end(key, last=False)
 
 
 class SingleSet(set):
