@@ -12,7 +12,7 @@ import numpy as np
 from timor import ModuleAssembly
 from timor.Robot import RobotBase
 from timor.task import Goals, Task
-from timor.utilities import dtypes
+from timor.utilities import dtypes, logging
 from timor.utilities.trajectory import Trajectory
 
 GOALS_WITH_POSE = Union[Goals.At, Goals.Reach]
@@ -139,8 +139,11 @@ class IntermediateFilterResults:
                 # This should be the only place to override this attribute. Access is complex on purpose - you can only
                 #  change this if you really know what you're doing.
                 self.__dict__[ep]._EternalResult__allow_overwriting = value
-        elif self.__getattribute__(key) is not None and not self.__allow_overwriting:
-            raise OverwritesIntermediateResult(f'{key} has already been set.')
+        elif self.__getattribute__(key) is not None:
+            if self.__allow_overwriting:
+                logging.info(f'Overwriting {key} in intermediate results with {value}.')
+            else:
+                raise OverwritesIntermediateResult(f'{key} has already been set.')
         super().__setattr__(key, value)
 
 
@@ -329,7 +332,8 @@ class GoalByGoalFilter(AssemblyFilter, abc.ABC):
                 # In this case, it is sufficient to check already existing intermediate results
                 valid &= self._check_given(assembly, goal, results, task)
             else:
-                valid &= self._check_goal(assembly, goal, results, task)
+                with results.allow_changes():  # Potentially, some of the results are overwritten
+                    valid &= self._check_goal(assembly, goal, results, task)
             if not valid and stop_early:
                 return False
         return valid
