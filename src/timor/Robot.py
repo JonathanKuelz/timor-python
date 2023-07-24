@@ -981,7 +981,7 @@ class PinRobot(RobotBase):
                 return random_restart(max_iter - i)
 
         if self.has_self_collision(q) and not kwargs.get('ignore_self_collision', False):
-            logging.info("IK solution had self-collisions, re-try")
+            logging.debug("IK solution had self-collisions, re-try")
             if i < max_iter:
                 # Give it another try, starting from a different configuration
                 i += 1
@@ -990,7 +990,7 @@ class PinRobot(RobotBase):
             logging.debug("Jacobian ik not successful after maximum number of iterations, fails with self collision.")
             success = False
         elif 'task' in kwargs and self.has_collisions(kwargs['task']):
-            logging.info("IK solution collides with environment, re-try")
+            logging.debug("IK solution collides with environment, re-try")
             if i < max_iter:
                 # Give it another try, starting from a different configuration
                 i += 1
