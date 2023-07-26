@@ -637,7 +637,7 @@ class ModulesDB(SingleSet, JSONable_mixin):
             other_properties = [(c.type, np.asarray(c.size).tobytes(), c.gender)
                                 for c in m.available_connectors.values()]
             if len(initial_properties) == len(other_properties) and set(initial_properties) == set(other_properties):
-                modules_with_same_connectors.append(module)
+                modules_with_same_connectors.append(m)
         return modules_with_same_connectors
 
     def __contains__(self, item: ModuleBase) -> bool:
