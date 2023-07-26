@@ -5,7 +5,8 @@ import json
 from pathlib import Path
 import pickle
 import random
-from typing import Callable, Dict, List, Optional, Sequence, Tuple, Union
+import time
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
 from networkx import MultiDiGraph
 import networkx as nx
@@ -95,8 +96,8 @@ class GA:
             if module == self.__empty_slot:
                 self.same_connector_cache[self.__empty_slot] = list(self.all_modules[1:])
                 continue
-            self.same_connector_cache[module] = [m.id for m in ModulesDB.find_modules_with_same_connectors(
-                self.db, self.db.by_id[module])]
+            self.same_connector_cache[module] = [m.id for m in
+                                                 self.db.find_modules_with_same_connectors(self.db.by_id[module])]
 
         # Hyperparameter priority: user preferences > config file > toolbox default values.
         self.hp: Dict[str, any] = deepcopy(self.hp_default)
@@ -143,7 +144,7 @@ class GA:
         offspring = population.copy()
         for (i, j) in zip(*mutate):  # i is the individual, j is the gene
             gene_initial_id = self.all_modules[offspring[i, j]]
-            replacement_candidates = self.same_connector_cache[gene_initial_id]
+            replacement_candidates = self.same_connector_cache[gene_initial_id].copy()
             # Check if gene is at the start or end of chromosome. We will never replace base and eef with empty module.
             if j != 0 and j != offspring.shape[1] - 1:
                 replacement_candidates.append(self.__empty_slot)
@@ -157,20 +158,25 @@ class GA:
 
     def optimize(self,
                  fitness_function: Callable[[ModuleAssembly, pygad.GA, int], float],
-                 hp: dict = None,
+                 hp: Optional[dict] = None,
                  sane_keyboard_interrupt: bool = True,
+                 timeout: Optional[float] = None,
                  **ga_kwargs
                  ) -> pygad.GA:
         """
         Perform optimization utilizing a GA by trying to optimize the fitness function over module assemblies.
 
         Users can specify the hyperparameters for the GA. If not specified, the default hyperparameters will be used.
+
+        :ref: https://pygad.readthedocs.io/en/latest/pygad.html?highlight=steady%20state%20parent#supported-parent-selection-operations  # noqa: E501
+
         :param fitness_function: the fitness function for the GA. It should take three arguments: a ModuleAssembly
             which is to be evaluated as well as the GA instance and the index of the solution in the population. It is
             up to the user which of these arguments are used in the fitness function.
         :param hp: Optional hyperparameters overriding the user and default hyperparameters.
         :param sane_keyboard_interrupt: If True, the GA will be stopped when a keyboard interrupt is received, but the
             exception will not be raised.
+        :param timeout: If specified, the GA will be stopped after the specified number of seconds.
         :param ga_kwargs: Additional keyword arguments to be passed to the pygad.GA class that do not qualify as
             hyperparameters (so anything that should not be logged as a hyperparameter, e.g., callbacks).
         """
@@ -187,6 +193,8 @@ class GA:
 
         if run_hp['num_genes'] < 3:
             raise ValueError('The number of genes must be at least 3!')
+
+        logging.info(f"Hyperparameters used: {json.dumps(run_hp)}")
 
         gene_space: List[List[int]] = [[self.id2num[_id] for _id in self.base_ids]]
         for _ in range(run_hp['num_genes'] - 2):
@@ -212,7 +220,21 @@ class GA:
             save_fp.mkdir(exist_ok=True)
             save_fp = save_fp.joinpath('GA_started_at_' + datetime.now().strftime('%Y-%m-%d_%H-%M-%S') + 'best.pkl')
 
-        logging.info(f"Hyperparameters used: {json.dumps(run_hp)}")
+        if timeout is not None:
+            def no_callback(_: pygad.GA):
+                return None
+            current_callback: Callable[[pygad.GA], Any] = ga_kwargs.get('on_generation', no_callback)
+            t_now = time.time()
+
+            def timeout_callback(ga: pygad.GA):
+                val = current_callback(ga)
+                if time.time() - t_now > timeout:
+                    logging.info("Terminating GA optimization due to timeout.")
+                    return "stop"
+                return val
+
+            ga_kwargs['on_generation'] = timeout_callback
+
         ga_instance = pygad.GA(
             fitness_func=fitness,
             gene_space=gene_space,
@@ -230,6 +252,7 @@ class GA:
                 logging.warning("Keyboard interrupt received, stopping optimization.")
             else:
                 raise
+
         if save_fp is not None:
             with save_fp.open('wb') as f:
                 pickle.dump(ga_instance.best_solutions, f)
@@ -278,6 +301,10 @@ class GA:
         """
         if self._last_ga_instance is None:
             logging.warning('No GA optimization has been run yet.')
+            return
+        elif not hasattr(self._last_ga_instance, 'best_solutions_fitness'):
+            logging.warning('No fitness values were recorded during the last GA optimization.'
+                            'Set save_best_solutions=True in the GA kwargs to visualize results.')
             return
         num_data_points = len(self._last_ga_instance.best_solutions_fitness)
         times = [i for i in range(num_data_points)]
