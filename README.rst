@@ -36,7 +36,7 @@ With Timor you can:
 
 Installation
 ------------
-Timor-python is available on PyPI. It requires **at least Python 3.8**. For installation, use::
+Timor-python is available on PyPI. It requires **at least Python 3.8** and a linux distribution (for windows and macOS, see below). For installation, use::
 
    pip install timor-python
 
@@ -68,6 +68,14 @@ then::
 
 
 After that, each time you commit files, it will automatically perform linting and style checks.
+
+other OS: Currently, Windows and MacOS are not officially supported. Crucially, pinocchio is not available on PyPI for these operating systems.
+However, if you want to use Timor, you can try::
+
+    pip install --no-deps timor-python
+    conda install pinocchio -c conda-forge
+
+and then :code:`pip install` all other requirements from the [dependencies] section in the `pyproject.toml file. <https://gitlab.lrz.de/tum-cps/timor-python/-/blob/main/pyproject.toml>`_
 
 Usage
 -----
