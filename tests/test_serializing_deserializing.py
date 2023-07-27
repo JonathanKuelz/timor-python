@@ -306,7 +306,6 @@ class SerializationTests(unittest.TestCase):
                 pin_geometry_models_functionally_equal(robot, reconstructed_robot)
 
     def test_assembly_to_urdf(self):
-        db_file = file_locations.get_module_db_files('IMPROV')
         db = ModulesDB.from_name('IMPROV')
         for _ in range(5):
             assembly = prebuilt_robots.random_assembly(n_joints=6, module_db=db)
@@ -318,6 +317,8 @@ class SerializationTests(unittest.TestCase):
                 tmp_urdf = Path(tmp_dir, 'test.urdf')
                 urdf = assembly.to_urdf('test_robot', Path(tmp_urdf),
                                         replace_wrl=True, handle_missing_assets="warning")
+                if "mesh" not in urdf:
+                    continue  # Happens sometimes (seldomly) when we have "bad luck" with the random assembly
                 with self.assertRaises(ValueError):
                     Robot.PinRobot.from_urdf(Path(tmp_urdf), tmp_urdf.parent)
                 with self.assertRaises(FileNotFoundError):
