@@ -11,7 +11,7 @@ import shutil
 from typing import Dict, List, Union
 
 from timor.utilities import logging
-from timor.utilities.configurations import CONFIG_FILE, TIMOR_CONFIG
+from timor.utilities.configurations import CONFIG_FILE, FILE_LOCATION_CONF
 from timor.utilities.download_data import download_additional_robots, download_schemata
 
 __utilities = Path(__file__).parent.absolute()
@@ -21,8 +21,7 @@ cache_dir = head.joinpath("cache")  # For caching downloaded robots, etc.
 if not cache_dir.exists():
     cache_dir.mkdir()
 logging.info("Loading custom configurations from {}".format(CONFIG_FILE))
-log_conf = TIMOR_CONFIG['FILE_LOCATIONS'] if TIMOR_CONFIG.has_section('FILE_LOCATIONS') else dict()
-test_data = Path(log_conf.get('test_data', head.parent.joinpath('tests/data'))).expanduser()
+test_data = Path(FILE_LOCATION_CONF.get('test_data', head.parent.joinpath('tests/data'))).expanduser()
 if not test_data.exists():
     test_data = None
 default_robot_dir = head.joinpath('timor_sample_robots')
@@ -31,19 +30,19 @@ if not cache_robot_dir.exists():
     cache_robot_dir.mkdir()
 
 # Get schemas
-schema_dir = Path(log_conf.get('schema_dir', cache_dir.joinpath("schemata")))
+schema_dir = Path(FILE_LOCATION_CONF.get('schema_dir', cache_dir.joinpath("schemata")))
 if not schema_dir.exists():
     schema_dir.mkdir(parents=True)
 schemata = download_schemata(schema_dir)
 
 # Find local robots
-if 'robots' in log_conf:
+if 'robots' in FILE_LOCATION_CONF:
     robots = dict()
-    for r_dir in json.loads(log_conf['robots']):
+    for r_dir in json.loads(FILE_LOCATION_CONF['robots']):
         if not Path(r_dir).exists():
             raise ValueError(f"Configured robot directory {r_dir} does not exist.")
 
-    for __r in chain.from_iterable(Path(d).iterdir() for d in json.loads(log_conf['robots'])):
+    for __r in chain.from_iterable(Path(d).iterdir() for d in json.loads(FILE_LOCATION_CONF['robots'])):
         if __r.name in robots:
             logging.warning(f"Robot {__r.name} already loaded from different location. Ignoring {__r}!")
             continue
@@ -97,7 +96,9 @@ def map2path(p: Union[str, Path]) -> Path:
     """Maps strings to paths, but does nothing else s.t. e.g. Django paths are not casted."""
     if isinstance(p, str):
         return Path(p)
-    return p.expanduser()
+    if hasattr(p, 'expanduser'):  # e.g. Django FieldFile
+        return p.expanduser()
+    return p
 
 
 def clean_caches():

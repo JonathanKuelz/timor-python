@@ -2,8 +2,10 @@
 # Author: Jonathan Külz
 # Date: 03.03.22
 import logging
+import re
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple, Union
 
+import matplotlib
 from matplotlib import pyplot as plt
 import meshcat.animation
 import meshcat.geometry
@@ -69,33 +71,6 @@ class MeshcatVisualizerWithAnimation(MeshcatVisualizer):
 
             # Update viewer configuration.
             frame[visual_name].set_transform(T)
-
-
-class TextTexture(meshcat.geometry.Texture):
-    """
-    Forwarded from meshcat-py master branch
-
-    https://github.com/rdeits/meshcat-python/blob/master/src/meshcat/geometry.py
-    """
-
-    def __init__(self, text, font_size=100, font_face='sans-serif'):
-        """Create texture with text rendered."""
-        super(TextTexture, self).__init__()
-        self.text = text
-        # font_size will be passed to the JS side as is; however if the
-        # text width exceeds canvas width, font_size will be reduced.
-        self.font_size = font_size
-        self.font_face = font_face
-
-    def lower(self, object_data):
-        """Internal function used to create dict for underlying visualizer"""
-        return {
-            u"uuid": self.uuid,
-            u"type": u"_text",
-            u"text": self.text,
-            u"font_size": self.font_size,
-            u"font_face": self.font_face,
-        }
 
 
 def color_visualization(viz: MeshcatVisualizer,
@@ -179,7 +154,7 @@ def animation(robot: 'Robot.PinRobot', q: np.ndarray, dt: float,  # pragma: no c
     return viz
 
 
-def center_camera(viewer: meshcat.visualizer.Visualizer,
+def center_camera(viz: MeshcatVisualizer,
                   around: Union[np.ndarray, List[float], Tuple[float, float, float]]):
     """
     Centers the camera of the viewer window s.t. it targets the origin (if it is not already centered otherwise).
@@ -187,7 +162,7 @@ def center_camera(viewer: meshcat.visualizer.Visualizer,
     It is placed behind the "around" placement, s.t. any object placed there is shown prominently. The camera will, as
     common in robotics, be placed above the object.
 
-    :param viewer: The viewer to center (e.g. from `MeshcatVisualizer.viewer`)
+    :param viz: The viewer to center (e.g. from `MeshcatVisualizer`)
     :param around: The point to look at
     """
     p = np.asarray(around).squeeze()
@@ -197,7 +172,7 @@ def center_camera(viewer: meshcat.visualizer.Visualizer,
     place_camera = np.eye(4)
     place_camera[:2, 3] = around[:2] + np.sign(around[:2]) * 1.5
     place_camera[2, 3] = around[2] + 1.5
-    viewer["/Cameras/default/rotated/<object>"].set_transform(rotated_transform @ place_camera)
+    viz.viewer["/Cameras/default/rotated/<object>"].set_transform(rotated_transform @ place_camera)
 
 
 def clear_visualizer(visualizer: MeshcatVisualizer):
@@ -213,7 +188,7 @@ def clear_visualizer(visualizer: MeshcatVisualizer):
     visualizer.viewer.window.send(meshcat.commands.Delete('visuals'))
     visualizer.viewer.window.send(meshcat.commands.Delete('collisions'))
     visualizer.viewer.window.send(meshcat.commands.Delete('meshcat'))
-    center_camera(visualizer.viewer, [1.5, 0, 0])
+    center_camera(visualizer, [1.5, 0, 0])
 
 
 def drawable_coordinate_system(placement: transformation.TransformationLike,
@@ -292,34 +267,66 @@ def place_arrow(
     viz.viewer[name + '_arr_head'].set_transform(head_transform.homogeneous)
 
 
-def place_sphere(viewer: meshcat.visualizer.Visualizer, name: str, radius: float, placement: Transformation,
+def place_sphere(viz: MeshcatVisualizer, name: str, radius: float, placement: Transformation,
                  material: meshcat.geometry.Material = meshcat.geometry.MeshBasicMaterial()):
     """
     Place a sphere with name, radius and color at a specific placement.
 
-    :param viewer: meshcat.visualizer.Visualizer instance to draw into (viz.viewer if you have a MeshcatVisualizer)
+    :param viz: MeshcatVisualizer instance to draw into (viz.viewer if you have a MeshcatVisualizer)
     :param name: Unique object name within the visualizer
     :param radius: Sphere radius in meters
     :param placement: Defines placement of the sphere.
     :param material: material used to render this sphere
     """
-    viewer[name].set_object(meshcat.geometry.Sphere(radius), material)
-    viewer[name].set_transform(placement.homogeneous)
+    viz.viewer[name].set_object(meshcat.geometry.Sphere(radius), material)
+    viz.viewer[name].set_transform(placement.homogeneous)
 
 
-def scene_text(text: str, size: float = 1., **kwargs):
+def place_billboard(viz: MeshcatVisualizer, text: str, name: str, placement: Transformation,
+                    text_color: str = 'black', background_color: str = 'transparent', scale: float = 1.,
+                    base_width: int = 100, font_size: int = 32, super_sample: float = 4.):
     """
-    Create a cube geometry with text displayed on sides and size edge length.
+    Add a billboard (2D text) to the visualization.
 
-    Altered from meshcat-py master branch
-    https://github.com/rdeits/meshcat-python/blob/master/src/meshcat/geometry.py
+    Note needs to install additional dependency with `pip install timor-python.[viz]`.
 
-    :todo: Only have one rightly oriented TextTexture...
+    :param viz: MeshcatVisualizer instance to draw into (viz.viewer if you have a MeshcatVisualizer).
+    :param text: Text to be displayed (does not support newline but many of the unicode characters, s.a. emoticons).
+    :param name: Unique object name within the visualizer (overwrites existing object with same name).
+    :param placement: Defines placement of the billboard.
+    :param text_color: Color of the text (CSS4 color name or hex code, e.g. #abcdef).
+    :param background_color: Color of the background (CSS4 color name or hex code, e.g. #abcdef).
+    :param scale: Scaling factor for the text and billboard size.
+    :param base_width: (Max) width of the billboard in pixels; will be smaller if text is shorter.
+    :param font_size: Font size in pixels.
+    :param super_sample: How much to increase font_size and base_width and reduce scale to get crisper text.
     """
-    return meshcat.geometry.Mesh(meshcat.geometry.Box((size, 0, size)),
-                                 meshcat.geometry.MeshPhongMaterial(map=TextTexture(text, **kwargs),
-                                                                    transparent=True,
-                                                                    needsUpdate=True))
+    if not hasattr(meshcat.geometry, 'BillboardObject'):
+        logging.warning("Missing dependencies, text visualization not possible."
+                        "Please install with 'pip install timor-python.[viz]'")
+        return
+
+    if len(text) > 30:
+        logging.warning("Text very long and might be squished.")
+    if text_color not in matplotlib.colors.CSS4_COLORS and not re.match(r'^#[a-f0-9]{6}$', text_color) and \
+            text_color not in {'transparent'}:
+        logging.warning(
+            f"Text color {text_color} not valid CSS4 color name or hex code (format #abcdef); may be ignored.")
+    if background_color not in matplotlib.colors.CSS4_COLORS and not re.match(r'^#[a-f0-9]{6}$', background_color) and \
+            background_color not in {'transparent'}:
+        logging.warning(f"Background color {background_color} not valid CSS4 color name or hex code (format #abcdef);"
+                        f" may be ignored.")
+    if "\n" in text:
+        logging.warning("Text contains newline character that will be ignored.")
+
+    text_geom = meshcat.geometry.BillboardObject(text,
+                                                 base_width=base_width * super_sample,
+                                                 size=font_size * super_sample,
+                                                 global_scale=scale * 0.01 / super_sample,
+                                                 text_color=text_color,
+                                                 background_color=background_color)
+    viz.viewer[name].set_object(text_geom)
+    viz.viewer[name].set_transform(placement.homogeneous)
 
 
 def plot_time_series(times: Sequence[float], data: Sequence[Tuple[np.ndarray, str]],

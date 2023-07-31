@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Union
 
 from pinocchio.visualize import MeshcatVisualizer
 
@@ -69,13 +69,13 @@ class ToleratedPose(JSONable_mixin):
         """Returns the json string representation of this placement."""
         return json.dumps(self.serialized, indent=2)
 
-    def visualize(self, viz: MeshcatVisualizer, name: str, scale: float = 1., text: Optional[str] = None):
+    def visualize(self, viz: MeshcatVisualizer, name: str, scale: float = 1., **kwargs):  # pragma: no cover
         """
         Draws this placement inside the visualizer object
 
-        For detailed parameters refer to Transformation::visualize
+        For detailed kwargs refer to Transformation::visualize
         """
-        self.nominal.visualize(viz, name, scale, text)
+        self.nominal.visualize(viz, name, scale, **kwargs)
         self.tolerance.visualize(viz, self.nominal.homogeneous, name=name + '_tol')
 
     def __set_tolerance(self, value: Tolerance.ToleranceBase):
