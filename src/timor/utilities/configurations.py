@@ -37,3 +37,4 @@ if task_assets_copy_behavior not in possible_copy_behaviors:
 db_assets_copy_behavior = SERIALIZING_CONFIG.get("db_assets_copy_behavior", DEFAULT_ASSETS_COPY_BEHAVIOR)
 if db_assets_copy_behavior not in possible_copy_behaviors:
     raise ValueError("Invalid DB assets copy behavior: {}".format(db_assets_copy_behavior))
+FILE_LOCATION_CONF = TIMOR_CONFIG['FILE_LOCATIONS'] if TIMOR_CONFIG.has_section('FILE_LOCATIONS') else dict()

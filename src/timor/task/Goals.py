@@ -82,13 +82,14 @@ class GoalBase(ABC, JSONable_mixin):
         pass
 
     @abstractmethod
-    def visualize(self, viz: MeshcatVisualizer, scale: float = .33) -> None:
+    def visualize(self, viz: MeshcatVisualizer, scale: float = .33, show_name: bool = False) -> None:
         """
         Every goal should have a visualization. The default color is green.
 
         :param viz: A meshcat visualizer as defined in pinocchio
         :param scale: The visualization method assumes the robot size is ~1-2m maximum reach. Use the scale factor
             to adapt for significantly different sizes of robots and/or obstacles.
+        :param show_name: Whether to show the name of the goal in the visualization.
         """
         pass
 
@@ -360,7 +361,7 @@ class ReturnTo(GoalBase):
             **return_to_goal
         }
 
-    def visualize(self, viz: MeshcatVisualizer, scale: float = .33) -> None:
+    def visualize(self, viz: MeshcatVisualizer, scale: float = .33, show_name: bool = False) -> None:
         """Shows an error pointing towards the desired position"""
         logging.info("ReturnTo Goals cannot be visualized (yet)")
 
@@ -398,7 +399,7 @@ class Pause(GoalWithDuration):
 
     epsilon: float = 1e-9  # Precision error: Pause is allowed to be epsilon shorter than self._duration
 
-    def visualize(self, viz: MeshcatVisualizer, scale: float = .33) -> None:
+    def visualize(self, viz: MeshcatVisualizer, scale: float = .33, show_name: bool = False) -> None:
         """Pause goals cannot be visualized, but the method is kept for consistency"""
         logging.debug("Not visualizing a pause goal - there is no meaningful visualization.")
 
@@ -493,7 +494,8 @@ class Follow(GoalWithDuration):
 
     def visualize(self, viz: MeshcatVisualizer, *,
                   scale: float = .33,
-                  num_markers: Optional[int] = 2) -> None:
+                  num_markers: Optional[int] = 2,
+                  show_name: bool = False) -> None:
         """
         Shows the follow goal with num_markers triads to show desired orientation.
 

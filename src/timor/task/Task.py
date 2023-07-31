@@ -278,6 +278,7 @@ class Task(JSONable_mixin):
                   show_obstacle: bool = True,
                   show_goals: bool = True,
                   show_constraints: bool = True,
+                  show_names: bool = False,
                   center_view: bool = True
                   ) -> pin.visualize.MeshcatVisualizer:
         """
@@ -292,6 +293,7 @@ class Task(JSONable_mixin):
         :param show_obstacle: bool to turn on obstacle rendering (default true)
         :param show_goals: bool to turn on goal rendering (default true)
         :param show_constraints: bool to turn on constraint rendering for those that can be displayed (default true)
+        :param show_names: bool to turn on name rendering, e.g., for goals (default false)
         :param center_view: if set to true try to find  a reasonable camera position such that task visible, i.e.
           try to center camera on the first robot's base and if that is not set try to center the base constraint pose.
         """
@@ -307,10 +309,10 @@ class Task(JSONable_mixin):
             if isinstance(robots, RobotBase):
                 robots.visualize(viz)
                 if center_view:
-                    center_camera(viz.viewer, robots.placement.translation)
+                    center_camera(viz, robots.placement.translation)
             else:
                 if center_view:
-                    center_camera(viz.viewer, robots[0].placement.translation)
+                    center_camera(viz, robots[0].placement.translation)
                 for robot in robots:
                     robot.visualize(viz)
 
@@ -318,12 +320,12 @@ class Task(JSONable_mixin):
             for goal in self.goals:
                 if type(goal) is Goals.ReturnTo:
                     continue  # Cannot be visualized in a task
-                goal.visualize(viz, scale=0.2)
+                goal.visualize(viz, scale=0.2, show_name=show_names)
 
         if show_constraints:
             for constraint in self.constraints:
                 try:
-                    constraint.visualize(viz, scale=0.2)
+                    constraint.visualize(viz, scale=0.2, show_name=show_names)
                 except NotImplementedError:
                     # Not every constraint can be visualized, and that's okay
                     pass
@@ -331,7 +333,7 @@ class Task(JSONable_mixin):
         if center_view and robots is None:
             try:
                 base_constraint = self.base_constraint
-                center_camera(viz.viewer, base_constraint.base_pose.nominal.translation)
+                center_camera(viz, base_constraint.base_pose.nominal.translation)
             except AttributeError:
                 logging.info("Cannot recenter visualizer view to base.")
 

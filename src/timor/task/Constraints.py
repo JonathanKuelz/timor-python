@@ -85,7 +85,7 @@ class ConstraintBase(ABC, JSONable_mixin):
     def _equality_parameters(self) -> Tuple[any, ...]:
         """Returns the parameters that should be used to check equality of constraints"""
 
-    def visualize(self, viz: pinocchio.visualize.MeshcatVisualizer, scale: float = 1.) -> None:
+    def visualize(self, viz: pinocchio.visualize.MeshcatVisualizer, scale: float = 1., show_name: bool = False) -> None:
         """Visualize the constraint in an existing meshcat window.
 
         If possible a constraint should have a visualization. The default is no visualization and should be overwritten
@@ -94,6 +94,7 @@ class ConstraintBase(ABC, JSONable_mixin):
         :param viz: A meshcat visualizer as defined in pinocchio
         :param scale: The visualization method assumes the robot size is ~1-2m maximum reach. Use the scale factor
             to adapt for significantly different sizes of robots and/or obstacles.
+        :param show_name: If True, the name of the constraint is shown in the visualization
         """
         pass
 
@@ -353,9 +354,10 @@ class BasePlacement(ConstraintBase):
             "pose": self.base_pose.to_json_data()
         }
 
-    def visualize(self, viz: pinocchio.visualize.MeshcatVisualizer, scale: float = 1.) -> None:
+    def visualize(self, viz: pinocchio.visualize.MeshcatVisualizer, scale: float = 1., show_name: bool = False) -> None:
         """Visualize the constraint"""
-        self.base_pose.visualize(viz, scale=scale, name="base_constraint")
+        self.base_pose.visualize(viz, scale=scale, name="base_constraint", text="Base constraint" * show_name,
+                                 background_color="red", text_color="black")
 
     @property
     def _equality_parameters(self) -> Tuple[ToleratedPose]:

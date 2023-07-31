@@ -354,7 +354,8 @@ class Transformation(JSONable_mixin):
         return self.__str__(3)
 
     def visualize(self, viz: 'pin.visualize.MeshcatVisualizer', name: str,
-                  scale: float = 1., text: Optional[str] = None):  # pragma: no cover
+                  scale: float = 1., text: Optional[str] = None,
+                  text_color: str = 'black', background_color: str = 'transparent'):  # pragma: no cover
         """
         Draws this placement inside the visualizer object
 
@@ -362,6 +363,10 @@ class Transformation(JSONable_mixin):
         :param name: label to add geometry to viewer under (overwrites existing!)
         :param scale: Size in meter of each axis of placement
         :param text: Optional descriptive text put next to placement
+        :param text_color: Color of text (e.g. "red", "#ff0000", or any CSS color definition, see
+          https://developer.mozilla.org/en-US/docs/Web/CSS/color_value)
+        :param background_color: Color of background of text (e.g. "red", "#ff0000", or any CSS color definition, see
+          https://developer.mozilla.org/en-US/docs/Web/CSS/color_value)
         """
         import timor.utilities.visualization
 
@@ -369,9 +374,8 @@ class Transformation(JSONable_mixin):
         viz.viewer[name].set_object(geom)
 
         if text:
-            text_geom = timor.utilities.visualization.scene_text(text, font_size=100, size=scale)
-            viz.viewer[f"{name}_text"].set_object(text_geom)
-            viz.viewer[f"{name}_text"].set_transform(self.homogeneous)
+            timor.utilities.visualization.place_billboard(
+                viz, text, f"{name}_text", self, text_color, background_color, scale)
 
 
 TransformationLike = Union[Transformation, TransformationConvertable]

@@ -32,7 +32,9 @@ dynamic = ["version", "readme"]
 [project.optional-dependencies]
 dev = ["flake8>=5.0", "coverage>=6.3", "pre-commit", "pip-tools", "pytest>=6.0", "setuptools>=61.0.0"]
 optimization = ["optuna>=3.1", "plotly", "scikit-learn"]
-full = ["flake8>=5.0", "coverage>=6.3", "pre-commit", "pip-tools", "pytest>=6.0", "setuptools>=61.0.0", "jupyterlab", "trimesh >= 3.18", "tqdm", "optuna>=3.1", "plotly", "scikit-learn"]
+viz = ["meshcat@git+https://github.com/kingjin94/meshcat-python@dev/billboards"]
+full = ["timor-python[dev]", "timor-python[optimization]",
+    "jupyterlab", "trimesh >= 3.18", "tqdm", "optuna>=3.1", "plotly", "scikit-learn"]
 
 [tool.setuptools.dynamic]
 readme = {file = "README.rst"}
