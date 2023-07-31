@@ -2,12 +2,13 @@ from __future__ import annotations
 
 from collections import namedtuple, OrderedDict
 from collections.abc import MutableMapping
+from contextlib import contextmanager
 from dataclasses import asdict, dataclass, field, fields
 import datetime
-import logging
 import random
 import re
-from typing import Any, Callable, Collection, Dict, Generator, Generic, Iterable, List, Tuple, Type, \
+import signal
+from typing import Any, Callable, Collection, Dict, Generator, Generic, Iterable, List, Optional, Tuple, Type, \
     TypeVar, Union, get_type_hints
 
 from hppfcl import hppfcl
@@ -15,6 +16,7 @@ import numpy as np
 import pinocchio as pin
 
 from timor.utilities import errors as err
+from timor.utilities import logging
 from timor.utilities.schema import DEFAULT_DATE_FORMAT
 from timor.utilities.transformation import Transformation, TransformationLike
 
@@ -491,6 +493,34 @@ def randomly(seq: Collection) -> Iterable:
     shuffled = list(seq)
     random.shuffle(shuffled)
     return iter(shuffled)
+
+
+@contextmanager
+def timeout(timout: int, logging_callback: Optional[Callable[[Exception], None]] = logging.warning):
+    """
+    A decorator to time out a function call after a given time.
+
+    Note that this will only work on UNIX systems.
+    :param timout: The time after which the function call shall be aborted (in seconds)
+    :param logging_callback: A logging function that takes a string as input - defaults to a warning, but can be changed
+        to another level of None.
+    """
+    def handler(signum, frame):
+        raise TimeoutError("Timed out after {} seconds".format(timout))
+
+    if not isinstance(timout, int):
+        logging.warning("Timeout decorator only works with integers, casting to int")
+        timout = int(timout)
+
+    signal.signal(signal.SIGALRM, handler)
+    signal.alarm(timout)
+    try:
+        yield
+    except TimeoutError as exe:
+        if logging_callback is not None:
+            logging_callback(exe)
+    finally:
+        signal.alarm(0)
 
 
 def uniform_collision_geometry(geometry: Union[hppfcl.CollisionObject, pin.pinocchio_pywrap.GeometryObject]) -> \

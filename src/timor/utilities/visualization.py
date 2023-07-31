@@ -2,6 +2,7 @@
 # Author: Jonathan Külz
 # Date: 03.03.22
 import logging
+from pathlib import Path
 import re
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple, Union
 
@@ -16,6 +17,8 @@ from pinocchio.visualize.meshcat_visualizer import MeshcatVisualizer, isMesh
 
 from timor import ModuleAssembly
 from timor.utilities import module_classification, spatial, transformation
+from timor.utilities.dtypes import timeout
+from timor.utilities.file_locations import map2path
 from timor.utilities.transformation import Transformation
 
 DEFAULT_COLOR_MAP = {  # Type enumeration from module_classification - import not possibility (circular import)
@@ -280,6 +283,82 @@ def place_sphere(viz: MeshcatVisualizer, name: str, radius: float, placement: Tr
     """
     viz.viewer[name].set_object(meshcat.geometry.Sphere(radius), material)
     viz.viewer[name].set_transform(placement.homogeneous)
+
+
+def save_visualizer_scene(viz: MeshcatVisualizer,
+                          filename: Union[Path, str],
+                          overwrite: bool = False,
+                          camera_transform: Optional[Transformation] = None
+                          ):
+    """
+    Saves the current visualizer scene as static html file.
+
+    Other than save_visualizer_screenshot(), this method does not require the viewer to be open.
+
+    :param viz: MeshcatVisualizer instance
+    :param filename: Filename to save the screenshot to. If it does not end with .html, it will be appended.
+    :param overwrite: If True, the file will be overwritten if it already exists.
+    :param camera_transform: If provided, the camera will be placed at this transformation before saving the scene.
+    """
+    filename = Path(filename)
+    if not filename.suffix == '.html':
+        filename = filename.with_suffix('.html')
+    if filename.exists() and not overwrite:
+        raise FileExistsError("File {} already exists.".format(filename))
+    if camera_transform is not None:
+        viz.viewer['/Cameras/default'].set_transform(camera_transform.homogeneous)
+
+    scene = viz.viewer.static_html()
+    with open(filename, 'w') as f:
+        f.write(scene)
+
+
+def save_visualizer_screenshot(viz: MeshcatVisualizer,
+                               filename: Union[Path, str],
+                               overwrite: bool = False,
+                               timeout_seconds: int = 1,
+                               camera_transform: Optional[Transformation] = None,
+                               open_at_timeout: bool = False
+                               ):
+    """
+    Takes a screenshot of the current visualizer viewer and saves it to a png file.
+
+    The get_image() method for a MeshcatVisualizer only works when the viewer is open. If not, it stalls forever, which
+    is why a timeout is used here.
+
+    :param viz: MeshcatVisualizer instance
+    :param filename: Filename to save the screenshot to. If it does not end with .png, it will be appended.
+    :param overwrite: If True, the file will be overwritten if it already exists.
+    :param timeout_seconds: Timeout (integers only). If getting the screenshot is not successfull during this time,
+        nothing will be saved. This is commonly the case when the viewer is not open.
+    :param camera_transform: If provided, this will be the '/Cameras/default' setting used to take the screenshot.
+    :param open_at_timeout: If True, the viewer will be opened if the timeout is reached. If so, this method will be
+        called again, trying to take the screenshot a second time
+    """
+    filename = map2path(filename)
+    if not filename.suffix == '.png':
+        filename = filename.with_suffix('.png')
+    if filename.exists() and not overwrite:
+        raise FileExistsError("File {} already exists".format(filename))
+    if camera_transform is not None:
+        viz.viewer['/Cameras/default'].set_transform(camera_transform.homogeneous)
+
+    success = False  # noqa: F841  (linting does not recognize the timeout decorator)
+    img = None  # noqa: F841  (linting does not recognize the timeout decorator)
+    with timeout(timeout_seconds):
+        img = viz.viewer.get_image()
+        success = True
+
+    if not success:
+        # After we timeout, the zmq socket is broken - we need to create a new one
+        viz.viewer.window.connect_zmq()
+
+    if not success and open_at_timeout:
+        viz.viewer.open()
+        save_visualizer_screenshot(viz, filename, overwrite, timeout_seconds, camera_transform, False)
+
+    if success:
+        img.save(str(filename))
 
 
 def place_billboard(viz: MeshcatVisualizer, text: str, name: str, placement: Transformation,

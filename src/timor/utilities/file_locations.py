@@ -95,9 +95,9 @@ def get_module_db_files(name: str) -> Path:
 def map2path(p: Union[str, Path]) -> Path:
     """Maps strings to paths, but does nothing else s.t. e.g. Django paths are not casted."""
     if isinstance(p, str):
-        return Path(p)
+        p = Path(p)
     if hasattr(p, 'expanduser'):  # e.g. Django FieldFile
-        return p.expanduser()
+        return p.expanduser().resolve()
     return p
 
 

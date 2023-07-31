@@ -1,11 +1,12 @@
 from dataclasses import dataclass
 import datetime
 import random
+import time
 import unittest
 
 import numpy as np
 
-from timor.utilities.dtypes import EternalDict, LimitedSizeMap, SingleSet, TypedHeader
+from timor.utilities.dtypes import EternalDict, LimitedSizeMap, SingleSet, TypedHeader, timeout
 import timor.utilities.errors as err
 
 
@@ -116,6 +117,18 @@ class CustomTypeUnitTests(unittest.TestCase):
         second_date = TestHeader(name='test', date='1970/1/1')
         self.assertEqual(header.date, first_date.date)
         self.assertEqual(header.date, second_date.date)
+
+    def test_timeout(self):
+        x = 0
+        with timeout(1):
+            time.sleep(1.1)
+            x = 1
+        self.assertEqual(x, 0)
+
+        with timeout(1):
+            time.sleep(0.5)
+            x = 2
+        self.assertEqual(x, 2)
 
 
 if __name__ == '__main__':
