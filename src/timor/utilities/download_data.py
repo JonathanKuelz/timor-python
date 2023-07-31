@@ -51,13 +51,10 @@ def download_additional_robots(default_robot_dir: Path, robots: Dict[str, Path])
         logging.warning(f"Could not fetch additional robots due to {e}.")
 
     # Download additional robots found in CoBRA
-    if additional_robots - robots.keys() == set():
-        logging.info("All CoBRA robots already loaded."
-                     "Maybe delete downloaded robots in timor_sample_robots to update with newer CoBRA versions.")
     for additional_robot in additional_robots - robots.keys():
         output_dir = default_robot_dir.joinpath(additional_robot)
         if output_dir.exists() and output_dir.joinpath("modules.json").exists():
-            logging.info(f"Skipping {additional_robot} that has already been downloaded.")
+            logging.debug(f"Skipping {additional_robot} that has already been downloaded.")
             robots[additional_robot] = default_robot_dir.joinpath(additional_robot)
             continue
         logging.info(f"Getting robot {additional_robot} from {robot_tld}.")
