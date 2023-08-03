@@ -1132,9 +1132,11 @@ class ModuleAssembly(JSONable_mixin):
           Always needs moduleSet field if no additional module_db given.
           Always needs moduleOrder.
           Supported combinations:
-            - no moduleConnection: fallback linear assembly along moduleOrder; baseConnection deduced implicitly
-            - no/empty baseConnection: try to build assembly and see if there is unique base connector left
-            - default: moduleOrder + moduleConnection + baseConnection
+
+          - no moduleConnection: fallback linear assembly along moduleOrder; baseConnection deduced implicitly
+          - no/empty baseConnection: try to build assembly and see if there is unique base connector left
+          - default: moduleOrder + moduleConnection + baseConnection
+
         :param module_db: Optional db if generated adhoc or to recycle already loaded
         """
         db = module_db if module_db else ModulesDB.from_name(d["moduleSet"])

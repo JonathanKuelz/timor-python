@@ -503,7 +503,7 @@ def timeout(timout: int, logging_callback: Optional[Callable[[Exception], None]]
     Note that this will only work on UNIX systems.
     :param timout: The time after which the function call shall be aborted (in seconds)
     :param logging_callback: A logging function that takes a string as input - defaults to a warning, but can be changed
-        to another level of None.
+    to another level of None.
     """
     def handler(signum, frame):
         raise TimeoutError("Timed out after {} seconds".format(timout))
@@ -528,8 +528,8 @@ def uniform_collision_geometry(geometry: Union[hppfcl.CollisionObject, pin.pinoc
     """
     Takes either a hppfcl collision object or a pin geometry object and returns the according geometry + transform.
 
-    This is needed if hppfcl collide() should be used on a combination of hhpfcl native
-      and pin native collision geometries
+    This is needed if hppfcl collide() should be used on a combination of hhpfcl native and pin native collision
+    geometries.
 
     :return: A tuple of (geometry, transform) to feed in collide()
     """

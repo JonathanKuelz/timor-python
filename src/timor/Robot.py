@@ -348,15 +348,16 @@ class RobotBase(abc.ABC):
             TransformationLike and returns a scalar cost indicating the quality of the configuration in solving the ik
             problem. If not given, the default cost function is used (equal weighting of .5 meter / 180 degree error).
         :param kwargs: Additional arguments, including:
-            - task: If a timor.Task.Task is provided here, the ik will restart if there are task collisions as long as
-            max_iter is not reached.
-            - joint_mask: A boolean array of length njoints that indicates which joints should be considered for the IK
-            - allow_random_restart: The IK will restart from random configurations if it fails to converge. This can be
-            disabled by setting this to False.
-            - ignore_self_collision: If True, the IK will ignore self-collisions
-            - method: The scipy minimize method to be used. Defaults to 'L-BFGS-B'
-            - ftol: The tolerance for the cost function, i.e. the algorithm will stop if the cost function changes less
-            than this amount between iterations. Defaults to 1e-8.
+
+            * task: If a timor.Task.Task is provided here, the ik will restart if there are task collisions as long as
+              max_iter is not reached.
+            * joint_mask: A boolean array of length njoints that indicates which joints should be considered for the IK
+            * allow_random_restart: The IK will restart from random configurations if it fails to converge. This can be
+              disabled by setting this to False.
+            * ignore_self_collision: If True, the IK will ignore self-collisions
+            * method: The scipy minimize method to be used. Defaults to 'L-BFGS-B'
+            * ftol: The tolerance for the cost function, i.e. the algorithm will stop if the cost function changes less
+              than this amount between iterations. Defaults to 1e-8.
 
         :return: A tuple of q_solution [np.ndarray], success [boolean]. If success is False, q_solution is the
             configuration with minimal IK cost amongst all seen in between iterations if this method.
@@ -857,14 +858,15 @@ class PinRobot(RobotBase):
             pseudo-inverse are pretty similar, the latter one introduces a "punishment" for the norm of the joint
             velocities and is therefore more resistant against singularities.
         :param kwargs: Additional arguments to be passed to the jacobian function. These include:
-            - task: If a timor.Task.Task is provided here, the ik will restart if there are task collisions as long as
-            max_iter is not reached.
-            - joint_mask: A boolean array of length njoints that indicates which joints should be considered for the IK
-            - allow_random_restart: The IK will restart from random configurations if it fails to converge. This can be
-            disabled by setting this to False.
-            - ignore_self_collision: If True, the IK will ignore self-collisions
-            - check_static_torques: If True, the IK will check if the torques are within the static torque limits. If
-            not so, the IK will restart from a random configuration as long as max_iter allows.
+
+            * task: If a timor.Task.Task is provided here, the ik will restart if there are task collisions as long as
+              max_iter is not reached.
+            * joint_mask: A boolean array of length njoints that indicates which joints should be considered for the IK
+            * allow_random_restart: The IK will restart from random configurations if it fails to converge. This can be
+              disabled by setting this to False.
+            * ignore_self_collision: If True, the IK will ignore self-collisions
+            * check_static_torques: If True, the IK will check if the torques are within the static torque limits. If
+              not so, the IK will restart from a random configuration as long as max_iter allows.
 
         :return: A tuple of q_solution [np.ndarray], success [boolean]
         """
@@ -1394,6 +1396,7 @@ class PinRobot(RobotBase):
             * min_config and max_config: [float] -> Joint configuration limits
             * friction: [float] -> Joint friction parameters
             * damping: [float] -> Joint damping parameters
+
         :return: Index of the new joint
         """
         if len(fixed_joints) > 0:

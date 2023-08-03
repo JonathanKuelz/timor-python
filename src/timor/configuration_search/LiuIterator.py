@@ -201,9 +201,11 @@ class Science2019(AssemblyIterator):
         return self.joint_combinations_for_base_eef[self.current_base, self.current_eef]
 
     def _check_db_valid(self):
-        """Performs some sanity checks on the given db to validate made assumptions on its structure.
+        """
+        Performs some sanity checks on the given db to validate made assumptions on its structure.
 
         Those are:
+
         - There's at least one base, joint link and end-effector [crucial]
         - All modules are connectable [not necessary, but instantiating two iterators would be preferred if not]
         - Every link and joint module has a distal/male and a proximal/female part [crucial]
