@@ -104,10 +104,7 @@ class SphereVolume(Volume):
 
         :param limits: Defined by :math:(r, \theta, \phi) with shape (3,2),
                        where, :math:`\theta` is in the range of :math:`(0, \pi).`
-                              :math:`\phi` is in the range of :math:`(-\pi, \pi).`
-                       --> np.array((lower_bound_r, upper_bound_r),
-                                    (lower_bound_theta, upper_bound_theta),
-                                    (lower_bound_phi, upper_bound_phi))
+                       :math:`\phi` is in the range of :math:`(-\pi, \pi).`
         :param offset: Transformation offset of the volume, inherited from super class
         """
         super().__init__(limits, offset)
@@ -193,9 +190,6 @@ class CylinderVolume(Volume):
 
         :param limits: Defined by :math:(r, \phi, \z) with shape (3,2),
                        where, :math:`\phi` is in the range of :math:`(-\pi, \pi).`
-                       --> np.array((lower_bound_r, upper_bound_r),
-                                    (lower_bound_phi, upper_bound_phi),
-                                    (lower_bound_z, upper_bound_z))
         :param offset: Transformation offset of the volume, inherited from super class
         """
         super().__init__(limits, offset)
@@ -272,10 +266,7 @@ class BoxVolume(Volume):
         """
         The basic building block of a box volume.
 
-        :param limits: Defined by math (x, y, z) with shape (3,2).
-                       --> np.array((lower_bound_x, upper_bound_x),
-                                    (lower_bound_y, upper_bound_y),
-                                    (lower_bound_z, upper_bound_z))
+        :param limits: Defined by :math:(x, y, z) with shape (3,2)
         :param offset: Transformation offset of the volume, inherited from super class
         """
         super().__init__(limits, offset)

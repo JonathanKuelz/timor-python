@@ -35,3 +35,8 @@ repos:
     rev: 5.0.0
     hooks:
       - id: flake8
+
+  - repo: https://github.com/srstevenson/nb-clean
+    rev: 2.4.0
+    hooks:
+      - id: nb-clean
