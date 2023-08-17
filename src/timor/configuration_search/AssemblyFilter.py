@@ -314,6 +314,8 @@ class GoalByGoalFilter(AssemblyFilter, abc.ABC):
           written to, though.
         """
         super().__init__(skip_not_applicable)
+        self._goals_success: int = 0
+        self._goals_failed: int = 0
         self.use_intermediate_results: bool = use_intermediate_results
 
     def _check(self, assembly: ModuleAssembly, task: Task.Task, results: IntermediateFilterResults,
@@ -330,10 +332,15 @@ class GoalByGoalFilter(AssemblyFilter, abc.ABC):
                     and len(self.provides) > 0 \
                     and all(goal.id in results.__getattribute__(provided.name) for provided in self.provides):
                 # In this case, it is sufficient to check already existing intermediate results
-                valid &= self._check_given(assembly, goal, results, task)
+                valid_goal = self._check_given(assembly, goal, results, task)
             else:
                 with results.allow_changes():  # Potentially, some of the results are overwritten
-                    valid &= self._check_goal(assembly, goal, results, task)
+                    valid_goal = self._check_goal(assembly, goal, results, task)
+            valid &= valid_goal
+            if valid_goal:
+                self._goals_success += 1
+            else:
+                self._goals_failed += 1
             if not valid and stop_early:
                 return False
         return valid
@@ -351,6 +358,30 @@ class GoalByGoalFilter(AssemblyFilter, abc.ABC):
     def _check_goal(self, assembly: ModuleAssembly, goal: Goals.GoalBase,
                     results: IntermediateFilterResults, task: Task):
         """The same logic as _check, but performed on a single goal that this filter can work with."""
+
+    @property
+    def goals_success(self) -> int:
+        """
+        A counter on how many goals passed this filter.
+
+        Note that in case one goal did not pass this filter, no further goals of the same tasks are even evaluated.
+        """
+        return self._goals_success
+
+    @property
+    def goals_failed(self) -> int:
+        """
+        A counter on how many goals failed this filter.
+
+        Note that in case one goal did not pass this filter, no further goals of the same tasks are even evaluated.
+        """
+        return self._goals_failed
+
+    def reset(self):
+        """Resets all counters of this filter"""
+        super().reset()
+        self._goals_success = 0
+        self._goals_failed = 0
 
 
 class InverseKinematicsSolvable(GoalByGoalFilter):
@@ -516,7 +547,7 @@ def default_filters(t: Task.Task) -> Tuple[RobotCreationFilter, InverseKinematic
     """
     create_robot = RobotCreationFilter()
     ik_simple = InverseKinematicsSolvable(ignore_self_collision=True, max_iter=150, max_n_tries=3)
-    ik_complex = InverseKinematicsSolvable(task=t, max_iter=2000, max_n_tries=100, check_static_torques=True)
+    ik_complex = InverseKinematicsSolvable(task=t, max_iter=1500, max_n_tries=100, check_static_torques=True)
     return create_robot, ik_simple, ik_complex
 
 

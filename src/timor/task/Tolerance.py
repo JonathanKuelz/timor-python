@@ -252,6 +252,11 @@ class Composed(ToleranceBase):
         if isinstance(other, AlwaysValidTolerance):
             return
 
+        if isinstance(other, Composed):
+            for internal in other._internal:
+                self.add(internal, simplify_combinations=simplify_combinations)
+            return
+
         if simplify_combinations:
             for previous in self._internal:
                 combined = previous + other

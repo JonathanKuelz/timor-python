@@ -67,7 +67,7 @@ class ToleratedPose(JSONable_mixin):
 
     def to_json_string(self) -> str:
         """Returns the json string representation of this placement."""
-        return json.dumps(self.serialized, indent=2)
+        return json.dumps(self.to_json_data(), indent=2)
 
     def visualize(self, viz: MeshcatVisualizer, name: str, scale: float = 1., **kwargs):  # pragma: no cover
         """

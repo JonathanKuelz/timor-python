@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 # Author: Jonathan Külz
 # Date: 03.03.22
-import logging
 from pathlib import Path
 import re
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple, Union
@@ -16,7 +15,7 @@ import pinocchio as pin
 from pinocchio.visualize.meshcat_visualizer import MeshcatVisualizer, isMesh
 
 from timor import ModuleAssembly
-from timor.utilities import module_classification, spatial, transformation
+from timor.utilities import logging, module_classification, spatial, transformation
 from timor.utilities.dtypes import timeout
 from timor.utilities.file_locations import map2path
 from timor.utilities.transformation import Transformation

@@ -441,7 +441,7 @@ class RobotBase(abc.ABC):
         logging.debug("Scipy IK ends with message: %s", sol.message)
         if not success:
             kwargs['lowest_cost'] = lowest_cost
-            return random_restart(max_iter - sol.nit)
+            return random_restart(max_iter - sol.nit - 1)
 
         if success or 'lowest_cost' not in kwargs:
             q = q_sol
@@ -971,7 +971,7 @@ class PinRobot(RobotBase):
             elif i < max_iter:
                 # Give it another try, starting from a different configuration
                 i += 1
-                logging.info("IK was out of joint limits, re-try")
+                logging.debug("IK was out of joint limits, re-try")
                 kwargs['closest_translation_q'] = closest_translation
                 return random_restart(max_iter - i)
             else:

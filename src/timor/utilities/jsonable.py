@@ -94,11 +94,14 @@ class JSONable_mixin:
 
         # Determine old location if not provided
         old_package_dir = map2path(os.path.commonpath(old_files)).parent if old_files else None
+        if len(set(old_files)) == 1:
+            # If old_files is only one file, this ensures a consistent folder structure
+            old_package_dir = old_package_dir.parent
         logging.debug(
             f"old_package_dir: {old_package_dir} for {old_files} is replaced by new_package_dir: {new_package_dir}")
         # Ensure that both in same order
         old_files, new_files = find_key(
-            "file", content, lambda f: map2path(str(f).replace(str(old_package_dir), str(new_package_dir))))
+            "file", content, lambda f: Path(str(f).replace(str(old_package_dir), str(new_package_dir))))
 
         handle_assets(new_files, old_files, handle_missing_assets)
 

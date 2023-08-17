@@ -45,7 +45,6 @@ class TestGAProperties(unittest.TestCase):
         ga_ins2 = ga2.optimize(self._fitness_func, hp=self.hp)
         self.assertGreater(self.fitness_func_calls, fitness_calls)
         self.assertFalse(np.array_equal(ga_ins.initial_population, ga_ins2.initial_population))
-        fig = ga.plot_fitness(show_figure=False)
 
     def test_callbacks(self):
         """Test the mutation and crossover callbacks provided by pyGAD work with custom operations."""
