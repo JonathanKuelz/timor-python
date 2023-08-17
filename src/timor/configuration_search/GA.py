@@ -1,24 +1,63 @@
 from copy import deepcopy
 from datetime import datetime
+from enum import Enum
 import itertools
 import json
 from pathlib import Path
 import pickle
 import random
 import time
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Callable, Dict, List, Optional, Sequence, Tuple, Union
 
 from networkx import MultiDiGraph
 import networkx as nx
 import numpy as np
 import pygad
+from tqdm import tqdm
 
-from timor import ModuleAssembly, ModulesDB
+from timor import ModuleAssembly, ModulesDB, Task
+from timor.task import Goals
 from timor.utilities import logging, module_classification
 from timor.utilities.configurations import TIMOR_CONFIG
 from timor.utilities.dtypes import LimitedSizeMap, randomly
 import timor.utilities.errors as err
-from timor.utilities.visualization import plot_time_series
+from timor.utilities.file_locations import map2path
+from timor.utilities.visualization import MeshcatVisualizer, clear_visualizer, color_visualization, \
+    save_visualizer_scene, save_visualizer_screenshot
+import zmq.error
+
+
+class ProgressUnit(Enum):
+    """Classifies the different methods to count the progress in a GA optimization."""
+
+    GENERATIONS = 0
+    INDIVIDUALS = 1
+    SECONDS = 2
+
+
+def get_ga_progress(unit: ProgressUnit,
+                    ga_inst: Optional[pygad.GA] = None,
+                    t0: Optional[float] = 0,
+                    generation_bias: int = 0) -> int:
+    """
+    Returns the progress of a genetic algorithm in [ProgressUnit] units.
+
+    :param unit: The unit to count the progress in.
+    :param ga_inst: The pygad.GA instance to get the progress from. Necessary for GENERATIONS and INDIVIDUALS.
+    :param t0: The start time of the optimization. Necessary for SECONDS.
+    :param generation_bias: The "generation" to start counting from
+    """
+    if unit is ProgressUnit.SECONDS and t0 is None:
+        raise ValueError('t0 must be specified for ProgressUnit.SECONDS')
+    elif unit in (ProgressUnit.GENERATIONS, ProgressUnit.INDIVIDUALS) and ga_inst is None:
+        raise ValueError('If the progress unit is GENERATIONS or INDIVIDUALS, ga_inst must be specified')
+
+    if unit is ProgressUnit.GENERATIONS:
+        return ga_inst.generations_completed + generation_bias
+    elif unit is ProgressUnit.INDIVIDUALS:
+        return ga_inst.initial_population.shape[0] * (ga_inst.generations_completed + generation_bias)
+    elif unit is ProgressUnit.SECONDS:
+        return int(time.time() - t0)
 
 
 class GA:
@@ -36,8 +75,9 @@ class GA:
     assembly of serial kinematic chains.
     """
 
-    __assembly_cache_size: int = 10e5  # Number of assemblies to keep in the cache.
+    __assembly_cache_size: int = 1000  # Number of assemblies to keep in the cache.
     __empty_slot = 'EMPTY'  # Placeholder ID for a gene representing an empty slot ("no module here").
+    __fitness_cache_size: int = 1000000  # Number of fitness values to keep in the cache.
     # Define toolbox-level default hyperparameters which can be overwritten by user preferences.
     hp_default: Dict[str, any] = {'population_size': 20,
                                   'num_generations': 100,
@@ -87,8 +127,9 @@ class GA:
         # Store the graph in memory for faster access.
         self.G: MultiDiGraph = self.db.connectivity_graph
         # Cache the assembly results for faster access.
-        self.assembly_cache: LimitedSizeMap[Tuple[int], ModuleAssembly] = \
+        self.assembly_cache: LimitedSizeMap[Tuple[str], ModuleAssembly] = \
             LimitedSizeMap(maxsize=self.__assembly_cache_size)
+        self.fitness_cache: LimitedSizeMap[Tuple[str], float] = LimitedSizeMap(maxsize=self.__fitness_cache_size)
 
         # Cache the modules with the same connectors for faster access.
         self.same_connector_cache: Dict[str, List[str]] = {}
@@ -118,21 +159,84 @@ class GA:
         :param individual: The individual/offspring to be checked. Notice it consists of integers, not IDs.
         :return: True of the offspring is valid, False otherwise.
         """
-        individual_tuple = tuple(individual)
-        if individual_tuple in self.assembly_cache:
-            return True
-
-        module_ids = self._map_genes_to_id(individual_tuple)
         try:
-            assembly = ModuleAssembly.from_serial_modules(self.db, module_ids)
-            self.assembly_cache[individual_tuple] = assembly
+            individual = tuple(individual)
+            module_ids = self._map_genes_to_id(individual)
+            self._get_candidate_assembly(module_ids)
             return True
         except (err.InvalidAssemblyError, ValueError):
             return False
 
+    def make_visualization_callback(self,
+                                    viz: Optional[MeshcatVisualizer] = None,
+                                    task: Optional[Task.Task] = None,
+                                    save_at: Optional[Union[str, Path]] = None,
+                                    file_format: str = 'html',
+                                    every_n_generations: int = 10,
+                                    timeout_seconds: int = 10) -> Callable[[pygad.GA], bool]:
+        """
+        Creates a callback function that can be passed to the GA optimizer to visualize solution candidates.
+
+        The callback function will be called every n generations and will visualize the best solution candidate of that
+        generation. If multiple candidates achieve the best fitness, one will be selected at random.
+
+        :param viz: A meshcat visualizer instance. If None, a new visualizer will be created.
+        :param task: If given, a candidate assembly will be visualized in the context of the given task.
+        :param save_at: Per default, the visualization is only shown in the browser. If a path to a directory is given,
+            all visualizations will be saved in there as static HTML or PNG.
+        :param file_format: If save_at is given, this parameter determines the format of the saved visualizations. Can
+            be either 'html' or 'png'. While html works "headless" without opening a browser, png enforces opening a
+            viewer and cannot be used on a remote server. However, html files are much larger than png files.
+        :param every_n_generations: Every nth generation, a visualization will be created.
+        """
+        file_format = file_format.lower()
+        if file_format not in ('html', 'png'):
+            raise ValueError(f"Unknown file format '{file_format}'! Must be either 'html' or 'png'.")
+
+        if viz is None:
+            viz = MeshcatVisualizer()
+            viz.initViewer()
+
+        if save_at is not None:
+            save_at = map2path(save_at).expanduser().resolve()
+            save_at.mkdir(exist_ok=True)
+            if file_format == 'png':
+                logging.info("Enforcing open visualizer for PNG output.")
+                viz.viewer.open()
+
+        def viz_callback(ga_instance: pygad.GA):
+            generation = ga_instance.generations_completed
+            if generation % every_n_generations != 0 and generation != ga_instance.num_generations:
+                return True
+            candidate = ga_instance.best_solution(ga_instance.last_generation_fitness)[0]
+            assembly = self._get_candidate_assembly(self._map_genes_to_id(candidate))
+
+            try:
+                clear_visualizer(viz)
+            except zmq.error.ZMQError:
+                viz.viewer.window.connect_zmq()
+            if task is None:
+                assembly.robot.visualize(viz)
+            else:
+                task.visualize(viz, robots=[assembly.robot], center_view=False)
+
+            if any(g.goal_pose.valid(assembly.robot.fk()) for g in task.goals if isinstance(g, Goals.At)):
+                color_visualization(viz, assembly)
+
+            if save_at is not None:
+                task_id = task.id if task is not None else ''
+                if file_format.lower() == 'html':
+                    save_visualizer_scene(viz, filename=save_at / f'{task_id}_gen_{generation}.html', overwrite=True)
+                else:
+                    save_visualizer_screenshot(viz, filename=save_at / f'_{task_id}_gen_{generation}.png',
+                                               overwrite=True)
+            return True
+
+        return viz_callback
+
     def mutation(self, population: np.ndarray, ga_instance: pygad.GA) -> np.ndarray:
         """
-        Performs mutation on each chromosome of the offspring by randomly selecting a gene and replacing it.
+        Performs mutation on each chromosome of the offspring by randomly selecting genes and replacing them.
 
         The replacement is based on finding modules with the same connectors as the initial module, and the
         replacement candidate is chosen randomly. Notice offspring contains integers not IDs.
@@ -159,8 +263,13 @@ class GA:
     def optimize(self,
                  fitness_function: Callable[[ModuleAssembly, pygad.GA, int], float],
                  hp: Optional[dict] = None,
+                 progress_bar: bool = True,
+                 debug_logging_frequency: Optional[int] = 10,
                  sane_keyboard_interrupt: bool = True,
                  timeout: Optional[float] = None,
+                 wandb_run=None,
+                 progress_unit: ProgressUnit = ProgressUnit.GENERATIONS,
+                 steps_at_start: int = 0,
                  **ga_kwargs
                  ) -> pygad.GA:
         """
@@ -174,12 +283,20 @@ class GA:
             which is to be evaluated as well as the GA instance and the index of the solution in the population. It is
             up to the user which of these arguments are used in the fitness function.
         :param hp: Optional hyperparameters overriding the user and default hyperparameters.
+        :param progress_bar: If True, a tqdm progress bar over the numbers of generations completed will be shown.
+        :param debug_logging_frequency: If specified, internal debug metrics will be logged every full n progress units.
         :param sane_keyboard_interrupt: If True, the GA will be stopped when a keyboard interrupt is received, but the
             exception will not be raised.
         :param timeout: If specified, the GA will be stopped after the specified number of seconds.
+        :param wandb_run: You can optionally pass a Weights and Biases run instance to log the results. A run instance
+            can be obtained by calling wandb.init() before calling this function.
+        :param progress_unit: The metric to be used for tracking performance metrics, e.g. for logging or wandb.
+        :param steps_at_start: The value of the progress unit at the first generation. This is useful if you want
+            to continue a run that was interrupted or if multiple runs should be tracked "as one".
         :param ga_kwargs: Additional keyword arguments to be passed to the pygad.GA class that do not qualify as
             hyperparameters (so anything that should not be logged as a hyperparameter, e.g., callbacks).
         """
+        self.fitness_cache.reset()
         if hp is None:
             hp = {}
         run_hp = deepcopy(self.hp)
@@ -189,12 +306,15 @@ class GA:
         ga_kwargs.setdefault('save_solutions', False)
 
         if set(run_hp.keys()).intersection(ga_kwargs.keys()):
-            raise ValueError('Hyperparameters and additional keyword arguments must not overlap!')
+            raise ValueError('Hyperparameters and additional keyword arguments must not overlap! ({})'.format(
+                set(run_hp.keys()).intersection(ga_kwargs.keys())
+            ))
 
         if run_hp['num_genes'] < 3:
             raise ValueError('The number of genes must be at least 3!')
 
         logging.info(f"Hyperparameters used: {json.dumps(run_hp)}")
+        logging.info("Progress unit: {}".format(progress_unit))
 
         gene_space: List[List[int]] = [[self.id2num[_id] for _id in self.base_ids]]
         for _ in range(run_hp['num_genes'] - 2):
@@ -203,8 +323,14 @@ class GA:
 
         def fitness(_ga: pygad.GA, individual: List[int], individual_idx: int) -> float:
             """Fitness function for the genetic algorithm."""
-            assembly = self._pre_computation_fitness(individual)
-            return fitness_function(assembly, _ga, individual_idx)
+            individual = tuple(individual)
+            module_ids = self._map_genes_to_id(individual)
+            if module_ids in self.fitness_cache:
+                return self.fitness_cache[module_ids]
+            assembly = self._get_candidate_assembly(module_ids)
+            fitness_value = fitness_function(assembly, _ga, individual_idx)
+            self.fitness_cache[module_ids] = fitness_value
+            return fitness_value
 
         initial_population = self._get_initial_population((run_hp.pop('population_size'), run_hp['num_genes']),
                                                           run_hp.pop('initial_prob_joint'))
@@ -213,27 +339,64 @@ class GA:
             ga_kwargs['logger'] = logging.getLogger()
 
         save_fp = run_hp.pop('save_solutions_dir', None)
-        if not ga_kwargs['save_best_solutions']:
+        if not ga_kwargs['save_best_solutions'] and save_fp is not None:
             raise ValueError("If you provide a filepath to store solutions at, save_best_solutions must be true.")
         if save_fp is not None:
-            save_fp = Path(save_fp).resolve()
+            save_fp = Path(save_fp).expanduser().resolve()
             save_fp.mkdir(exist_ok=True)
-            save_fp = save_fp.joinpath('GA_started_at_' + datetime.now().strftime('%Y-%m-%d_%H-%M-%S') + 'best.pkl')
+            save_fp = save_fp.joinpath('GA_started_at_' + datetime.now().strftime('%Y-%m-%d_%H-%M-%S') + '_best.pkl')
 
+        on_generation_cbs: List[Callable[[pygad.GA], any]] = []
+        if progress_bar:
+            progress_bar = tqdm(total=hp['num_generations'] + 1 + steps_at_start, desc='Generations')
+            progress_bar.update(steps_at_start)
+
+            def progress_callback(_: pygad.GA) -> bool:
+                progress_bar.update(1)
+                return True
+
+            on_generation_cbs.append(progress_callback)
+
+        t0 = time.time()
         if timeout is not None:
-            def no_callback(_: pygad.GA):
-                return None
-            current_callback: Callable[[pygad.GA], Any] = ga_kwargs.get('on_generation', no_callback)
-            t_now = time.time()
+            def timeout_callback(ga_inst: pygad.GA) -> bool:
+                if time.time() - t0 > timeout:
+                    logging.info("Terminating GA optimization due to timeout after {} generations.".format(
+                        ga_inst.generations_completed))
+                    return False
+                return True
 
-            def timeout_callback(ga: pygad.GA):
-                val = current_callback(ga)
-                if time.time() - t_now > timeout:
-                    logging.info("Terminating GA optimization due to timeout.")
-                    return "stop"
-                return val
+            on_generation_cbs.append(timeout_callback)
 
-            ga_kwargs['on_generation'] = timeout_callback
+        if wandb_run is not None:
+            t_last_generation = time.time()
+
+            def log_wandb_callback(_ga: pygad.GA) -> bool:
+                nonlocal t_last_generation
+                wandb_data = {
+                    'mean fitness': _ga.last_generation_fitness.mean(),
+                    'best fitness': _ga.last_generation_fitness.max(),
+                    'individuals per second': hp['population_size'] / (time.time() - t_last_generation),
+                    'num assemblies cached': len(self.assembly_cache),
+                    'num fitness values cached': len(self.fitness_cache)
+                }
+                t_last_generation = time.time()
+                wandb_run.log(wandb_data, step=get_ga_progress(progress_unit, _ga, t0, steps_at_start))
+                return True
+
+            on_generation_cbs.append(log_wandb_callback)
+
+        if debug_logging_frequency is not None:
+            def debug_log_callback(_ga: pygad.GA) -> bool:
+                if get_ga_progress(progress_unit, _ga, t0, steps_at_start) % debug_logging_frequency == 0:
+                    logging.debug("Generation: {}".format(_ga.num_generations))
+                    logging.debug(f"Progress: {get_ga_progress(progress_unit, _ga, t0, steps_at_start)}{progress_unit}")
+                    logging.debug("Assemblies cached: {}".format(len(self.assembly_cache)))
+                return True
+
+            on_generation_cbs.append(debug_log_callback)
+
+        on_generation = self._chain_callbacks(ga_kwargs.pop('on_generation', None), on_generation_cbs)
 
         ga_instance = pygad.GA(
             fitness_func=fitness,
@@ -242,6 +405,7 @@ class GA:
             initial_population=initial_population,
             crossover_type=self.single_valid_crossover,
             mutation_type=self.mutation,
+            on_generation=on_generation,
             **run_hp,
             **ga_kwargs
         )
@@ -252,15 +416,30 @@ class GA:
                 logging.warning("Keyboard interrupt received, stopping optimization.")
             else:
                 raise
+        finally:
+            if progress_bar:
+                progress_bar.close()
 
         if save_fp is not None:
             with save_fp.open('wb') as f:
-                pickle.dump(ga_instance.best_solutions, f)
+                best = ga_instance.best_solutions[ga_instance.best_solution_generation]
+                data = {
+                    'best_solutions': ga_instance.best_solutions,
+                    'best_solutions_fitness': ga_instance.best_solutions_fitness,
+                    'best_solution_generation': ga_instance.best_solution_generation,
+                    'best_solution_IDs': self._map_genes_to_id(best),
+                    'db': self.db.name,
+                    'hyperparameters': run_hp,
+                }
+                pickle.dump(data, f)
         if ga_kwargs['save_best_solutions']:
-            best_solution_modules = ga_instance.best_solutions[-1]
-            best_solution = ga_instance.best_solutions_fitness[-1]
-            logging.info(f"Best solution modules: {best_solution_modules}")
-            logging.info(f"Best solution fitness: {best_solution}")
+            logging.info("The best solution was found at generation {} with a fitness value of {}.".format(
+                ga_instance.best_solution_generation,
+                ga_instance.best_solutions_fitness[ga_instance.best_solution_generation]
+            ))
+            best = ga_instance.best_solutions[ga_instance.best_solution_generation]
+            logging.info("Best solution: {}".format('-'.join(self._map_genes_to_id(best))))
+        logging.info("Total optimization time: {:.2f} seconds.".format(time.time() - t0))
         self._last_ga_instance = ga_instance
         return ga_instance
 
@@ -293,24 +472,48 @@ class GA:
         offsprings = np.array(offsprings)
         return offsprings
 
-    def plot_fitness(self, show_figure: bool = True):
+    @staticmethod
+    def _chain_callbacks(original_callback: Optional[Callable[[pygad.GA], any]] = None,
+                         optional_callbacks: Sequence[Callable[[pygad.GA], any]] = ()
+                         ) -> Callable[[pygad.GA], Optional[str]]:
         """
-        Visualize the fitness values over generations.
+        This is a helper function to create a single callback function from a sequence of callable objects.
 
-        :param show_figure: If True, the figure will be shown.
+        The order of the callbacks is preserved, with the original callback being called first. If any of the optional
+        callbacks returns False, the callback chain is terminated and "stop" is returned which will stop the GA.
+
+        :param original_callback: The original callback function - this function can return any value, but any value
+            other than "stop" will be ignored by pygad.
+        :param optional_callbacks: A sequence of optional callbacks. Each callback should return True to continue the
+            callback chain, or either False or 'stop' to stop the callback chain.
         """
-        if self._last_ga_instance is None:
-            logging.warning('No GA optimization has been run yet.')
-            return
-        elif not hasattr(self._last_ga_instance, 'best_solutions_fitness'):
-            logging.warning('No fitness values were recorded during the last GA optimization.'
-                            'Set save_best_solutions=True in the GA kwargs to visualize results.')
-            return
-        num_data_points = len(self._last_ga_instance.best_solutions_fitness)
-        times = [i for i in range(num_data_points)]
-        data = [(self._last_ga_instance.best_solutions_fitness, "Fitness")]
-        f = plot_time_series(times, data, show_figure=show_figure)
-        return f
+        if original_callback is None:
+            def original_callback(_: pygad.GA): return True
+
+        callbacks = tuple(itertools.chain([original_callback], optional_callbacks))
+
+        def _callback(ga_instance: pygad.GA):
+            for cb in callbacks:
+                ret = cb(ga_instance)
+                if ret is False or ret == 'stop':
+                    return 'stop'
+
+        return _callback
+
+    def _get_candidate_assembly(self, module_ids: Tuple[str]) -> ModuleAssembly:
+        """
+        Perform pre-computation for the fitness function.
+
+        It converts the solution from integer encodings to IDs and assembles the modules in a chain.
+
+        :param module_ids: The solution to be evaluated, encoded as module ids.
+        """
+        if module_ids in self.assembly_cache:
+            assembly = self.assembly_cache[module_ids]
+        else:
+            assembly = ModuleAssembly.from_serial_modules(self.db, module_ids)
+            self.assembly_cache[module_ids] = assembly
+        return assembly
 
     def _map_genes_to_id(self, genome: Sequence[int]) -> Tuple[str]:
         """
@@ -378,20 +581,3 @@ class GA:
             initial_population.append(path)
 
         return np.array(initial_population)
-
-    def _pre_computation_fitness(self, solution: Sequence[int]) -> ModuleAssembly:
-        """
-        Perform pre-computation for the fitness function.
-
-        It converts the solution from integer encodings to IDs and assembles the modules in a chain.
-
-        :param solution: The solution to be evaluated, encoded in integer values.
-        """
-        solution_tuple = tuple(solution)
-        if solution_tuple in self.assembly_cache:
-            assembly = self.assembly_cache[solution_tuple]
-        else:
-            module_ids = self._map_genes_to_id(solution_tuple)
-            assembly = ModuleAssembly.from_serial_modules(self.db, module_ids)
-            self.assembly_cache[solution_tuple] = assembly
-        return assembly

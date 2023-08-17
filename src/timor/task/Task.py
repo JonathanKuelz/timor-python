@@ -152,8 +152,11 @@ class Task(JSONable_mixin):
         task = cls(header, obstacles, goals=goals, constraints=constraints)
         return task
 
-    def to_json_file(self, save_at: Union[Path, str],
-                     handle_missing_assets: Optional[str] = None, *args, **kwargs):
+    def to_json_file(self,
+                     save_at: Union[Path, str],
+                     handle_missing_assets: Optional[str] = None,
+                     *args,
+                     **kwargs):
         """
         Save the task to a json file.
 

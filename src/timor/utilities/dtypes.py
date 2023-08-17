@@ -158,6 +158,10 @@ class LimitedSizeMap(MutableMapping):
         self.store[key] = value
         self.store.move_to_end(key, last=False)
 
+    def reset(self):
+        """Reset the cache"""
+        self.store: OrderedDict = OrderedDict()
+
 
 class SingleSet(set):
     """
@@ -496,24 +500,24 @@ def randomly(seq: Collection) -> Iterable:
 
 
 @contextmanager
-def timeout(timout: int, logging_callback: Optional[Callable[[Exception], None]] = logging.warning):
+def timeout(timeout_s: int, logging_callback: Optional[Callable[[Exception], None]] = logging.warning):
     """
     A decorator to time out a function call after a given time.
 
     Note that this will only work on UNIX systems.
-    :param timout: The time after which the function call shall be aborted (in seconds)
+    :param timeout_s: The time after which the function call shall be aborted (in seconds)
     :param logging_callback: A logging function that takes a string as input - defaults to a warning, but can be changed
     to another level of None.
     """
     def handler(signum, frame):
-        raise TimeoutError("Timed out after {} seconds".format(timout))
+        raise TimeoutError("Timed out after {} seconds".format(timeout_s))
 
-    if not isinstance(timout, int):
+    if not isinstance(timeout_s, int):
         logging.warning("Timeout decorator only works with integers, casting to int")
-        timout = int(timout)
+        timeout_s = int(timeout_s)
 
     signal.signal(signal.SIGALRM, handler)
-    signal.alarm(timout)
+    signal.alarm(timeout_s)
     try:
         yield
     except TimeoutError as exe:

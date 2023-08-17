@@ -269,7 +269,7 @@ class Transformation(JSONable_mixin):
 
     def to_json_data(self):
         """Returns a serialized description if the nominal placement."""
-        return self.homogeneous.tolist()
+        return self.homogeneous.round(10).tolist()
 
     @property
     def serialized(self) -> List[List[float]]:
