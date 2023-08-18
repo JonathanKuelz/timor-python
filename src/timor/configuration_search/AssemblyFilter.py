@@ -326,7 +326,7 @@ class AssemblyModuleLengthFilter(AssemblyFilter):
                stop_early: bool = True) -> bool:
         """Sums up the module lengths and compares them to a required distance"""
         required_len = self._get_task_required_length(task)
-        module_len = sum(self.module_lengths[m] for m in assembly.original_module_ids)
+        module_len = sum(self._get_module_length(m) for m in assembly.module_instances)
         return module_len >= required_len
 
     def _get_module_length(self, module: AtomicModule):
