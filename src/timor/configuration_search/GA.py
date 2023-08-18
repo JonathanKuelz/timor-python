@@ -373,9 +373,14 @@ class GA:
 
             def log_wandb_callback(_ga: pygad.GA) -> bool:
                 nonlocal t_last_generation
+                idx_best = _ga.last_generation_fitness.argmax()
+                modules_best = self._map_genes_to_id(_ga.population[idx_best])
                 wandb_data = {
                     'mean fitness': _ga.last_generation_fitness.mean(),
                     'best fitness': _ga.last_generation_fitness.max(),
+                    'num modules for best fitness': len(modules_best),
+                    'num joints for best fitness': len([m for m in modules_best if m in self.joint_ids]),
+                    'average number of modules': _ga.pop_size[1] - np.sum(_ga.population == 0) / _ga.pop_size[0],
                     'individuals per second': hp['population_size'] / (time.time() - t_last_generation),
                     'num assemblies cached': len(self.assembly_cache),
                     'num fitness values cached': len(self.fitness_cache)
