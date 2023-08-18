@@ -6,7 +6,7 @@ import contextlib
 from dataclasses import dataclass, field
 from enum import Enum
 import itertools
-from typing import Collection, Dict, Generator, Iterable, List, Sequence, Tuple, Type, Union
+from typing import Collection, Dict, Generator, Iterable, List, Optional, Sequence, Tuple, Type, Union
 
 import networkx as nx
 import numpy as np
@@ -304,15 +304,18 @@ class AssemblyModuleLengthFilter(AssemblyFilter):
     provides = ()
     requires = ()
 
-    def __init__(self, db: ModulesDB, skip_not_applicable: bool = True):
+    def __init__(self, db: Optional[ModulesDB] = None, skip_not_applicable: bool = True):
         """
         Pre-compute module lengths and initialize the task cache
 
         :param db: A module database to set up this filter -- this is needed for pre-computing module lengths.
         """
         super().__init__(skip_not_applicable)
-        self.module_lengths: Dict[str, float] = {m.id: self._get_module_length(m) for m in db}
+        self.module_lengths: Dict[str, float] = dict()
         self.task_required_len_cache: LimitedSizeMap[str, float] = LimitedSizeMap(maxsize=10)
+        if db is not None:
+            for m in db:
+                self.module_lengths[m.id] = self._get_module_length(m)
 
     def reset(self):
         """Resets the task cache"""
@@ -323,12 +326,13 @@ class AssemblyModuleLengthFilter(AssemblyFilter):
                stop_early: bool = True) -> bool:
         """Sums up the module lengths and compares them to a required distance"""
         required_len = self._get_task_required_length(task)
-        module_len = sum(self.module_lengths[m] for m in assembly.original_module_ids)
+        module_len = sum(self._get_module_length[m] for m in assembly.original_module_ids)
         return module_len >= required_len
 
-    @staticmethod
-    def _get_module_length(module: AtomicModule):
+    def _get_module_length(self, module: AtomicModule):
         """Computes an over-approximation of connector-to-connector distance for a module"""
+        if module.id in self.module_lengths:
+            return self.module_lengths[module.id]
         distance = -1
         for c1, c2 in itertools.product(module.connectors_by_own_id.values(), repeat=2):
             path = nx.shortest_path(module.module_graph, c1, c2)
@@ -336,6 +340,7 @@ class AssemblyModuleLengthFilter(AssemblyFilter):
             for n1, n2 in zip(path[:-1], path[1:]):
                 d += module.module_graph.edges[n1, n2]['transform'].norm.translation_euclidean
             distance = max(distance, d)
+        self.module_lengths[module.id] = distance
         return distance
 
     def _get_task_required_length(self, task: Task.Task) -> float:
@@ -614,7 +619,7 @@ def assert_filters_compatible(filters: Iterable[Type[AssemblyFilter]]) -> None:
         requirements_given.extend(filter_class.provides)
 
 
-def default_filters(t: Task.Task) -> Tuple[RobotCreationFilter, InverseKinematicsSolvable, InverseKinematicsSolvable]:
+def default_filters(t: Task.Task) -> Tuple[AssemblyFilter, ...]:
     """
     Default filters for assembly planning.
 
@@ -628,10 +633,11 @@ def default_filters(t: Task.Task) -> Tuple[RobotCreationFilter, InverseKinematic
 
     :param t: The task to be evaluated.
     """
+    assembly_length = AssemblyModuleLengthFilter()
     create_robot = RobotCreationFilter()
     ik_simple = InverseKinematicsSolvable(ignore_self_collision=True, max_iter=150, max_n_tries=3)
     ik_complex = InverseKinematicsSolvable(task=t, max_iter=1500, max_n_tries=100, check_static_torques=True)
-    return create_robot, ik_simple, ik_complex
+    return assembly_length, create_robot, ik_simple, ik_complex
 
 
 def run_filters(filters: Sequence[AssemblyFilter],
