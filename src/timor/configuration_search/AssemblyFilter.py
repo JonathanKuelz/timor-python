@@ -298,6 +298,9 @@ class AssemblyModuleLengthFilter(AssemblyFilter):
     This filter works with over-approximations of the base placement tolerance and ignores the goal pose tolerances,
     this means it is neither complete, nor is it guaranteed to filter invalid assemblies only if goal tolerances are
     significantly large.
+
+    Attention! This filter caches intermediate computations for modules, identifying them by ID. This means that you
+    can't use it for different module databases at the same time.
     """
 
     goal_types_filtered = GOALS_WITH_POSE
@@ -357,7 +360,7 @@ class AssemblyModuleLengthFilter(AssemblyFilter):
             tol = base_tolerance.stacked[0, 1]  # That's the upper limit for the radius
         elif isinstance(base_tolerance, Tolerance.CartesianXYZ):
             # We over-approximate the tolerance by a sphere around the nominal pose
-            tol = np.max(np.abs(base_tolerance.stacked))
+            tol = np.sum(np.abs(base_tolerance.stacked))
         else:
             raise ValueError(f'Cannot compute required robot length for a {type(base_tolerance)} base tolerance.')
         for goal in task.goals:

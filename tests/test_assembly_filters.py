@@ -103,7 +103,7 @@ class TestFilterRobotsForTasks(unittest.TestCase):
         assembly = self.modrob_assembly
 
         world = Transformation.neutral()
-        base_constraint = Constraints.BasePlacement(ToleratedPose(world))
+        base_constraint = Constraints.BasePlacement(ToleratedPose(world, tolerance=Tolerance.CartesianXYZ.default()))
 
         task = Task.Task(Task.TaskHeader("tmp"), constraints=(base_constraint,), goals=())
         # Check it doesn't discard a task with no goals
@@ -131,7 +131,7 @@ class TestFilterRobotsForTasks(unittest.TestCase):
             self.assertTrue(test_filter.check(assembly, task, AssemblyFilter.IntermediateFilterResults()))
             test_filter.reset()
 
-        # Now check that the filter discards assemblies that are too long
+        # Now check that the filter discards assemblies that are too short
         for i in range(10):
             task = Task.Task(Task.TaskHeader(str(rng.random)), constraints=(base_constraint,),
                              goals=(random_goal_with_distance(total_len * 1.05),))
