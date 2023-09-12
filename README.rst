@@ -3,8 +3,18 @@
     :align: center
     :target: https://gitlab.lrz.de/tum-cps/timor-python/-/raw/main/img/timor_banner.png
 
+
 Timor Python
 ============
+.. image:: https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png
+    :alt: Github Logo
+    :align: left
+    :target: https://github.com/JonathanKuelz/timor-python
+
+.. image:: https://about.gitlab.com/images/press/logo/png/gitlab-logo-500.png
+    :alt: Gitlab Logo
+    :align: left
+    :target: https://gitlab.lrz.de/tum-cps/timor-python
 The Toolbox for Industrial Modular Robot Design (Timor) is a python library for model generation and simulation of modular robots.
 
 .. image:: https://gitlab.lrz.de/tum-cps/timor-python/badges/main/pipeline.svg
