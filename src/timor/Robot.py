@@ -421,7 +421,7 @@ class RobotBase(abc.ABC):
         )
 
         q_sol = unmask(sol.x)
-        if sol.fun < lowest_cost.distance:
+        if sol.fun < lowest_cost.distance and not self.has_self_collision(q_sol):
             lowest_cost = IntermediateIkResult(q_sol, sol.fun)
 
         if restore_config:
@@ -605,7 +605,6 @@ class PinRobot(RobotBase):
     @property
     def joint_acceleration_limits(self) -> np.ndarray:
         """Numpy array where arr[0,:] are the lower joint limits and arr[1,:] are the upper acceleration limits."""
-        warn("Acceleration Limits not Implemented for Robots! Set to infinity")
         return np.ones((self.njoints,), float) * np.inf
 
     @property
