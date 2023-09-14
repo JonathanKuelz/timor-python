@@ -23,7 +23,7 @@ from timor.utilities.dtypes import LimitedSizeMap, randomly
 import timor.utilities.errors as err
 from timor.utilities.file_locations import map2path
 from timor.utilities.visualization import MeshcatVisualizer, clear_visualizer, color_visualization, \
-    save_visualizer_scene, save_visualizer_screenshot
+    place_billboard, save_visualizer_scene, save_visualizer_screenshot
 import zmq.error
 
 
@@ -173,7 +173,7 @@ class GA:
                                     save_at: Optional[Union[str, Path]] = None,
                                     file_format: str = 'html',
                                     every_n_generations: int = 10,
-                                    timeout_seconds: int = 10) -> Callable[[pygad.GA], bool]:
+                                    checkmark_successful: bool = False) -> Callable[[pygad.GA], bool]:
         """
         Creates a callback function that can be passed to the GA optimizer to visualize solution candidates.
 
@@ -188,6 +188,7 @@ class GA:
             be either 'html' or 'png'. While html works "headless" without opening a browser, png enforces opening a
             viewer and cannot be used on a remote server. However, html files are much larger than png files.
         :param every_n_generations: Every nth generation, a visualization will be created.
+        :param checkmark_successful: If True, a checkmark will be added to every goal that was achieved in the task.
         """
         file_format = file_format.lower()
         if file_format not in ('html', 'png'):
@@ -222,6 +223,15 @@ class GA:
 
             if any(g.goal_pose.valid(assembly.robot.fk()) for g in task.goals if isinstance(g, Goals.At)):
                 color_visualization(viz, assembly)
+
+            if checkmark_successful:
+                for goal in task.goals:
+                    if not isinstance(goal, Goals.At):
+                        continue
+                    _, suc = assembly.robot.ik(goal.goal_pose, task=task, max_iter=1000)
+                    if suc:
+                        place_billboard(viz, text='🗸', name=goal.id, placement=goal.goal_pose.nominal,
+                                        text_color='green', background_color='transparent', scale=.3)
 
             if save_at is not None:
                 task_id = task.id if task is not None else ''

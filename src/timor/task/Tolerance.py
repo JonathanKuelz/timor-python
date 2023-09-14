@@ -123,7 +123,7 @@ class ToleranceBase(abc.ABC):
         if hasattr(geometry, 'material'):
             viz.viewer[name].set_object(geometry)
         else:
-            viz.viewer[name].set_object(geometry, self._visual_material)
+            viz.viewer[name].set_object(geometry, custom_material)
         viz.viewer[name].set_transform(transform @ offset.homogeneous)
 
     def __add__(self, other: ToleranceBase) -> ToleranceBase:
