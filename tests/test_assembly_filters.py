@@ -9,7 +9,7 @@ from timor.Geometry import Box
 from timor.Module import ModuleAssembly, ModulesDB
 from timor.Robot import PinRobot
 from timor.configuration_search import AssemblyFilter
-from timor.task import Goals, Task, Tolerance, Obstacle
+from timor.task import Constraints, Goals, Task, Tolerance, Obstacle
 from timor.utilities.trajectory import Trajectory
 from timor.utilities.file_locations import get_test_tasks, robots
 from timor.utilities.prebuilt_robots import get_six_axis_assembly
@@ -95,6 +95,55 @@ class TestFilterRobotsForTasks(unittest.TestCase):
             ir.tau_static['g1'] = .1
 
         self.assertEqual(ir.tau_static['g1'], .999)
+
+    def test_length_filter(self):
+        """Test the length filter"""
+        rng = np.random.default_rng(seed=99)
+        test_filter = AssemblyFilter.AssemblyModuleLengthFilter(self.modrob_assembly.db)
+        assembly = self.modrob_assembly
+
+        world = Transformation.neutral()
+        base_constraint = Constraints.BasePlacement(ToleratedPose(world, tolerance=Tolerance.CartesianXYZ.default()))
+
+        task = Task.Task(Task.TaskHeader("tmp"), constraints=(base_constraint,), goals=())
+        # Check it doesn't discard a task with no goals
+        self.assertTrue(test_filter.check(assembly, task, AssemblyFilter.IntermediateFilterResults()))
+
+        def random_goal_with_distance(d: float) -> Goals.At:
+            """Creates a random goal with distance d to the origin"""
+            t = Transformation.random()
+            t = Transformation.from_roto_translation(t[:3, :3], t.translation / np.linalg.norm(t.translation) * d)
+            return Goals.At(ID=str(rng.random()), goalPose=ToleratedPose(t))
+
+        # First check that the filter doesn't discard assemblies that are not too long obviously
+        for _ in range(10):
+            conf = rng.random(assembly.robot.njoints)
+            goal = Goals.At(ID=str(rng.random()), goalPose=ToleratedPose(assembly.robot.fk(conf)))
+            task = Task.Task(Task.TaskHeader(str(rng.random)), constraints=(base_constraint,), goals=(goal,))
+            self.assertTrue(test_filter.check(assembly, task, AssemblyFilter.IntermediateFilterResults()))
+            test_filter.reset()
+
+        lengths = [test_filter.module_lengths[mid] for mid in assembly.original_module_ids]
+        total_len = sum(lengths)
+        for i in range(10):
+            task = Task.Task(Task.TaskHeader(str(rng.random)), constraints=(base_constraint,),
+                             goals=(random_goal_with_distance(total_len * 0.95),))
+            self.assertTrue(test_filter.check(assembly, task, AssemblyFilter.IntermediateFilterResults()))
+            test_filter.reset()
+
+        # Now check that the filter discards assemblies that are too short
+        for i in range(10):
+            task = Task.Task(Task.TaskHeader(str(rng.random)), constraints=(base_constraint,),
+                             goals=(random_goal_with_distance(total_len * 1.05),))
+            self.assertFalse(test_filter.check(assembly, task, AssemblyFilter.IntermediateFilterResults()))
+            test_filter.reset()
+
+        # Also check for a follow goal
+        oor = random_goal_with_distance(1.5 * total_len).nominal_goal
+        goal = Goals.Follow(ID=str(rng.random()), trajectory=Trajectory(
+            pose=[ToleratedPose(world.interpolate(oor, alpha)) for alpha in np.linspace(0, 1, 100)]))
+        task = Task.Task(Task.TaskHeader(str(rng.random)), constraints=(base_constraint,), goals=(goal,))
+        self.assertFalse(test_filter.check(assembly, task, AssemblyFilter.IntermediateFilterResults()))
 
     def test_limits_met_filter(self):
         """Partially tests the filter by omitting the task and just plugging trajectories in"""

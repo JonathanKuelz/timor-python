@@ -5,17 +5,21 @@ from abc import ABC, abstractmethod
 import contextlib
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Collection, Dict, Generator, Iterable, List, Sequence, Tuple, Type, Union
+import itertools
+from typing import Collection, Dict, Generator, Iterable, List, Optional, Sequence, Tuple, Type, Union
 
+import networkx as nx
 import numpy as np
 
-from timor import ModuleAssembly
+from timor import AtomicModule, ModuleAssembly, ModulesDB
 from timor.Robot import RobotBase
-from timor.task import Goals, Task
+from timor.task import Goals, Task, Tolerance
 from timor.utilities import dtypes, logging
+from timor.utilities.dtypes import LimitedSizeMap
 from timor.utilities.trajectory import Trajectory
 
-GOALS_WITH_POSE = Union[Goals.At, Goals.Reach]
+GOALS_WITH_POSE = Union[Goals.At, Goals.Follow, Goals.Reach]
+GOALS_WITH_ONE_POSE = Union[Goals.At, Goals.Reach]
 
 
 class FilterNotApplicableException(Exception):
@@ -287,6 +291,93 @@ class AssemblyFilter(ABC):
         """
 
 
+class AssemblyModuleLengthFilter(AssemblyFilter):
+    """
+    Filter to discard assemblies for which the total size of the modules is not sufficient to reach all goals.
+
+    This filter works with over-approximations of the base placement tolerance and ignores the goal pose tolerances,
+    this means it is neither complete, nor is it guaranteed to filter invalid assemblies only if goal tolerances are
+    significantly large.
+
+    Attention! This filter caches intermediate computations for modules, identifying them by ID. This means that you
+    can't use it for different module databases at the same time.
+    """
+
+    goal_types_filtered = GOALS_WITH_POSE
+    provides = ()
+    requires = ()
+
+    def __init__(self, db: Optional[ModulesDB] = None, skip_not_applicable: bool = True):
+        """
+        Pre-compute module lengths and initialize the task cache
+
+        :param db: A module database to set up this filter -- this is needed for pre-computing module lengths.
+        """
+        super().__init__(skip_not_applicable)
+        self.module_lengths: Dict[str, float] = dict()
+        self.task_required_len_cache: LimitedSizeMap[str, float] = LimitedSizeMap(maxsize=10)
+        if db is not None:
+            for m in db:
+                self.module_lengths[m.id] = self._get_module_length(m)
+
+    def reset(self):
+        """Resets the task cache"""
+        super().reset()
+        self.task_required_len_cache.reset()
+
+    def _check(self, assembly: ModuleAssembly, task: Task.Task, results: IntermediateFilterResults,
+               stop_early: bool = True) -> bool:
+        """Sums up the module lengths and compares them to a required distance"""
+        required_len = self._get_task_required_length(task)
+        module_len = sum(self._get_module_length(m) for m in assembly.module_instances)
+        return module_len >= required_len
+
+    def _get_module_length(self, module: AtomicModule):
+        """Computes an over-approximation of connector-to-connector distance for a module"""
+        if module.id in self.module_lengths:
+            return self.module_lengths[module.id]
+        distance = -1
+        for c1, c2 in itertools.product(module.connectors_by_own_id.values(), repeat=2):
+            path = nx.shortest_path(module.module_graph, c1, c2)
+            d = 0
+            for n1, n2 in zip(path[:-1], path[1:]):
+                d += module.module_graph.edges[n1, n2]['transform'].norm.translation_euclidean
+            distance = max(distance, d)
+        self.module_lengths[module.id] = distance
+        return distance
+
+    def _get_task_required_length(self, task: Task.Task) -> float:
+        """Computes the maximum distance between any goal position and the base placement in the task."""
+        if task.id in self.task_required_len_cache:
+            return self.task_required_len_cache[task.id]
+        distance = -1
+        base_nominal = task.base_constraint.base_pose.nominal
+        base_tolerance = task.base_constraint.base_pose.tolerance
+        if isinstance(task.base_constraint.base_pose.tolerance, Tolerance.Composed):
+            base_tolerance = Tolerance.Composed(
+                [t for t in base_tolerance.tolerances if isinstance(t, Tolerance.Cartesian)])
+        if isinstance(base_tolerance, Tolerance.CartesianSpheric):
+            tol = base_tolerance.stacked[0, 1]  # That's the upper limit for the radius
+        elif isinstance(base_tolerance, Tolerance.CartesianXYZ):
+            # We over-approximate the tolerance by a sphere around the nominal pose
+            tol = np.sum(np.abs(base_tolerance.stacked))
+        else:
+            raise ValueError(f'Cannot compute required robot length for a {type(base_tolerance)} base tolerance.')
+        for goal in task.goals:
+            if not self._applies(goal):
+                continue
+            if isinstance(goal, Goals.Follow):
+                d = max(base_nominal.distance(n.nominal).translation_euclidean for n in goal.trajectory.pose)
+            elif isinstance(goal, (Goals.At, Goals.Reach)):
+                d = base_nominal.distance(goal.goal_pose.nominal).translation_euclidean
+            else:
+                raise NotImplementedError(f'Cannot compute required robot length for a goal of type {type(goal)}.')
+            distance = max(distance, d)
+        distance = distance - tol
+        self.task_required_len_cache[task.id] = distance
+        return distance
+
+
 class RobotCreationFilter(AssemblyFilter):
     """Filter to explicitly create a robot object for a given assembly."""
 
@@ -397,7 +488,7 @@ class InverseKinematicsSolvable(GoalByGoalFilter):
 
     requires: Tuple[ResultType] = (ResultType.robot,)
     provides: Tuple[ResultType] = (ResultType.q_goal_pose, ResultType.goal_ik_success)
-    goal_types_filtered: Collection[Type[Goals.GoalBase]] = GOALS_WITH_POSE
+    goal_types_filtered: Collection[Type[Goals.GoalBase]] = GOALS_WITH_ONE_POSE
 
     def __init__(self, skip_not_applicable: bool = True, **ik_kwargs):
         """Initialize the filter on inverse kinematics
@@ -435,7 +526,7 @@ class InverseKinematicsSolvable(GoalByGoalFilter):
             passes &= (np.abs(tau) <= results.robot.joint_torque_limits).all()
         return passes
 
-    def _check_goal(self, assembly: ModuleAssembly, goal: GOALS_WITH_POSE, results: IntermediateFilterResults,
+    def _check_goal(self, assembly: ModuleAssembly, goal: GOALS_WITH_ONE_POSE, results: IntermediateFilterResults,
                     task: Task) -> bool:
         """Performs the check whether the goals are valid.
 
@@ -463,7 +554,7 @@ class StaticTorquesValid(GoalByGoalFilter):
 
     requires: Tuple[ResultType] = (ResultType.q_goal_pose, ResultType.robot)
     provides: Tuple[ResultType] = (ResultType.tau_static,)
-    goal_types_filtered: Collection[Type[Goals.GoalBase]] = GOALS_WITH_POSE
+    goal_types_filtered: Collection[Type[Goals.GoalBase]] = GOALS_WITH_ONE_POSE
 
     def _check_given(self, assembly: ModuleAssembly, goal: Goals.GoalBase, results: IntermediateFilterResults,
                      task: Task):
@@ -531,7 +622,7 @@ def assert_filters_compatible(filters: Iterable[Type[AssemblyFilter]]) -> None:
         requirements_given.extend(filter_class.provides)
 
 
-def default_filters(t: Task.Task) -> Tuple[RobotCreationFilter, InverseKinematicsSolvable, InverseKinematicsSolvable]:
+def default_filters(t: Task.Task) -> Tuple[AssemblyFilter, ...]:
     """
     Default filters for assembly planning.
 
@@ -545,10 +636,11 @@ def default_filters(t: Task.Task) -> Tuple[RobotCreationFilter, InverseKinematic
 
     :param t: The task to be evaluated.
     """
+    assembly_length = AssemblyModuleLengthFilter()
     create_robot = RobotCreationFilter()
     ik_simple = InverseKinematicsSolvable(ignore_self_collision=True, max_iter=150, max_n_tries=3)
     ik_complex = InverseKinematicsSolvable(task=t, max_iter=1500, max_n_tries=100, check_static_torques=True)
-    return create_robot, ik_simple, ik_complex
+    return assembly_length, create_robot, ik_simple, ik_complex
 
 
 def run_filters(filters: Sequence[AssemblyFilter],
