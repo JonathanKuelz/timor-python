@@ -50,7 +50,9 @@ Some requirements are not included by default - in order to install them, use::
 where option can be one or multiple (comma-separated) of the following:
 
 - ``dev``: Installs development requirements for local unittesting
-- ``full``: Installs dev and jupyterlab -- needed to run the tutorials
+- ``optimization``: Installs useful requirements for optimizing module composition.
+- ``viz`: This installs a custom meshcat version and enables you to place billboards in the meshcat visualizer.
+- ``full``: All of the above - except for the custom meshcat visualizer.
 
 If you want to work with the bleeding-edge version, you can download the source code from the project repository and install it locally.
 Nagivate to the timor-python repository you cloned and enter::
