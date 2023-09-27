@@ -1135,6 +1135,7 @@ class PinRobot(RobotBase):
                 if collide(robot_geometry, omg3f, geometry, t3f, request, result):
                     if return_at_first:
                         return True
+                    result.clear()
                     collisions.append((self, obstacle))
                     break  # Next obstacle
         if return_at_first:
