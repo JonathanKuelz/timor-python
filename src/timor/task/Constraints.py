@@ -256,7 +256,7 @@ class JointLimits(ConstraintBase):
         for kind, robot_att in zip(self.robot_limit_types, self._robot_attributs):
             if getattr(self, kind):  # Check what kinds of limits are tested
                 limits = getattr(solution.robot, robot_att)  # Get the limits for the robot
-                in_solution = getattr(solution, kind)[solution.get_time_id(t)]  # Get the real values up until t
+                in_solution = getattr(solution, kind)[:solution.get_time_id(t) + 1]  # Get the real values up until t
                 if len(limits.shape) == 2:  # Lower and upper limits
                     valid = valid and np.all(limits[0, :] <= in_solution) and np.all(limits[1, :] >= in_solution)
                 else:
@@ -265,16 +265,7 @@ class JointLimits(ConstraintBase):
 
     def fulfilled(self, solution: Solution.SolutionBase) -> bool:
         """Checks the whole solution for all applied joint constraints"""
-        valid = True
-        for kind, robot_att in zip(self.robot_limit_types, self._robot_attributs):
-            if getattr(self, kind):  # Check what kinds of limits are tested
-                limits = getattr(solution.robot, robot_att)  # Get the limits for the robot
-                in_solution = getattr(solution, kind)  # Get the real values (in solution also called q, dq, ...)
-                if len(limits.shape) == 2:  # Lower and upper limits
-                    valid = valid and np.all(limits[0, :] <= in_solution) and np.all(limits[1, :] >= in_solution)
-                else:
-                    valid = valid and np.all(np.abs(in_solution) <= limits)
-        return valid
+        return self.is_valid_until(solution, float(solution.time_steps[-1]))
 
     def to_json_data(self) -> Dict[str, any]:
         """Dumps this constraint to a dictionary"""
