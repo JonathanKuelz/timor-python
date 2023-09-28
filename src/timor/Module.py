@@ -391,6 +391,7 @@ class ModulesDB(SingleSet, JSONable_mixin):
     connection_type = Tuple[ModuleBase, Connector, ModuleBase, Connector]  # More specific than in Assembly!
     _name: Optional[str]  # Optional name of the database, i.e. for referencing them in the CoBRA API
     _model_generation_kwargs: dict[str, Any]  # Default arguments to create a robot model from this ModulesDB with
+    _db_cache: Dict[str, ModulesDB] = {}  # Cache for the database, to avoid re-parsing the same files
 
     def __init__(self, *modules: Iterable[ModuleBase], name: Optional[str] = None, **model_generation_kwargs):
         """
@@ -429,11 +430,16 @@ class ModulesDB(SingleSet, JSONable_mixin):
         return new_db
 
     @classmethod
-    def from_name(cls, module_db_name) -> ModulesDB:
+    def from_name(cls, module_db_name: str, reload: bool = True) -> ModulesDB:
         """
         Create module DB from name of a module DB configured as loadable robot in timor.config
+
+        :param module_db_name: Name of the module DB to load
+        :param reload: If True, the DB will be reloaded from file, even if it was already loaded
         """
-        return cls.from_json_file(get_module_db_files(module_db_name))
+        if module_db_name not in cls._db_cache or reload:
+            cls._db_cache[module_db_name] = cls.from_json_file(get_module_db_files(module_db_name))
+        return cls._db_cache[module_db_name]
 
     @classmethod
     def from_json_file(cls, filepath: Union[Path, str], *args, **kwargs) -> ModulesDB:
@@ -1138,8 +1144,9 @@ class ModuleAssembly(JSONable_mixin):
           - default: moduleOrder + moduleConnection + baseConnection
 
         :param module_db: Optional db if generated adhoc or to recycle already loaded
+        :param kwargs: * reload_DB: reload DB from file if already loaded (default), otherwise use existing in cache
         """
-        db = module_db if module_db else ModulesDB.from_name(d["moduleSet"])
+        db = module_db if module_db else ModulesDB.from_name(d["moduleSet"], reload=kwargs.get("reload_DB", True))
 
         if 'moduleConnection' not in d:
             warnings.warn("Module Order should be replaced by proper module arrangement definition",

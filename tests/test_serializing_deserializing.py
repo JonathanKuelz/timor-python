@@ -266,6 +266,11 @@ class SerializationTests(unittest.TestCase):
                 new_db = ModulesDB.from_json_file(db_file)
                 # self.assertTrue(equivalent_set(db, new_db, equivalent_module))  # Other filepath -> not same geometry
 
+            # Test db caching by name
+            self.assertIs(db, ModulesDB.from_name(db.name, reload=False))
+            db_tmp = ModulesDB.from_name(db.name)
+            self.assertIsNot(db, db_tmp)
+
     def test_assembly_to_serialized(self):
         """Tests both, assembly to pickle and to json"""
         for db_name in ('IMPROV', 'PROMODULAR', 'modrob-gen2'):
@@ -304,6 +309,10 @@ class SerializationTests(unittest.TestCase):
                 pin_geometry_models_structurally_equal(robot.visual, reconstructed_robot.visual)
                 pin_geometry_models_structurally_equal(robot.collision, reconstructed_robot.collision)
                 pin_geometry_models_functionally_equal(robot, reconstructed_robot)
+
+                # Test db caching by name
+                for assembly in {reconstructed_assembly, reconstructed_pickle}:
+                    self.assertIs(db, assembly.db)
 
     def test_assembly_to_urdf(self):
         db = ModulesDB.from_name('IMPROV')
@@ -412,6 +421,10 @@ class SerializationTests(unittest.TestCase):
         self.assertIsNotNone(pickle.dumps(solution_dict))
         _, validator = get_schema_validator(schema_dir.joinpath("SolutionSchema.json"))
         deserialized_sol = Solution.SolutionBase.from_json_data(solution_dict, {task.id: task})
+        deserialized_sol_recycle_db = Solution.SolutionBase.from_json_data(solution_dict, {task.id: task},
+                                                                           reload_module_DB=False)
+        self.assertIsNot(solution.module_assembly.db, deserialized_sol.module_assembly.db)
+        self.assertIs(deserialized_sol.module_assembly.db, deserialized_sol_recycle_db.module_assembly.db)
         deepcopy_sol = deepcopy(solution)
         pickle_sol = pickle.loads(pickle.dumps(solution))
 
@@ -435,6 +448,7 @@ class SerializationTests(unittest.TestCase):
             self.assertEqual(solution.cost, sol.cost)
             self.assertEqual(solution.trajectory, sol.trajectory)
             self.assertEqual(solution.header, sol.header)
+            self.assertIsNot(solution.module_assembly.db, sol.module_assembly.db)  # By default dbs should not be shared
 
         with tempfile.NamedTemporaryFile(mode="w+") as t:
             json.dump({"test": "json_validator"}, t)

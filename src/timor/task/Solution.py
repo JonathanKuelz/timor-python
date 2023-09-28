@@ -106,7 +106,12 @@ class SolutionBase(abc.ABC, JSONable_mixin):
 
     @staticmethod
     def from_json_data(content: Dict, tasks: Dict[str, Task.Task], *args, **kwargs) -> SolutionBase:
-        """Factory method to load a class instance from a dictionary."""
+        """
+        Factory method to load a class instance from a dictionary.
+
+        :param kwargs: * reload_module_DB: If True, the module DB will be reloaded from file (default) otherwise will be
+          cached for faster solution loading.
+        """
         _header = fuzzy_dict_key_matching(content, desired_only=SolutionHeader.fields())
         header = SolutionHeader(**_header)
         try:
@@ -114,7 +119,7 @@ class SolutionBase(abc.ABC, JSONable_mixin):
         except KeyError:
             raise KeyError(f"Got solution for task {header.ID}, but there is no such task.")
 
-        assembly = ModuleAssembly.from_json_data(content)
+        assembly = ModuleAssembly.from_json_data(content, reload_DB=kwargs.get('reload_module_DB', True))
 
         cost_func = CostFunctions.CostFunctionBase.from_descriptor(content["costFunction"])
         base_pose = np.array(content['basePose'][0]).squeeze()
