@@ -25,6 +25,10 @@ robots = ["/home/<username>/timor-python/src/timor_sample_robots", "/home/<usern
 task_assets_copy_behavior = "error"
 db_assets_copy_behavior = "error"
 
+# Settings for robot simulation
+[COLLISION]
+safety_margin = 0.01  # Safety margin in meters for collision checking
+
 # Here, you can specify hyperparameters preferences for optimizers used in Timor.
 [Optimizers]
 save_solutions_dir = <path_to_folder>
