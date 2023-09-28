@@ -344,7 +344,7 @@ class SerializationTests(unittest.TestCase):
         with self.assertRaises(KeyError):
             Constraints.ConstraintBase.from_json_data({"no-type": "really no type information"})
 
-        with self.assertRaises(NotImplementedError):
+        with self.assertRaises(AttributeError):
             Constraints.ConstraintBase.from_json_data({"type": "thisIsARatherUnlikelyTypeStringToEverExist"})
 
         with self.assertRaises(ValueError):
