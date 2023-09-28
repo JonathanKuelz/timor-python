@@ -18,6 +18,7 @@ import scipy.optimize as optimize
 
 from timor.task.Obstacle import Obstacle
 from timor.utilities import logging, spatial
+from timor.utilities.configurations import SAFETY_MARGIN_COLLISION
 from timor.utilities.dtypes import IntermediateIkResult, float2array
 from timor.utilities.tolerated_pose import ToleratedPose
 from timor.utilities.transformation import Transformation, TransformationLike
@@ -179,11 +180,13 @@ class RobotBase(abc.ABC):
 
     # ---------- Abstract Methods ----------
     @abc.abstractmethod
-    def collisions(self, task: 'Task.Task') -> List[Tuple[RobotBase, Obstacle]]:  # noqa: F821
+    def collisions(self, task: 'Task.Task',  # noqa: F821
+                   safety_margin: float = SAFETY_MARGIN_COLLISION) -> List[Tuple[RobotBase, Obstacle]]:
         """
         Returns all collisions that appear between the robot and itself or obstacles in the task.
 
         :param task: The task to check for collisions
+        :param safety_margin: The safety margin is a padding added to all obstacles to increase needed separation.
         :return: A list of tuples (robot, obstacle) for robot an obstacle in collision
         """
 
@@ -197,13 +200,14 @@ class RobotBase(abc.ABC):
         """
 
     @abc.abstractmethod
-    def has_collisions(self, task: 'Task.Task') -> bool:  # noqa: F821
+    def has_collisions(self, task: 'Task.Task', safety_margin: float = SAFETY_MARGIN_COLLISION) -> bool:  # noqa: F821
         """
         Returns true if there is at least one collision in the task or one self-collision.
 
         Faster than self.collisions in case of collision, as this method breaks as soon as the first one is detected.
 
         :param task: The task the robot is in.
+        :param safety_margin: The safety margin is a padding added to all obstacles to increase needed separation.
         :return: Boolean indicator whether there are any collisions.
         """
 
@@ -1107,7 +1111,8 @@ class PinRobot(RobotBase):
 
     def __check_collisions(self,
                            task: 'Task.Task',  # noqa: F821
-                           return_at_first: bool
+                           return_at_first: bool,
+                           safety_margin: float = SAFETY_MARGIN_COLLISION
                            ) -> Union[bool, List[Tuple[RobotBase, Union[RobotBase, Obstacle]]]]:
         """
         Checks all collision pairs or all collisions pairs until the first colliding one is found.
@@ -1115,10 +1120,13 @@ class PinRobot(RobotBase):
         :param task: The task to check for collisions
         :param return_at_first: If true, this function behaves like a "has_collision". If false, it behaves like a
             "get_all_collisions" function.
+        :param safety_margin: The safety margin is a padding added to all obstacles to increase needed separation to be
+            considered collision free. In the same units as the collision objects (default and suggested in meters).
         :return: Bool if return_at_first is true, otherwise a list of all colliding pairs.
         """
         collisions: List[Tuple[RobotBase, Union[RobotBase, Obstacle]]] = list()
         request = CollisionRequest()
+        request.security_margin = safety_margin
         result = CollisionResult()
 
         if self.has_self_collision():
@@ -1143,24 +1151,27 @@ class PinRobot(RobotBase):
         return collisions
 
     def collisions(self,
-                   task: 'Task.Task'  # noqa: F821
+                   task: 'Task.Task',  # noqa: F821
+                   safety_margin: float = SAFETY_MARGIN_COLLISION
                    ) -> List[Tuple[RobotBase, Union[RobotBase, Obstacle]]]:
         """
         Returns all collisions that appear between the robot and itself or obstacles in the task.
 
         :param task: The task to check for collisions
+        :param safety_margin: The safety margin is a padding added to all obstacles to increase needed separation.
         :return: A list of tuples (robot, obstacle) for robot an obstacle in collision
         """
-        return self.__check_collisions(task, return_at_first=False)
+        return self.__check_collisions(task, return_at_first=False, safety_margin=safety_margin)
 
-    def has_collisions(self, task: 'Task.Task') -> bool:  # noqa: F821
+    def has_collisions(self, task: 'Task.Task', safety_margin: float = SAFETY_MARGIN_COLLISION) -> bool:  # noqa: F821
         """
         Returns true if there is at least one collision in the task or one self-collision.
 
         :param task: The task the robot is in.
+        :param safety_margin: The safety margin is a padding added to all obstacles to increase needed separation.
         :return: Boolean indicator whether there are any collisions.
         """
-        return self.__check_collisions(task, return_at_first=True)
+        return self.__check_collisions(task, return_at_first=True, safety_margin=safety_margin)
 
     def has_self_collision(self, q: np.ndarray = None) -> bool:
         """

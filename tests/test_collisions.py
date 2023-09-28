@@ -87,7 +87,7 @@ class TestCollisionUtilities(unittest.TestCase):
         self.robot.update_configuration(q0)
         self.assertTrue(self.robot.has_self_collision(q))  # The collision detected previously
 
-    def test_task_collisions(self):
+    def test_task_collisions(self, tested_safety_margins=(0, .1, .2, .5)):
         self.robot.update_configuration(pin.neutral(self.robot.model))
         task = Task(self.header)
         self.assertFalse(self.robot.has_collisions(task))
@@ -102,13 +102,23 @@ class TestCollisionUtilities(unittest.TestCase):
         sphere = Sphere({'r': .3}, pose=spatial.homogeneous(np.array([.5, .5, .3])))
         obstacle = Obstacle('sphere', sphere, name='Sphere')
         task.add_obstacle(obstacle)
+        collision_count = {safety_margin: 0 for safety_margin in tested_safety_margins}
         for q, self_collision in zip(random_configurations, collides_self):
             self.robot.update_configuration(q)
             if not self_collision:
-                if self.robot.has_collisions(task):
-                    self.assertEqual(self.robot.collisions(task), [(self.robot, obstacle)])
+                for safety_margin in tested_safety_margins:
+                    if self.robot.has_collisions(task, safety_margin=safety_margin):
+                        self.assertEqual(self.robot.collisions(task, safety_margin=safety_margin),
+                                         [(self.robot, obstacle)])
+                        collision_count[safety_margin] += 1
             else:
                 self.assertTrue(len(self.robot.collisions(task)) in (1, 2))
+
+        # Make sure the number of collisions is monotonically increasing with the safety margin
+        for safety_margin in tested_safety_margins:
+            for smaller in tested_safety_margins:
+                if smaller <= safety_margin:
+                    self.assertLessEqual(collision_count[smaller], collision_count[safety_margin],)
 
 
 if __name__ == '__main__':

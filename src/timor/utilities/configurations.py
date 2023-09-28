@@ -38,3 +38,6 @@ db_assets_copy_behavior = SERIALIZING_CONFIG.get("db_assets_copy_behavior", DEFA
 if db_assets_copy_behavior not in possible_copy_behaviors:
     raise ValueError("Invalid DB assets copy behavior: {}".format(db_assets_copy_behavior))
 FILE_LOCATION_CONF = TIMOR_CONFIG['FILE_LOCATIONS'] if TIMOR_CONFIG.has_section('FILE_LOCATIONS') else dict()
+
+COLLISION_CONFIG = TIMOR_CONFIG['COLLISION'] if TIMOR_CONFIG.has_section('COLLISION') else dict()
+SAFETY_MARGIN_COLLISION = float(COLLISION_CONFIG.get('safety_margin', 0.01))
