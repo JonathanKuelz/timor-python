@@ -3,7 +3,6 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 import math
 from typing import Any, Dict, Iterable, Optional, Tuple, Union
-from warnings import warn
 
 import numpy as np
 import pinocchio
@@ -55,7 +54,7 @@ class ConstraintBase(ABC, JSONable_mixin):
         try:
             class_ref = type2class[constraint_type]
         except KeyError as e:
-            raise NotImplementedError(f"Unknown constraint of type {constraint_type}!") from e
+            raise AttributeError(f"Unknown constraint of type {constraint_type}!") from e
 
         return class_ref._from_json_data(d)
 
@@ -68,13 +67,17 @@ class ConstraintBase(ABC, JSONable_mixin):
         """
         return cls(**description)
 
-    @abstractmethod
     def is_valid_until(self, solution: Solution.SolutionBase, t: float) -> bool:
-        """Should be implemented to check a constraint on a subset of a solution until time t."""
+        """Checks that a constraint is valid on a subset of a solution until time t."""
+        return all(self.is_valid_at(solution, t_i) for t_i in solution.time_steps[:solution.get_time_id(t) + 1])
+
+    def fulfilled(self, solution: Solution.SolutionBase) -> bool:
+        """Returns True iff a constraint is held over the whole solution"""
+        return self.is_valid_until(solution, solution.time_steps[-1])
 
     @abstractmethod
-    def fulfilled(self, solution: Solution.SolutionBase) -> bool:
-        """Main access point to check constraints"""
+    def is_valid_at(self, solution: Solution.SolutionBase, t: float) -> bool:
+        """Checks that a constraint is not hurt at a specific time t"""
 
     @abstractmethod
     def to_json_data(self) -> Dict[str, any]:
@@ -110,6 +113,10 @@ class AlwaysTrueConstraint(ConstraintBase):
     This constraint is always true and can be used for constraints ensured by the software library before evaluation.
     """
 
+    def is_valid_at(self, solution: Solution.SolutionBase, t: float) -> bool:
+        """As the name says, this constraint is always valid"""
+        return True
+
     def is_valid_until(self, solution: Solution.SolutionBase, t: float) -> bool:
         """As the name says, this constraint is always valid"""
         return True
@@ -141,21 +148,17 @@ class GoalsBySameRobot(ConstraintBase):
         self.goals = set(goals)
         raise NotImplementedError("Goals by same robot not yet specified nor implemented")
 
+    def is_valid_at(self, solution: Solution.SolutionBase, t: float) -> bool:
+        """This constraint inherently needs access to more than one point in time"""
+        raise AttributeError("Goals by same robot constraint cannot be checked at one specific time")
+
     def is_valid_until(self, solution: Solution.SolutionBase, t: float) -> bool:
         """Evaluates the solution up to time t"""
         # goal_ids, times = map(tuple, zip(*sorted(solution.t_goals.items(), key=lambda x: x[1])))
         # goals = [solution.task.goals_by_id[gid] for gid in goal_ids]
         # check_for = tuple(goal for i, goal in enumerate(goals) if goal.id in self.goals and times[t] <= t)
         # TODO: Check that all goals in check_for were done by the same robot
-        warn("Multi-Robot-Tasks not yet implemented", UserWarning)
-        return True
-
-    def fulfilled(self, solution: Solution.SolutionBase) -> bool:
-        """Checks the whole solution for all goals specified by this constraint"""
-        # goals = [goal for goal in solution.task.goals if goal.id in self.goals]
-        # TODO: Check that all goals with ID in self.goals were done by the same robot
-        warn("Multi-Robot-Tasks not yet implemented", UserWarning)
-        return True
+        raise NotImplementedError()
 
     def to_json_data(self) -> Dict[str, any]:
         """Dumps this constraint to a dictionary"""
@@ -180,6 +183,10 @@ class GoalOrderConstraint(ConstraintBase):
         :param order: An iterable of goal IDs that defines the order in which they should be achieved
         """
         self.order: Tuple[str, ...] = tuple(map(str, order))
+
+    def is_valid_at(self, solution: Solution.SolutionBase, t: float) -> bool:
+        """This constraint inherently needs access to more than one point in time"""
+        raise AttributeError("Goal order constraint cannot be checked at one specific time")
 
     def is_valid_until(self, solution: Solution.SolutionBase, t: float) -> bool:
         """Evaluates the solution up to time t"""
@@ -210,8 +217,16 @@ class AllGoalsFulfilled(ConstraintBase):
 
     global_only = True
 
+    def is_valid_at(self, solution: Solution.SolutionBase, t: float) -> bool:
+        """This constraint inherently needs access to more than one point in time"""
+        if t >= solution.time_steps[-1]:
+            return self.fulfilled(solution)
+        raise AttributeError("All goals fulfilled constraint cannot be checked at one specific time")
+
     def is_valid_until(self, solution: Solution.SolutionBase, t: float) -> bool:
         """Test if all goals can still be fulfilled up to time t."""
+        if t >= solution.time_steps[-1]:
+            return self.fulfilled(solution)
         return True
 
     def fulfilled(self, solution: Solution.SolutionBase) -> bool:
@@ -250,6 +265,19 @@ class JointLimits(ConstraintBase):
         self.ddq = 'ddq' in parts
         self.tau = 'tau' in parts
 
+    def is_valid_at(self, solution: Solution.SolutionBase, t: float) -> bool:
+        """Evaluates the solution at time t"""
+        valid = True
+        for kind, robot_att in zip(self.robot_limit_types, self._robot_attributs):
+            if getattr(self, kind):  # Check what kinds of limits are tested
+                limits = getattr(solution.robot, robot_att)  # Get the limits for the robot
+                in_solution = getattr(solution, kind)[solution.get_time_id(t)]  # Get the real values at time t
+                if len(limits.shape) == 2:  # Lower and upper limits
+                    valid = valid and np.all(limits[0, :] <= in_solution) and np.all(limits[1, :] >= in_solution)
+                else:
+                    valid = valid and np.all(np.abs(in_solution) <= limits)
+        return valid
+
     def is_valid_until(self, solution: Solution.SolutionBase, t: float) -> bool:
         """Evaluates the solution up to time t"""
         valid = True
@@ -262,10 +290,6 @@ class JointLimits(ConstraintBase):
                 else:
                     valid = valid and np.all(np.abs(in_solution) <= limits)
         return valid
-
-    def fulfilled(self, solution: Solution.SolutionBase) -> bool:
-        """Checks the whole solution for all applied joint constraints"""
-        return self.is_valid_until(solution, float(solution.time_steps[-1]))
 
     def to_json_data(self) -> Dict[str, any]:
         """Dumps this constraint to a dictionary"""
@@ -329,7 +353,7 @@ class BasePlacement(ConstraintBase):
 
         return sample
 
-    def is_valid_until(self, solution: Solution.SolutionBase, t: float) -> bool:
+    def is_valid_at(self, solution: Solution.SolutionBase, t: float) -> bool:
         """We assume the base placement does not change, so this method makes no sense."""
         raise NotImplementedError("Assuming fixed base for now - use fulfilled method.")
 
@@ -388,14 +412,10 @@ class CoterminalJointAngles(ConstraintBase):
         q = self.map(q)
         return all(self.limits[0, :] <= q) and all(self.limits[1, :] >= q)
 
-    def is_valid_until(self, solution: Solution.SolutionBase, t: float) -> bool:
+    def is_valid_at(self, solution: Solution.SolutionBase, t: float) -> bool:
         """Checks whether the given joint angles are within the defined limits at time t."""
         q = solution.q[solution.get_time_id(t)]
         return self._validate(q)
-
-    def fulfilled(self, solution: Solution.SolutionBase) -> bool:
-        """Checks whether the given joint angles are within the defined limits in the solution."""
-        return all(self._validate(q) for q in solution.q)
 
     def to_json_data(self) -> Dict[str, any]:
         """Dumps this constraint to a dictionary"""
@@ -429,15 +449,11 @@ class JointAngles(CoterminalJointAngles):
 class CollisionFree(ConstraintBase):
     """A constraint that checks whether the robot is in collision with the environment or itself."""
 
-    def is_valid_until(self, solution: Solution.SolutionBase, t: float) -> bool:
+    def is_valid_at(self, solution: Solution.SolutionBase, t: float) -> bool:
         """Checks whether the robot is in collision with the environment or itself at time t."""
         q = solution.q[solution.get_time_id(t)]
         solution.robot.update_configuration(q)
         return not solution.robot.has_collisions(solution.task)
-
-    def fulfilled(self, solution: Solution.SolutionBase) -> bool:
-        """Evaluates the whole solution for collision-freeness."""
-        return all(self.is_valid_until(solution, t) for t in solution.time_steps)
 
     def to_json_data(self) -> Dict:
         """Dumps this constraint to a dictionary"""
@@ -452,7 +468,7 @@ class CollisionFree(ConstraintBase):
 class SelfCollisionFree(CollisionFree):
     """A constraint that checks whether the robot is in collision with itself."""
 
-    def is_valid_until(self, solution: Solution.SolutionBase, t: float) -> bool:
+    def is_valid_at(self, solution: Solution.SolutionBase, t: float) -> bool:
         """Checks whether the robot is in collision with itself at time t."""
         q = solution.q[solution.get_time_id(t)]
         return not solution.robot.has_self_collision(q)
@@ -497,7 +513,7 @@ class EndEffector(ConstraintBase):
         rotation_velocity_lim = np.asarray((description.pop('o_min', -math.inf), description.pop('o_max', math.inf)))
         return cls(pose=pose, velocity_lim=velocity_lim, rotation_velocity_lim=rotation_velocity_lim)
 
-    def is_valid_until(self, solution: Solution.SolutionBase, t: float) -> bool:
+    def is_valid_at(self, solution: Solution.SolutionBase, t: float) -> bool:
         """Checks whether the robot obeys eef velocity and pose constraints at time t."""
         q = solution.q[solution.get_time_id(t)]
         dq = solution.dq[solution.get_time_id(t)]
@@ -514,10 +530,6 @@ class EndEffector(ConstraintBase):
         if self.pose is None:
             return True
         return self.pose.valid(solution.robot.fk())
-
-    def fulfilled(self, solution: Solution.SolutionBase) -> bool:
-        """Evaluates the whole solution for obeying the eef constraint."""
-        return all(self.is_valid_until(solution, t) for t in solution.time_steps)
 
     def to_json_data(self) -> Dict[str, any]:
         """Dumps this constraint to a dictionary."""
