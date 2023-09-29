@@ -453,7 +453,7 @@ class CollisionFree(ConstraintBase):
         """Checks whether the robot is in collision with the environment or itself at time t."""
         q = solution.q[solution.get_time_id(t)]
         solution.robot.update_configuration(q)
-        return not solution.robot.has_collisions(solution.task)
+        return not solution.robot.has_collisions(solution.task, safety_margin=0.)
 
     def to_json_data(self) -> Dict:
         """Dumps this constraint to a dictionary"""
