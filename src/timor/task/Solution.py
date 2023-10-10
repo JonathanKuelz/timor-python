@@ -44,6 +44,8 @@ class SolutionHeader(TypedHeader):
     date: datetime.date = datetime.date.today()
     computationTime: float = -1.
     processorName: str = ''
+    notes: str = ''
+    tags: List[str] = field(default_factory=lambda: [''])
 
     @classmethod
     def empty(cls) -> SolutionHeader:
