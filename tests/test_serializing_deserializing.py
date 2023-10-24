@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 import pickle
 import random
+import shutil
 import string
 import tempfile
 import unittest
@@ -19,6 +20,7 @@ from timor.Geometry import Mesh
 from timor.Module import ModuleAssembly, ModulesDB
 from timor.task import Constraints, CostFunctions, Obstacle, Solution, Task, Tolerance
 from timor.utilities import file_locations, json_serialization_formatting, prebuilt_robots, logging
+from timor.utilities.asset_handling import find_key
 from timor.utilities.dtypes import randomly
 from timor.utilities.file_locations import schema_dir
 from timor.utilities.prebuilt_robots import random_assembly
@@ -270,6 +272,34 @@ class SerializationTests(unittest.TestCase):
             self.assertIs(db, ModulesDB.from_name(db.name, reload=False))
             db_tmp = ModulesDB.from_name(db.name)
             self.assertIsNot(db, db_tmp)
+
+            # Test different package dir - move from tmp_dir/original/db.name/... to tmp_dir/...
+            with tempfile.TemporaryDirectory() as tmp_dir:
+                tmp_dir = Path(tmp_dir)
+                tmp_dir.joinpath(f'original/{db.name}').mkdir(parents=True)
+                db.to_json_file(tmp_dir.joinpath(f'original/{db.name}/modules.json'), handle_missing_assets='copy')
+                db2 = ModulesDB.from_json_file(tmp_dir.joinpath(f'original/{db.name}/modules.json'))
+                db2.to_json_file(tmp_dir.joinpath(f'original/{db.name}/modules.json'),
+                                 new_package_dir=tmp_dir, handle_missing_assets='copy')
+                with open(tmp_dir.joinpath(f'original/{db.name}/modules.json')) as json_file:
+                    db2_data = json.load(json_file)
+                files, _ = find_key('file', db2_data)
+                for f in files:  # Make sure exist relative to new package dir not modules file
+                    self.assertFalse(tmp_dir.joinpath(f'original/{db.name}').joinpath(f).is_file())
+                    self.assertTrue(tmp_dir.joinpath(f).is_file())
+
+                # Load from new file fails as package dir != modules.json location
+                with self.assertRaises(FileNotFoundError):
+                    _ = ModulesDB.from_json_file(tmp_dir.joinpath(f'original/{db.name}/modules.json'))
+                # Manually copy modules.json to new package dir - now should work
+                shutil.copy(tmp_dir.joinpath(f'original/{db.name}/modules.json'), tmp_dir.joinpath('modules.json'))
+                db3 = ModulesDB.from_json_file(tmp_dir.joinpath('modules.json'))
+                self.assertIsNotNone(db3)
+                with open(tmp_dir.joinpath('modules.json')) as json_file:
+                    db3_data = json.load(json_file)
+                files, _ = find_key('file', db3_data)
+                for f in files:
+                    self.assertTrue(tmp_dir.joinpath(f).is_file())
 
     def test_assembly_to_serialized(self):
         """Tests both, assembly to pickle and to json"""
