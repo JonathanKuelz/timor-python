@@ -935,7 +935,11 @@ class PinRobot(RobotBase):
             J = pin.computeJointJacobian(self.model, self.data, q, joint_idx_pin)
             try:
                 if kind == 'damped_ls_inverse':
-                    q_dot = np.linalg.lstsq(J, error_twist, rcond=damp)[0]  # Damped least squares
+                    try:
+                        q_dot = np.linalg.lstsq(J, error_twist, rcond=damp)[0]  # Damped least squares
+                    except SystemError as exe:
+                        logging.warning(exe)
+                        return random_restart(max_iter - i)
                 else:
                     J_inv = inv(J)  # Analytical Jacobian "pseudo inverse" (or transpose)
                     q_dot = J_inv.dot(gain).dot(error_twist)
@@ -952,8 +956,8 @@ class PinRobot(RobotBase):
             # Keep joint angles (for revolute joints) in interval (-2pi, 2pi)
             q[rot_joint_mask] = q[rot_joint_mask] % (2 * np.pi) - sign_preserve[rot_joint_mask]
 
-            if np.inf in q:
-                logging.debug(f"Jacobian ik break due to q approaching inf after {i} iter. Trying again.")
+            if any(bad_val in q for bad_val in [np.nan, np.inf, -np.inf]):
+                logging.debug(f"Jacobian ik break due to bad q: {q} after {i} iter. Trying again.")
                 kwargs['closest_translation_q'] = closest_translation
                 return random_restart(max_iter - i)
             if i >= max_iter:
