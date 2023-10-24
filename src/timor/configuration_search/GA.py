@@ -111,7 +111,7 @@ class GA:
         # Divide the database into different types of modules.
         bases, links, joints, eefs = map(
             lambda sub_db: tuple(sorted(sub_db, key=lambda m: m.id)),
-            module_classification.divide_db_in_types(self.db)
+            module_classification.divide_db_in_types(self.db, strict=False)
         )
         self.base_ids: Tuple[str, ...] = tuple(sorted(m.id for m in bases))
         self.link_ids: Tuple[str, ...] = tuple(sorted(m.id for m in links))
@@ -226,11 +226,15 @@ class GA:
 
             if checkmark_successful:
                 for goal in task.goals:
-                    if not isinstance(goal, Goals.At):
+                    if not isinstance(goal, (Goals.At, Goals.Follow)):
                         continue
-                    _, suc = assembly.robot.ik(goal.goal_pose, task=task, max_iter=1000)
+                    poses = [goal.goal_pose] if isinstance(goal, Goals.At) else goal.trajectory.pose
+                    suc = True
+                    for pose in poses:
+                        _, suc_goal = assembly.robot.ik(pose, task=task, max_iter=1000)
+                        suc = suc and suc_goal
                     if suc:
-                        place_billboard(viz, text='🗸', name=goal.id, placement=goal.goal_pose.nominal,
+                        place_billboard(viz, text='🗸', name=goal.id, placement=poses[0].nominal,
                                         text_color='green', background_color='transparent', scale=.3)
 
             if save_at is not None:
@@ -342,8 +346,9 @@ class GA:
             self.fitness_cache[module_ids] = fitness_value
             return fitness_value
 
-        initial_population = self._get_initial_population((run_hp.pop('population_size'), run_hp['num_genes']),
-                                                          run_hp.pop('initial_prob_joint'))
+        initial_population = self._get_initial_population((int(run_hp.pop('population_size')),
+                                                           int(run_hp['num_genes'])),
+                                                          float(run_hp.pop('initial_prob_joint')))
 
         if 'logger' not in ga_kwargs:
             ga_kwargs['logger'] = logging.getLogger()
