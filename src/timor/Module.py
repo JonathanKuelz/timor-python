@@ -84,7 +84,7 @@ class ModuleBase(abc.ABC, JSONable_mixin):
             joint.in_module = self
         self._joints: JointSet = JointSet(joints)
         self._check_unique_connectors()
-        self._module_graph: nx.DiGraph = self._build_module_graph()
+        self._module_graph: nx.DiGraph = self.build_module_graph()
 
     @property
     def connectors_by_own_id(self) -> Dict[str, Connector]:
@@ -154,6 +154,26 @@ class ModuleBase(abc.ABC, JSONable_mixin):
         """Returns the unique name of this module."""
         return self.header.name
 
+    def build_module_graph(self) -> nx.DiGraph:
+        """Builds the directed graph of atomic module elements. See module_graph property for more information."""
+        G_m = nx.DiGraph()
+        for body in self.bodies:
+            G_m.add_node(body)
+        for jnt in self.joints:
+            G_m.add_node(jnt)
+            # If a node is defined twice, networkx just interprets it as the same node
+            G_m.add_edge(jnt.parent_body, jnt, transform=jnt.parent2joint)
+            G_m.add_edge(jnt, jnt.child_body, transform=jnt.joint2child)
+
+        for connector_id, connector in self.available_connectors.items():
+            G_m.add_edge(connector.parent, connector, transform=connector.body2connector)
+
+        for u, v, t in G_m.edges.data('transform'):
+            # Generate the edges in opposing directing
+            G_m.add_edge(v, u, transform=t.inv)
+
+        return G_m
+
     def can_connect(self, other: ModuleBase) -> bool:
         """Returns true if at least one of the connectors of this module matches at least one connector of other"""
         return any(this_con.connects(other_con) for this_con, other_con
@@ -221,26 +241,6 @@ class ModuleBase(abc.ABC, JSONable_mixin):
             'bodies': [body.to_json_data() for body in sorted(self.bodies, key=lambda b: b.id)],
             'joints': [joint.to_json_data() for joint in sorted(self.joints, key=lambda j: j.id)]
         }
-
-    def _build_module_graph(self) -> nx.DiGraph:
-        """Builds the directed graph of atomic module elements. See module_graph property for more information."""
-        G_m = nx.DiGraph()
-        for body in self.bodies:
-            G_m.add_node(body)
-        for jnt in self.joints:
-            G_m.add_node(jnt)
-            # If a node is defined twice, networkx just interprets it as the same node
-            G_m.add_edge(jnt.parent_body, jnt, transform=jnt.parent2joint)
-            G_m.add_edge(jnt, jnt.child_body, transform=jnt.joint2child)
-
-        for connector_id, connector in self.available_connectors.items():
-            G_m.add_edge(connector.parent, connector, transform=connector.body2connector)
-
-        for u, v, t in G_m.edges.data('transform'):
-            # Generate the edges in opposing directing
-            G_m.add_edge(v, u, transform=t.inv)
-
-        return G_m
 
     def _check_unique_connectors(self):
         """Sanity check that all connectors are unique"""
@@ -329,7 +329,7 @@ class AtomicModule(ModuleBase):
             child.collision.placement = offset @ child.collision.placement
             child.inertia = child.inertia.se3Action(pin.SE3(offset.homogeneous))
 
-        module._module_graph = module._build_module_graph()  # After changing connectors T, we need to fix the graph
+        module._module_graph = module.build_module_graph()  # After changing connectors T, we need to fix the graph
         return module, np.asarray(colors.to_rgba(viz_colors.pop(), alpha=1))
 
     @classmethod
@@ -375,6 +375,75 @@ class AtomicModule(ModuleBase):
         :return: An instantiated module
         """
         return cls.from_json_data(json.loads(s))
+
+    @classmethod
+    def from_monolithic_robot(cls, robot: Robot.PinRobot) -> AtomicModule:
+        """
+        Wraps a kinematic/dynamic robot model into a single module.
+
+        :param robot: A pinocchio robot model to be wrapped.
+        :returns: The robot, wrapped in a single atomic module.
+        """
+        child_bodies = dict()
+        joints = set()
+        zero_inertia = pin.Inertia()
+        zero_inertia.setZero()
+
+        # First, parse the geometries and add them to fresh bodies
+        if len(robot.collision.geometryObjects) != len(robot.visual.geometryObjects):
+            raise NotImplementedError("Assembly wrapper cannot handle robots with different numbers of "
+                                      "collision and visual geometries.")
+        for collision, visual in zip(robot.collision.geometryObjects, robot.visual.geometryObjects):
+            cg = Geometry.Geometry.from_pin_geometry(collision)
+            vg = Geometry.Geometry.from_pin_geometry(visual)
+            if collision.parentJoint in child_bodies:
+                # Update only the geometry -- the inertia has already been set
+                child_bodies[collision.parentJoint].collision = \
+                    ComposedGeometry((child_bodies[collision.parentJoint].collision, cg))
+                child_bodies[collision.parentJoint]._visual = \
+                    ComposedGeometry((child_bodies[collision.parentJoint].visual, vg))
+                continue
+
+            inertia = robot.model.inertias[collision.parentJoint]
+            child_bodies[collision.parentJoint] = Body(body_id=collision.name, collision=cg, visual=vg, inertia=inertia)
+
+        # Now, parse the joints
+        for frame in robot.model.frames:
+            if frame.type is pin.FrameType.FIXED_JOINT:
+                parent_joint = frame.parent
+                if parent_joint == 0:
+                    continue
+                parent_body = child_bodies[frame.parent]
+                parent_body.connectors.add(
+                    Connector(frame.name, body2connector=frame.placement.homogeneous, parent=parent_body)
+                )
+            elif frame.type is pin.FrameType.BODY:
+                # Just perform some safety checks. Will add the body later on
+                if not frame.inertia == zero_inertia:
+                    raise ValueError("Unexpected non-zero inertia for a body frame")
+            elif frame.type == pin.FrameType.JOINT:
+                joint_nr = robot.model.getJointId(frame.name)
+                parent_joint = robot.model.parents[joint_nr]
+                nq = robot.model.joints[joint_nr].idx_q
+                assert nq == robot.model.joints[joint_nr].idx_v
+                joints.add(Joint(
+                    joint_id=frame.name,
+                    joint_type=robot.model.joints[frame.parent].shortname(),
+                    parent_body=child_bodies[parent_joint],
+                    child_body=child_bodies[joint_nr],
+                    q_limits=(robot.model.lowerPositionLimit[nq], robot.model.upperPositionLimit[nq]),
+                    velocity_limit=robot.model.velocityLimit[nq],
+                    torque_limit=robot.model.effortLimit[nq],
+                    parent2joint=robot.model.jointPlacements[joint_nr].homogeneous,
+                    gear_ratio=robot.model.rotorGearRatio[nq],
+                    motor_inertia=robot.model.rotorInertia[nq],
+                    friction_coulomb=robot.model.friction[nq],
+                    friction_viscous=robot.model.damping[nq],
+                ))
+
+        return cls(header=ModuleHeader(robot.name, robot.name, datetime.date.today()),
+                   bodies=child_bodies.values(),
+                   joints=joints)
 
 
 class ModulesDB(SingleSet, JSONable_mixin):
@@ -805,83 +874,29 @@ class ModuleAssembly(JSONable_mixin):
     @classmethod
     def from_monolithic_robot(cls, robot: Robot.PinRobot) -> ModuleAssembly:
         """
-        Wraps a kinematic/dynamic robot model into a single module which will be the full assembly.
+        Wraps a robot model into an assembly that contains exactly one module (~the robot).
 
-        This method wraps the existing kinematic and dynamic pin model and continues to use it - the computational
-        effort of re-generating a model is spared, so if input robot changes, the robot property of the assembly
-        returned by this method will as well.
+        Using this method is faster than using the Assembly constructor after creating the module from the robot
+        manually, as the robot model is not re-evaluated. Furthermore, this method adds a base connector to the module,
+        if not existent yet.
+        The base placement of the robot will get lost if it is re-created from this assembly.
 
-        :param robot: A pinocchio robot model to be wrapped in an assembly.
-
-        :returns: A module assembly consisting of exactly one module: The robot given as input.
+        :param robot: A pinocchio robot model to be wrapped.
+        :returns: The robot, wrapped in a single atomic module which composes the assembly.
         """
-        child_bodies = dict()
-        joints = set()
-        zero_inertia = pin.Inertia()
-        zero_inertia.setZero()
-
-        # First, parse the geometries and add them to fresh bodies
-        if len(robot.collision.geometryObjects) != len(robot.visual.geometryObjects):
-            raise NotImplementedError("Assembly wrapper cannot handle robots with different numbers of "
-                                      "collision and visual geometries.")
-        for collision, visual in zip(robot.collision.geometryObjects, robot.visual.geometryObjects):
-            cg = Geometry.Geometry.from_pin_geometry(collision)
-            vg = Geometry.Geometry.from_pin_geometry(visual)
-            if collision.parentJoint in child_bodies:
-                # Update only the geometry -- the inertia has already been set
-                child_bodies[collision.parentJoint].collision = \
-                    ComposedGeometry((child_bodies[collision.parentJoint].collision, cg))
-                child_bodies[collision.parentJoint]._visual = \
-                    ComposedGeometry((child_bodies[collision.parentJoint].visual, vg))
-                continue
-
-            inertia = robot.model.inertias[collision.parentJoint]
-            child_bodies[collision.parentJoint] = Body(body_id=collision.name, collision=cg, visual=vg, inertia=inertia)
-
-        # Now, parse the joints
-        for frame in robot.model.frames:
-            if frame.type is pin.FrameType.FIXED_JOINT:
-                parent_joint = frame.parent
-                if parent_joint == 0:
-                    continue
-                parent_body = child_bodies[frame.parent]
-                parent_body.connectors.add(
-                    Connector(frame.name, body2connector=frame.placement.homogeneous, parent=parent_body)
-                )
-            elif frame.type is pin.FrameType.BODY:
-                # Just perform some safety checks. Will add the body later on
-                if not frame.inertia == zero_inertia:
-                    raise ValueError("Unexpected non-zero inertia for a body frame")
-            elif frame.type == pin.FrameType.JOINT:
-                joint_nr = robot.model.getJointId(frame.name)
-                parent_joint = robot.model.parents[joint_nr]
-                nq = robot.model.joints[joint_nr].idx_q
-                assert nq == robot.model.joints[joint_nr].idx_v
-                joints.add(Joint(
-                    joint_id=frame.name,
-                    joint_type=robot.model.joints[frame.parent].shortname(),
-                    parent_body=child_bodies[parent_joint],
-                    child_body=child_bodies[joint_nr],
-                    q_limits=(robot.model.lowerPositionLimit[nq], robot.model.upperPositionLimit[nq]),
-                    velocity_limit=robot.model.velocityLimit[nq],
-                    torque_limit=robot.model.effortLimit[nq],
-                    parent2joint=robot.model.jointPlacements[joint_nr].homogeneous,
-                    gear_ratio=robot.model.rotorGearRatio[nq],
-                    motor_inertia=robot.model.rotorInertia[nq],
-                    friction_coulomb=robot.model.friction[nq],
-                    friction_viscous=robot.model.damping[nq],
-                ))
-
-        # Finally, set the base connector and create the module
-        base_connector = Connector('base', spatial.rotX(-np.pi), parent=child_bodies[0], connector_type='base')
-        child_bodies[0].connectors.add(base_connector)
-        module = AtomicModule(header=ModuleHeader(robot.name, robot.name, datetime.date.today()),
-                              bodies=child_bodies.values(),
-                              joints=joints)
-
+        module = AtomicModule.from_monolithic_robot(robot)
+        if not any(c.type == 'base' for c in module.available_connectors.values()):
+            base_body_name = robot.collision.geometryObjects[0].name  # this convention is followed by us
+            base_body = {b.id[1]: b for b in module.bodies}[base_body_name]
+            base_connector = Connector('base',
+                                       spatial.rotX(-np.pi),
+                                       parent=base_body,
+                                       connector_type='base')
+            base_body.connectors.add(base_connector)
+            module._module_graph = module.build_module_graph()
         db = ModulesDB((module,))
         assembly = cls(db, (module.id,))
-        assembly._robot.value = robot  # Saves the computational effort of re-evaluating the robot model
+        assembly._robot.value = robot
         return assembly
 
     @classmethod
@@ -1246,9 +1261,9 @@ class ModuleAssembly(JSONable_mixin):
                                                 parent_joints[successor.id],
                                                 frames[successor.id],
                                                 pin.SE3((
-                                                    Transformation(transforms[successor.id]) @
-                                                    Transformation.from_translation(successor.inertia.lever)
-                                                ).homogeneous),
+                                                        Transformation(transforms[successor.id]) @
+                                                        Transformation.from_translation(successor.inertia.lever)
+                                                        ).homogeneous),
                                                 pin.FrameType.OP_FRAME))
                         frames[successor.id + ("CoM",)] = new_frame
                         parent_joints[successor.id + ("CoM",)] = parent_joints[successor.id]

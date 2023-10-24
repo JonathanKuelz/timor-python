@@ -57,7 +57,7 @@ class TestModule(unittest.TestCase):
         # When adding the connectors, strict mode should work
         b2.connectors.add(c1)
         b3.connectors.add(c2)
-        joint_module._module_graph = joint_module._build_module_graph()  # Fix of hacking new connectors in module
+        joint_module._module_graph = joint_module.build_module_graph()  # Fix of hacking new connectors in module
         self.assertIs(get_module_type(joint_module), ModuleType.JOINT)
 
         base_connector = Bodies.Connector('BC', parent=b4, connector_type='base')

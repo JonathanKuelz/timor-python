@@ -462,7 +462,7 @@ class ParameterizableModule(ModuleBase, abc.ABC):
     @property
     def module_graph(self) -> nx.DiGraph:
         """The module graph for a parameterizable module has to be recomputed with every resize."""
-        return self._build_module_graph()
+        return self.build_module_graph()
 
     def copy(self, suffix: str) -> ModuleBase:
         """Copies the module and returns the copy."""
