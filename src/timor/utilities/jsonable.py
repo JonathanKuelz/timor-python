@@ -45,7 +45,10 @@ class JSONable_mixin:
         filepath = map2path(filepath)
         with filepath.open('r') as f:
             content = json.load(f)
-        package_dir = cls._deduce_package_dir(filepath, content)
+        if 'package_dir' in kwargs:
+            package_dir = kwargs['package_dir']
+        else:
+            package_dir = cls._deduce_package_dir(filepath, content)
 
         # Replace relative paths in content "file" fields with absolute paths
         find_key("file", content, lambda f: str(package_dir.joinpath(f)))
@@ -83,7 +86,6 @@ class JSONable_mixin:
         if save_at.suffix != ".json":
             raise ValueError(f"Filepath {save_at} does not end in .json")
 
-        new_package_dir = kwargs.get("new_package_dir", save_at.parent)
         # In this generic place we can no longer use the configurations; but should be set by Task / ModulesDB
         handle_missing_assets = kwargs.get("handle_missing_assets", DEFAULT_ASSETS_COPY_BEHAVIOR)
 
@@ -92,16 +94,20 @@ class JSONable_mixin:
         content = self.to_json_data()
         old_files, _ = find_key("file", content)
 
-        # Determine old location if not provided
-        old_package_dir = map2path(os.path.commonpath(old_files)).parent if old_files else None
-        if len(set(old_files)) == 1:
-            # If old_files is only one file, this ensures a consistent folder structure
-            old_package_dir = old_package_dir.parent
-        logging.debug(
-            f"old_package_dir: {old_package_dir} for {old_files} is replaced by new_package_dir: {new_package_dir}")
-        # Ensure that both in same order
-        old_files, new_files = find_key(
-            "file", content, lambda f: Path(str(f).replace(str(old_package_dir), str(new_package_dir))))
+        new_package_dir = kwargs.get("new_package_dir", save_at.parent)
+        prior_common_package = map2path(os.path.commonpath(old_files)).parent if old_files else None
+        if len(set(old_files)) == 1:  # Handle the edge case where the prior line returns a file
+            prior_common_package = prior_common_package.parent
+        logging.debug(f"{old_files} will be stored with new_package_dir: {new_package_dir}")
+
+        def update_file_location(filepath: str) -> Path:
+            """Replace the packae dir, or, if the new one is part of the old one, pass."""
+            old = str(prior_common_package)
+            new = str(new_package_dir)
+            if filepath.startswith(new):
+                return Path(filepath)
+            return Path(filepath.replace(old, new))
+        old_files, new_files = find_key("file", content, update_file_location)
 
         handle_assets(new_files, old_files, handle_missing_assets)
 
