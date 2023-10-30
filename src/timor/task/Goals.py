@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 import inspect
-from typing import Dict, List, Optional, Tuple
+from typing import Collection, Dict, List, Optional, Sequence, Tuple
 
 import meshcat.geometry
 import numpy as np
@@ -25,7 +25,7 @@ class GoalBase(ABC, JSONable_mixin):
 
     def __init__(self,
                  ID: str,
-                 constraints: List[Constraints.ConstraintBase] = None,
+                 constraints: Sequence[Constraints.ConstraintBase] = None,
                  ):
         """
         Initiate goals with the according parameters
@@ -51,7 +51,10 @@ class GoalBase(ABC, JSONable_mixin):
             'pause': Pause,
             'follow': Follow
         }
-        class_ref = type2class[description['type']]
+        try:
+            class_ref = type2class[description['type']]
+        except KeyError:
+            raise ValueError(f"Unsupported goal type {description['type']}.")
 
         # Match keys from the input case-insensitive to all possible input arguments of the class to be instantiated
         keywords = fuzzy_dict_key_matching(description, {},
@@ -164,13 +167,13 @@ class GoalWithDuration(GoalBase, ABC):
     def __init__(self,
                  ID: str,
                  duration: float,
-                 constraints: List[Constraints.ConstraintBase] = None
+                 constraints: Sequence[Constraints.ConstraintBase] = None
                  ):
         """Construct a goal with duration."""
         super().__init__(ID, constraints)
         self._duration = duration  # Private as not every subtype has explicit duration
 
-    def _get_time_range_goal(self, solution: Solution.SolutionBase) -> Tuple[Tuple[float, ...], range]:
+    def get_time_range_goal(self, solution: Solution.SolutionBase) -> Tuple[np.ndarray, range]:
         """
         Get all time-steps in solution that belong to this goal's duration as list of times and indices.
 
@@ -194,7 +197,7 @@ class GoalWithDuration(GoalBase, ABC):
     def _valid(self, solution: task.Solution.SolutionBase, t_goal: float, idx_goal: int) -> bool:
         """A goal with duration needs to ensure that its constraints hold at all time-steps within this duration."""
         return all(c.is_valid_until(solution, t) for c in self.constraints
-                   for t in self._get_time_range_goal(solution)[0])
+                   for t in self.get_time_range_goal(solution)[0])
 
 
 class At(GoalBase):
@@ -206,7 +209,7 @@ class At(GoalBase):
     def __init__(self,
                  ID: str,
                  goalPose: ToleratedPose,
-                 constraints: List[Constraints.ConstraintBase] = None,
+                 constraints: Sequence[Constraints.ConstraintBase] = None,
                  ):
         """
         Pass a desired pose
@@ -271,7 +274,7 @@ class Reach(At):
                  ID: str,
                  goalPose: ToleratedPose,
                  velocity_tolerance: Tolerance.ToleranceBase = Tolerance.Abs6dPoseTolerance.default(),
-                 constraints: List[Constraints.ConstraintBase] = None,
+                 constraints: Sequence[Constraints.ConstraintBase] = None,
                  ):
         """
         Reach a desired pose while standing still.
@@ -327,7 +330,7 @@ class ReturnTo(GoalBase):
                  ID: str,
                  returnToGoal: Optional[str] = None,
                  epsilon: float = 1e-4,
-                 constraints: List[Constraints.ConstraintBase] = None
+                 constraints: Sequence[Constraints.ConstraintBase] = None
                  ):
         """
         Return to a previous goal
@@ -431,7 +434,7 @@ class Pause(GoalWithDuration):
         Returns true, if the robot does not move for a preconfigured duration, starting at t_goal.
         """
         try:
-            sol_times, sol_idx = self._get_time_range_goal(solution)
+            sol_times, sol_idx = self.get_time_range_goal(solution)
         except ValueError as e:
             logging.debug(f"Duration not covered by trajectory; {e}")
             return False
@@ -456,9 +459,19 @@ class Follow(GoalWithDuration):
     def __init__(self,
                  ID: str,
                  trajectory: Trajectory,
-                 constraints: List[Constraints.ConstraintBase] = None,):
+                 external_forces: Optional[Collection[float]] = None,
+                 external_torques: Optional[Collection[float]] = None,
+                 force_torque_reference_frame: str = 'world',
+                 constraints: Sequence[Constraints.ConstraintBase] = None,):
         """
         Follow a given trajectory.
+
+        :param ID: The goal ID
+        :param trajectory: The trajectory to follow (a sequence of desired poses)
+        :param external_forces: An external force to be applied to the robot during execution of the goal
+        :param external_torques: An external torque to be applied to the robot during execution of the goal
+        :param force_torque_reference_frame: The reference frame in which forces/torques are expressed
+        :param constraints: Goal-level constraints
         """
         if not trajectory.has_poses:
             raise ValueError("Follow goal needs trajectory of workspace poses.")
@@ -468,11 +481,33 @@ class Follow(GoalWithDuration):
             duration = float("inf")
         super().__init__(ID=ID, duration=duration, constraints=constraints)
         self._trajectory: Trajectory = trajectory
+        if external_forces is None:
+            external_forces = np.zeros((3,))
+        else:
+            external_forces = np.asarray(external_forces).squeeze()
+            if not external_forces.shape == (3,):
+                raise ValueError("External forces must be a 3D vector (a single, constant force).")
+        if external_torques is None:
+            external_torques = np.zeros((3,))
+        else:
+            external_torques = np.asarray(external_torques).squeeze()
+            if not external_torques.shape == (3,):
+                raise ValueError("External torques must be a 3D vector (a single, constant torque).")
+        if force_torque_reference_frame != "world":
+            raise NotImplementedError("Follow goal is still experimental. world is the only supported reference frame")
+        self._external_forces: np.ndarray = external_forces
+        self._external_torques: np.ndarray = external_torques
+        self.force_torque_reference_frame: Optional[str] = force_torque_reference_frame
 
     @property
     def trajectory(self) -> Trajectory:
         """The trajectory to follow along"""
         return self._trajectory
+
+    @property
+    def wrench(self) -> np.ndarray:
+        """The external wrench applied to the end effector"""
+        return np.hstack((self._external_forces, self._external_torques))
 
     @classmethod
     def from_json_data(cls, d: Dict[str, any], *args, **kwargs):
@@ -480,17 +515,29 @@ class Follow(GoalWithDuration):
         return cls(
             ID=d['ID'],
             trajectory=Trajectory.from_json_data(d['trajectory']),
+            external_forces=d.get('externalForce', None),
+            external_torques=d.get('externalTorque', None),
+            force_torque_reference_frame=d.get('forceTorqueReferenceFrame', 'world'),
             constraints=[Constraints.ConstraintBase.from_json_data(c) for c in d.get('constraints', [])]
         )
 
     def to_json_data(self) -> Dict[str, any]:
         """Dumps the Follow goal to a dictionary description."""
-        return {
+        data = {
             'ID': self.id,
             'type': 'follow',
             'trajectory': self.trajectory.to_json_data(),
             'constraints': self._constraints_serialized()
         }
+        if self._external_forces.any():
+            data['externalForce'] = self._external_forces.tolist()
+            data['forceTorqueReferenceFrame'] = self.force_torque_reference_frame
+        if self._external_torques.any():
+            data['externalTorque'] = self._external_torques.tolist()
+            data['forceTorqueReferenceFrame'] = self.force_torque_reference_frame
+        if 'goal2time' in data['trajectory']:  # Not supported or needed by follow goals
+            del data['trajectory']['goal2time']
+        return data
 
     def visualize(self, viz: MeshcatVisualizer, *,
                   scale: float = .33,

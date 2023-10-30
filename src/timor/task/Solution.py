@@ -216,6 +216,12 @@ class SolutionBase(abc.ABC, JSONable_mixin):
 
     @property
     @abc.abstractmethod
+    def eef_wrench(self) -> np.ndarray:
+        """End effector wrench [f_x, f_y, f_z, tau_x, tau_y, tau_z] acting on the end-effector (external wrench)"""
+        pass
+
+    @property
+    @abc.abstractmethod
     def torques(self) -> np.ndarray:
         """Torques of the trajectory"""
         pass
@@ -227,7 +233,7 @@ class SolutionBase(abc.ABC, JSONable_mixin):
 
     def _check_valid(self) -> bool:
         """
-        Returns true if all all constraints are fulfilled by this solution.
+        Returns true if all constraints are fulfilled by this solution.
 
         :note: add allGoalsFulfilled Constraint if you want to ensure all goals and their constraints are fulfilled
         """
@@ -354,6 +360,8 @@ class SolutionTrajectory(SolutionBase):
         :param base_pose: The base placement of the assembly
         """
         super().__init__(header, task, assembly, cost_function, base_pose)
+        if not trajectory.is_timed:
+            raise ValueError("A solution trajectory must be timed!")
         self.trajectory: Trajectory = trajectory
         self._torques = Lazy(self._get_torques)
         self._link_side_torques = Lazy(lambda: self._get_torques(motor_inertia=False, friction=False))
@@ -391,12 +399,12 @@ class SolutionTrajectory(SolutionBase):
         :param friction: Include joint friction in torque calculations to compensate for them (details see robot.id)
         :note: Disabling both motor_inertia and friction will lead to the torques provided to the physical links by
           the motor-gearbox subsystem.
-        :note: Motor inertia and friction can be the dominating parts of the required torques espacially for robots with
+        :note: Motor inertia and friction can be the dominating parts of the required torques especially for robots with
           high gear ratios.
         """
         torques = np.zeros_like(self.q)
-        for i, (q, dq, ddq) in enumerate(zip(self.q, self.dq, self.ddq)):
-            torques[i, :] = self.robot.id(q, dq, ddq, motor_inertia=motor_inertia, friction=friction)
+        for i, (q, dq, ddq, wrench) in enumerate(zip(self.q, self.dq, self.ddq, self.eef_wrench)):
+            torques[i, :] = self.robot.id(q, dq, ddq, motor_inertia=motor_inertia, friction=friction, eef_wrench=wrench)
         return torques
 
     @property
@@ -432,6 +440,18 @@ class SolutionTrajectory(SolutionBase):
     def ddq(self) -> np.ndarray:
         """The joint accelerations of the trajectory"""
         return self.trajectory.ddq
+
+    @property
+    def eef_wrench(self) -> np.ndarray:
+        """End effector wrench [f_x, f_y, f_z, tau_x, tau_y, tau_z] acting on the end-effector (external wrench)"""
+        wrench = np.zeros((len(self.trajectory), 6))
+        for follow in (g for g in self.task.goals if isinstance(g, Goals.Follow)):
+            if follow.force_torque_reference_frame != "world":
+                raise NotImplementedError("Only world reference frame supported so far")
+            times, indices = follow.get_time_range_goal(self)
+            for i, w in zip(indices, follow.wrench):
+                wrench[i, :] = wrench[i, :] + w
+        return wrench
 
     @property
     def torques(self) -> np.ndarray:

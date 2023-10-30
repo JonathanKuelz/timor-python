@@ -7,6 +7,7 @@ from typing import Any, Dict, Iterable, Optional, Tuple, Union
 import numpy as np
 import pinocchio
 
+from timor import PinRobot
 from timor.task import Solution, Tolerance
 from timor.utilities import logging
 from timor.utilities.jsonable import JSONable_mixin
@@ -389,7 +390,7 @@ class CoterminalJointAngles(ConstraintBase):
 
     def __init__(self, limits: np.ndarray):
         """
-        :param limits: A 2xdof array of joint limits: [[upper_limits], [lower_limimts]]
+        :param limits: A 2xdof array of joint limits: [[lower_limits], [upper_limimts]]
         """
         if not limits.shape[0] == 2:
             raise ValueError("Joint limits must be given as array in (2, #dof) shape")
@@ -432,7 +433,7 @@ class JointAngles(CoterminalJointAngles):
 
     def __init__(self, limits: np.ndarray):
         """
-        limits: A 2xdof array of joint limits: [[upper_limits], [lower_limimts]]
+        limits: A 2xdof array of joint limits: [[lower_limits], [upper_limimts]]
         """
         super().__init__(limits)
 
@@ -513,23 +514,24 @@ class EndEffector(ConstraintBase):
         rotation_velocity_lim = np.asarray((description.pop('o_min', -math.inf), description.pop('o_max', math.inf)))
         return cls(pose=pose, velocity_lim=velocity_lim, rotation_velocity_lim=rotation_velocity_lim)
 
-    def is_valid_at(self, solution: Solution.SolutionBase, t: float) -> bool:
-        """Checks whether the robot obeys eef velocity and pose constraints at time t."""
-        q = solution.q[solution.get_time_id(t)]
-        dq = solution.dq[solution.get_time_id(t)]
-
-        # Check eef velocities
-        solution.robot.update_configuration(q, dq)
-        v_robot = solution.robot.tcp_velocity
+    def check_single_state(self, robot: PinRobot, q: np.ndarray, dq: np.ndarray) -> bool:
+        """Can be used to check this constraint against a single, existing robot state."""
+        robot.update_configuration(q, dq)
+        v_robot = robot.tcp_velocity
         v_robot, o_robot = np.linalg.norm(v_robot[:3]), np.linalg.norm(v_robot[3:])
         if v_robot < self.velocity_lim[0] or self.velocity_lim[1] < v_robot or \
                 o_robot < self.rotation_velocity_lim[0] or self.rotation_velocity_lim[1] < o_robot:
             return False
-
         # Check eef pose
         if self.pose is None:
             return True
-        return self.pose.valid(solution.robot.fk())
+        return self.pose.valid(robot.fk())
+
+    def is_valid_at(self, solution: Solution.SolutionBase, t: float) -> bool:
+        """Checks whether the robot obeys eef velocity and pose constraints at time t."""
+        q = solution.q[solution.get_time_id(t)]
+        dq = solution.dq[solution.get_time_id(t)]
+        return self.check_single_state(solution.robot, q, dq)
 
     def to_json_data(self) -> Dict[str, any]:
         """Dumps this constraint to a dictionary."""
@@ -546,3 +548,8 @@ class EndEffector(ConstraintBase):
     def _equality_parameters(self) -> Tuple[any, ...]:
         """End-effector constraints are equal if they have the same pose and limits"""
         return (self.pose,) + tuple(self.velocity_lim.flat) + tuple(self.rotation_velocity_lim.flat)
+
+
+DEFAULT_CONSTRAINTS = (JointLimits(('q', 'dq', 'tau')),
+                       CollisionFree(),
+                       AllGoalsFulfilled())

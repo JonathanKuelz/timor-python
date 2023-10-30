@@ -85,13 +85,17 @@ class RobotBase(abc.ABC):
                  *,
                  name: str,
                  home_configuration: np.ndarray = None,
-                 base_placement: Optional[TransformationLike] = None
+                 base_placement: Optional[TransformationLike] = None,
+                 rng: Optional[np.random.Generator] = None
                  ):
         """
         RobotBase Constructor
 
         :param home_configuration: Home configuration of the robot (default pin.neutral)
         :param base_placement: Home configuration of the robot (default pin.neutral)
+        :param rng: Optionally, a numpy random number generator to use for anything randomized happening with this
+            robot can be provided. This rng will be the default, but can be overridden by users explicitly desiring to
+            use another one at times.
         """
         self._name: str = name
         if home_configuration is None:
@@ -106,6 +110,8 @@ class RobotBase(abc.ABC):
             self.move(base_placement)
         else:
             self._base_placement = Transformation.neutral()
+
+        self._rng: np.random.Generator = np.random.default_rng() if rng is None else rng
 
     # ---------- Static- and Classmethods ----------
     @classmethod
@@ -234,12 +240,6 @@ class RobotBase(abc.ABC):
         """
 
     @abc.abstractmethod
-    def random_configuration(self) -> np.ndarray:
-        """
-        Returns a random configuration for the robot
-        """
-
-    @abc.abstractmethod
     def set_base_placement(self, placement: TransformationLike) -> None:
         """
         Places the robot base at placement.
@@ -321,6 +321,7 @@ class RobotBase(abc.ABC):
     def ik(self,
            eef_pose: ToleratedPose,
            q_init: np.ndarray = None,
+           termination_constraint: Callable[[RobotBase, np.ndarray], bool] = None,
            **kwargs) -> Tuple[np.ndarray, bool]:
         """
         Calculate an inverse kinematics with this robot.
@@ -328,9 +329,11 @@ class RobotBase(abc.ABC):
         :param eef_pose: The desired 4x4 placement of the end effector
         :param q_init: The joint configuration to start with. If not given, will start the iterative optimization at the
             current configuration
+        :param termination_constraint: If provided, this function will not terminate succesfully unless this constraint
+            is true. It expects to be called with the robot and the current configuration.
         :return: A tuple of (q_solution, success [boolean])
         """
-        return self.ik_scipy(eef_pose, q_init, **kwargs)
+        return self.ik_scipy(eef_pose, q_init, termination_constraint, **kwargs)
 
     def ik_scipy(self,
                  eef_pose: ToleratedPose,
@@ -381,7 +384,7 @@ class RobotBase(abc.ABC):
 
         previous_config = self.configuration
         if q_init is None:
-            q_start = self.random_configuration()
+            q_start = self.random_configuration(rng=self._rng)
         else:
             q_start = q_init
 
@@ -406,7 +409,7 @@ class RobotBase(abc.ABC):
             """
             if not kwargs.get("allow_random_restart", True) or iter_left <= 0:
                 return lowest_cost.q, False
-            new_init = self.random_configuration()
+            new_init = self.random_configuration(rng=self._rng)
             if 'joint_mask' in kwargs:
                 inverted_mask = ~kwargs['joint_mask'].astype(bool)
                 new_init[inverted_mask] = q_init[inverted_mask]
@@ -439,8 +442,10 @@ class RobotBase(abc.ABC):
         elif success and 'task' in kwargs and self.has_collisions(kwargs['task']):
             success = False
         elif success and kwargs.get('check_static_torques', False):
-            tau = self.static_torque(q_sol)
-            success = (np.abs(tau) <= self.joint_torque_limits).all()
+            success = self.tau_in_torque_limits(self.static_torque(q_sol))
+        elif success and not kwargs.get('termination_constraint', lambda *args: True)(self, q_sol):
+            success = False
+            logging.debug("Termination constraint was not fulfilled")
 
         logging.debug("Scipy IK ends with message: %s", sol.message)
         if not success:
@@ -453,6 +458,28 @@ class RobotBase(abc.ABC):
             logging.debug("Scipy IK failed, using lowest cost solution from all tries")
             q = lowest_cost.q
         return q, success
+
+    def random_configuration(self, rng: Optional[np.random.Generator] = None) -> np.ndarray:
+        """
+        Generates a random configuration.
+
+        :param rng: Random number generator to use. If not given, this method uses the robot default rng.
+        """
+        if rng is None:
+            rng = self._rng
+        lower = np.maximum(self.joint_limits[0, :], -2 * np.pi)
+        upper = np.minimum(self.joint_limits[1, :], 2 * np.pi)
+        return (upper - lower) * rng.random(self.njoints) + lower
+
+    def tau_in_torque_limits(self, tau: np.ndarray) -> bool:
+        """
+        Returns true if the torque vector tau is within the torque limits of the robot.
+
+        We assume that the torque limits of the robot are symmetric (tau_min = -tau_max)
+
+        :param tau: A torque vector of dimension njoints x 1. The limits will be checked against abs(tau)
+        """
+        return bool((np.abs(tau) <= self.joint_torque_limits).all())  # bool() to convert np.bool to python bool
 
     def q_in_joint_limits(self, q: np.ndarray) -> bool:
         """Returns true if a configuration q is within the joint limits of the robot"""
@@ -870,6 +897,8 @@ class PinRobot(RobotBase):
             * ignore_self_collision: If True, the IK will ignore self-collisions
             * check_static_torques: If True, the IK will check if the torques are within the static torque limits. If
               not so, the IK will restart from a random configuration as long as max_iter allows.
+            * termination_constraint: Callable that takes the robot and the current configuration and returns True if
+                everything is fine. As long as it is false, the numeric IK will continue.
 
         :return: A tuple of q_solution [np.ndarray], success [boolean]
         """
@@ -908,6 +937,8 @@ class PinRobot(RobotBase):
         success = True
         closest_translation = kwargs.get('closest_translation_q', IntermediateIkResult(q, -np.inf))
 
+        constraints_valid = kwargs.get('termination_constraint', lambda *args: True)
+
         def random_restart(iter_left: int) -> Tuple[np.ndarray, bool]:
             """
             Evaluate a random restart given the number of iterations left and whether restarts are allowed.
@@ -923,7 +954,7 @@ class PinRobot(RobotBase):
                 new_init[inverted_mask] = q_init[inverted_mask]
             return self.ik_jacobian(eef_pose, new_init, gain, damp, iter_left, kind, **kwargs)
 
-        while not eef_pose.valid(self.fk(q)):
+        while not (eef_pose.valid(self.fk(q)) and constraints_valid(self, q)):
             joint_current = self.data.oMi[joint_idx_pin]
             diff = joint_current.actInv(joint_desired)
             error_twist = pin.log(diff).vector
@@ -943,7 +974,7 @@ class PinRobot(RobotBase):
                 else:
                     J_inv = inv(J)  # Analytical Jacobian "pseudo inverse" (or transpose)
                     q_dot = J_inv.dot(gain).dot(error_twist)
-            except np.linalg.LinAlgError:
+            except (np.linalg.LinAlgError, SystemError):
                 logging.debug(f"Jacobian ik break due to singularity after {i} iter for q={q}. Trying again.")
                 kwargs['closest_translation_q'] = closest_translation
                 return random_restart(max_iter - i)
@@ -986,7 +1017,7 @@ class PinRobot(RobotBase):
 
         if kwargs.get('check_static_torques', False):
             tau = self.static_torque(q)
-            if not (np.abs(tau) <= self.joint_torque_limits).all():
+            if not self.tau_in_torque_limits(tau):
                 logging.debug("IK was out of joint torque limits, re-try")
                 kwargs['closest_translation_q'] = closest_translation
                 return random_restart(max_iter - i)
@@ -1044,15 +1075,18 @@ class PinRobot(RobotBase):
         self._base_placement = Transformation(self.placement.multiply_from_left(displacement.homogeneous),
                                               set_safe=True)
 
-    def random_configuration(self) -> np.ndarray:
-        """Generates a random configuration."""
-        try:
-            return pin.randomConfiguration(self.model)
-        except RuntimeError:
-            logging.debug('Random configuration failed due to infinite joint limits - setting to (-2pi, 2pi)')
-            lower = np.maximum(self.joint_limits[0, :], -2 * np.pi)
-            upper = np.minimum(self.joint_limits[1, :], 2 * np.pi)
-            return (upper - lower) * np.random.rand(self.njoints) + lower
+    def random_configuration(self, rng: Optional[np.random.Generator] = None) -> np.ndarray:
+        """
+        Generates a random configuration.
+
+        :param rng: Random number generator to use. If not given, this method uses the pinocchio default.
+        """
+        if rng is None:
+            try:
+                return pin.randomConfiguration(self.model)
+            except RuntimeError:
+                logging.debug('Random configuration failed due to infinite joint limits - setting to (-2pi, 2pi)')
+        return super().random_configuration(rng)
 
     def set_base_placement(self, placement: TransformationLike) -> None:
         """Moves the base to desired position"""
@@ -1423,7 +1457,7 @@ class PinRobot(RobotBase):
                                  "if fixed joints are provided")
 
         kwargs.setdefault('joint_placement', pin.SE3.Identity())
-        kwargs.setdefault('joint_name', 'Joint_' + ''.join(np.random.choice(list(string.ascii_letters), 5)))
+        kwargs.setdefault('joint_name', 'Joint_' + ''.join(self._rng.choice(list(string.ascii_letters), 5)))
 
         for eigen_val in ['max_effort', 'max_velocity', 'min_config', 'max_config', 'friction', 'damping']:
             if eigen_val in kwargs:

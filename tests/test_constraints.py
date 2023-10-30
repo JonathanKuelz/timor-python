@@ -1,5 +1,4 @@
 import unittest
-import random
 
 import numpy as np
 
@@ -18,19 +17,19 @@ class TestConstraints(unittest.TestCase):
         self.task_header = Task.TaskHeader('test_case', 'py', tags=['debug', 'test'])
         self.panda_urdf = robots['panda'].joinpath('urdf').joinpath('panda.urdf')
         self.robot = Robot.PinRobot.from_urdf(self.panda_urdf, robots['panda'].parent)
+        self.rng = np.random.default_rng(420)
 
     def test_constraint_abstraction_level(self):
         """Tests that the differentiation between goal-level and task-level constraints works properly"""
         panda = Robot.PinRobot.from_urdf(self.panda_urdf, robots['panda'].parent)
 
-        limits = panda.joint_limits
         base_constraint = Constraints.BasePlacement(ToleratedPose(Transformation.neutral(),
                                                                   tolerance=Tolerance.DEFAULT_SPATIAL))
         basic_joint_constraint = Constraints.JointLimits(parts=('q',))
-        additional_joint_constraint = Constraints.CoterminalJointAngles(limits * 0.95)
+        additional_joint_constraint = Constraints.JointAngles(panda.joint_limits * 0.99)
 
-        start_conf = np.mean(limits * np.random.random(limits.shape), axis=0)  # Around middle of limits
-        end_conf = np.mean(limits * np.random.random(limits.shape), axis=0)  # Around middle of limits
+        start_conf = panda.random_configuration(self.rng)
+        end_conf = panda.random_configuration(self.rng)
 
         goal_pose = ToleratedPose(panda.fk(end_conf))
         self.assertFalse(panda.has_self_collision(end_conf))
@@ -114,7 +113,7 @@ class TestConstraints(unittest.TestCase):
         #  First, we construct a completely valid solution
         via_points = list()
         while len(via_points) < num_via_points:
-            q = robot.random_configuration()
+            q = robot.random_configuration(self.rng)
             if not robot.has_self_collision(q):
                 via_points.append(q)
 
@@ -148,9 +147,9 @@ class TestConstraints(unittest.TestCase):
         t_manipulate = 3.1
         t_idx = solution.get_time_id(t_manipulate)
 
-        q_collision = robot.random_configuration()
+        q_collision = robot.random_configuration(self.rng)
         while not robot.has_self_collision(q_collision):
-            q_collision = robot.random_configuration()
+            q_collision = robot.random_configuration(self.rng)
         q_falsify = q_collision + np.ones_like(q_collision) * 4 * np.pi
 
         trajectory.q[t_idx] = q_falsify
@@ -182,7 +181,7 @@ class TestConstraints(unittest.TestCase):
         """Test the functionality of the EEF constraint"""
         eef_constraint_allow_any_pose = Constraints.EndEffector(
             pose=ToleratedPose(nominal=Transformation.neutral(), tolerance=Tolerance.AlwaysValidTolerance()))
-        qs = np.asarray([self.robot.random_configuration() for _ in range(10)])
+        qs = np.asarray([self.robot.random_configuration(self.rng) for _ in range(10)])
         eef_constraint_allow_first_pose = Constraints.EndEffector(
             pose=ToleratedPose(self.robot.fk(qs[0, :]), tolerance=Tolerance.DEFAULT_SPATIAL)
         )
@@ -217,8 +216,8 @@ class TestConstraints(unittest.TestCase):
         for T in (start_pose,  # q_start
                   Transformation.from_translation((.2, 0., 0.)) @ start_pose,  # q_end
                   # q_mid - all with random translation in 0, 0.2 and rotation about drill axis
-                  *(Transformation.from_translation((random.random() * 0.2, 0., 0.)) @
-                    start_pose @ spatial.rotZ(random.random()) for _ in range(N_middle)),
+                  *(Transformation.from_translation((self.rng.random() * 0.2, 0., 0.)) @
+                    start_pose @ spatial.rotZ(self.rng.random()) for _ in range(N_middle)),
                   Transformation.from_translation((.11, 0., 0.)) @ start_pose @ spatial.rotX(0.02),  # q_mid_not_ok
                   Transformation.from_translation((.11, 0., 0.)) @ start_pose @ spatial.rotY(-0.02),  # q_mid_not_ok
                   Transformation.from_translation((.22, 0., 0.)) @ start_pose  # q_end_to_far

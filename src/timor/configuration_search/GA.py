@@ -396,7 +396,7 @@ class GA:
                     'num modules for best fitness': len(modules_best),
                     'num joints for best fitness': len([m for m in modules_best if m in self.joint_ids]),
                     'average number of modules': _ga.pop_size[1] - np.sum(_ga.population == 0) / _ga.pop_size[0],
-                    'individuals per second': hp['population_size'] / (time.time() - t_last_generation),
+                    'individuals per second': initial_population.shape[0] / (time.time() - t_last_generation),
                     'num assemblies cached': len(self.assembly_cache),
                     'num fitness values cached': len(self.fitness_cache)
                 }
@@ -584,7 +584,7 @@ class GA:
                 try_choose_joint = random.random() < prob_joint
                 if try_choose_joint:
                     _shared = {m for m in shared if m.num_joints > 0}
-                    shared = _shared if len(_shared) > 0 else shared
+                    shared = randomly(_shared) if len(_shared) > 0 else shared
                 else:
                     _shared = {m for m in shared if m.num_joints == 0}
                     shared = _shared if len(_shared) > 0 else shared
