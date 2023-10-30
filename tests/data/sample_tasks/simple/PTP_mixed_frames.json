@@ -1,0 +1,130 @@
+{
+  "header": {
+    "ID": "simple/PTP_mixed_frames",
+    "version": "2022",
+    "taskName": "PTP_mixed_frames",
+    "author": [
+      "Matthias Mayer"
+    ],
+    "affiliation": [
+      "TU Muenchen"
+    ],
+    "email": [
+      "matthias.mayer@tum.de"
+    ],
+    "tags": [
+      "unitTest",
+      "testScenario",
+      "PTP"
+    ],
+    "date": "2023-07-28",
+    "timeStepSize": 0.01,
+    "gravity": [ 0, 0, -9.81 ]
+  },
+  "obstacles": [
+    {
+      "name": "Wall",
+      "ID": "1001",
+      "pose": [
+        [ 0.707106781,  0, -0.707106781, 1.0],
+        [-0.707106781,  0, -0.707106781, 1.0],
+        [ 0, 1.0, 0, 1.0],
+        [ 0, 0, 0, 1.0]
+      ],
+      "visual": [
+        {
+          "pose": [
+            [ 0.707106781,  0, -0.707106781, 1.0],
+            [-0.707106781,  0, -0.707106781, 1.0],
+            [ 0, 1.0, 0, 1.0],
+            [ 0, 0, 0, 1.0]
+          ],
+          "parameters": {
+            "x": 2,
+            "y": 2,
+            "z": 0.1
+          },
+          "type": "box"
+        }
+      ],
+      "collision": [
+        {
+          "pose": [
+            [ 0.707106781,  0, -0.707106781, 1.0],
+            [-0.707106781,  0, -0.707106781, 1.0],
+            [ 0, 1.0, 0, 1.0],
+            [ 0, 0, 0, 1.0]
+          ],
+          "parameters": {
+            "x": 2,
+            "y": 2,
+            "z": 0.1
+          },
+          "type": "box"
+        }
+      ]
+    }
+  ],
+  "constraints": [
+    {
+      "type": "joint",
+      "parts": [
+        "q",
+        "dq",
+        "tau"
+      ]
+    },
+    {
+      "type": "selfCollisionFree"
+    },
+    {
+      "type": "allGoalsFulfilled"
+    },
+    {
+      "type": "basePlacement",
+      "pose": {
+        "nominal": [
+          [ 1, 0, 0, 0 ],
+          [ 0, 1, 0, 0 ],
+          [ 0, 0, 1, 0 ],
+          [ 0, 0, 0, 1 ]
+        ]
+      }
+    }
+  ],
+  "goals": [
+    {
+      "ID": "1",
+      "type": "reach",
+      "goalPose": {
+        "nominal": [
+            [ 0.707106781,  0, 0.707106781, 0.95],
+            [-0.707106781,  0, 0.707106781, 0.95],
+            [ 0, -1.0, 0, 1.0],
+            [ 0, 0, 0, 1.0]
+        ],
+        "toleranceProjection": [
+          "x",
+          "z",
+          "z",
+          "N_z",
+          "Theta_R"
+        ],
+        "tolerance": [
+          [-0.01, 0.01],
+          [-0.05, -0.01],
+          [-0.001, 0.001],
+          [0.999, 1.0],
+          [-3.14159265, 3.14159265]
+        ],
+        "toleranceFrame": [
+          "nominal",
+          "nominal",
+          "world",
+          "nominal",
+          "nominal"
+        ]
+      }
+    }
+  ]
+}

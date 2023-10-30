@@ -6,6 +6,7 @@ from timor import ModuleAssembly, Robot
 from timor.task import Constraints, CostFunctions, Goals, Solution, Task, Tolerance
 from timor.utilities import spatial
 from timor.utilities.file_locations import robots
+from timor.utilities.frames import WORLD_FRAME
 from timor.utilities.tolerated_pose import ToleratedPose
 from timor.utilities.trajectory import Trajectory
 from timor.utilities.transformation import Transformation
@@ -180,7 +181,7 @@ class TestConstraints(unittest.TestCase):
     def test_eef_constraint(self):
         """Test the functionality of the EEF constraint"""
         eef_constraint_allow_any_pose = Constraints.EndEffector(
-            pose=ToleratedPose(nominal=Transformation.neutral(), tolerance=Tolerance.AlwaysValidTolerance()))
+            pose=ToleratedPose(nominal=WORLD_FRAME, tolerance=Tolerance.AlwaysValidTolerance()))
         qs = np.asarray([self.robot.random_configuration(self.rng) for _ in range(10)])
         eef_constraint_allow_first_pose = Constraints.EndEffector(
             pose=ToleratedPose(self.robot.fk(qs[0, :]), tolerance=Tolerance.DEFAULT_SPATIAL)

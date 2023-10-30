@@ -751,9 +751,7 @@ class ModulesDB(SingleSet, JSONable_mixin):
 
     def __setstate__(self, state):
         """
-        Overwrite jsonable; most is handled by __reduce__ and python internal set
-
-        just need to set helper properties
+        Overwrite jsonable; most is handled by __reduce__ and python internal set just need to set helper properties.
         """
         self.__dict__.update(state)
 

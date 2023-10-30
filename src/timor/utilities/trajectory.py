@@ -136,7 +136,8 @@ class Trajectory(JSONable_mixin):
     def from_json_data(cls, d: Dict, **kwargs) -> Trajectory:
         """Load from dict"""
         if "pose" in d:
-            d["pose"] = np.asarray(tuple(ToleratedPose.from_json_data(P) for P in d.pop("pose")))
+            d["pose"] = np.asarray(tuple(
+                ToleratedPose.from_json_data(P, annonymousFrame=True, **kwargs) for P in d.pop("pose")))
         return cls(**d)
 
     @classmethod
@@ -323,8 +324,8 @@ class Trajectory(JSONable_mixin):
             for idx in np.linspace(0, len(self) - 1, num_markers, dtype=int):
                 self.pose[idx].visualize(viz, name=f"traj_{name_prefix}_{idx}", scale=scale)
 
-            line_segments = np.asarray([p.nominal.translation for ps in zip(self.pose[:-1], self.pose[1:])
-                                        for p in ps], dtype=np.float32).T
+            line_segments = np.asarray([p.nominal.in_world_coordinates().translation for ps in
+                                        zip(self.pose[:-1], self.pose[1:]) for p in ps], dtype=np.float32).T
 
         elif self.has_q:
             if assembly is None:
@@ -364,7 +365,10 @@ class Trajectory(JSONable_mixin):
         for k in ("t", "q", "dq", "ddq"):
             if hasattr(self, k) and isinstance(getattr(self, k), np.ndarray):
                 ret[k] = getattr(self, k).tolist()
-        ret["goal2time"] = self.goal2time
+
+        if len(self.goal2time) > 0:
+            ret["goal2time"] = self.goal2time
+
         if self.has_poses:
             ret["pose"] = tuple(p.to_json_data() for p in self.pose)
         for k, v in self.__dict__.items():

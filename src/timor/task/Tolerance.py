@@ -14,6 +14,7 @@ from pinocchio.visualize import MeshcatVisualizer
 
 from timor import Volume as TimorVolume
 from timor.utilities import spatial
+from timor.utilities.frames import Frame, NOMINAL_FRAME, WORLD_FRAME
 from timor.utilities.transformation import Transformation, TransformationLike
 
 
@@ -33,13 +34,15 @@ class ToleranceBase(abc.ABC):
 
     @staticmethod
     def from_projection(projection: str,
-                        values: Union[List[float], Tuple[float, float], np.ndarray]) -> ToleranceBase:
+                        values: Union[List[float], Tuple[float, float], np.ndarray],
+                        frame: Frame = NOMINAL_FRAME) -> ToleranceBase:
         """
         Creates a tolerance from a projection descriptor and an absolute tolerance value.
 
         :param projection: The projection descriptor. Valid values: {"x", "y", "z", "r_cyl", "r_sph", "theta", "phi",
             "R", "P", "Y", "Alpha", "Beta", "Gamma", "N_x", "N_y", "N_z", "Theta_R", "A", "B", "C", "D"}
         :param values: The lower and upper bound for the tolerance
+        :param frame: The frame in which the tolerance is defined. Defaults to the world frame.
         :return: The tolerance class instance
         """
         if projection in {"x", "y", "z"}:
@@ -47,24 +50,24 @@ class ToleranceBase(abc.ABC):
             proj_idx = ['x', 'y', 'z'].index(projection)
             xyz_tol = np.ones((3, 2), float) * np.array([-np.inf, np.inf])
             xyz_tol[proj_idx, :] = values
-            return CartesianXYZ(*xyz_tol)
+            return CartesianXYZ(*xyz_tol, frame=frame)
         elif projection == "r_cyl":
-            return CartesianCylindrical(r=values)
+            return CartesianCylindrical(r=values, frame=frame)
         elif projection == "phi_cyl":
-            return CartesianCylindrical(r=[0, np.inf], phi_cyl=values)
+            return CartesianCylindrical(r=[0, np.inf], phi_cyl=values, frame=frame)
         elif projection == "r_sph":
-            return CartesianSpheric(r=values)
+            return CartesianSpheric(r=values, frame=frame)
         elif projection == 'theta':
-            return CartesianSpheric(r=[0, np.inf], theta=values)
+            return CartesianSpheric(r=[0, np.inf], theta=values, frame=frame)
         elif projection == 'phi_sph':
-            return CartesianSpheric(r=[0, np.inf], phi_sph=values)
+            return CartesianSpheric(r=[0, np.inf], phi_sph=values, frame=frame)
         elif re.match('N_[xyz]', projection):
             default = {'n_x': [-1, 1], 'n_y': [-1, 1], 'n_z': [-1, 1], 'theta_r': [-np.pi, np.pi]}
             arg = default.copy()
             arg.update({projection.lower(): values})
-            return RotationAxisAngle(**arg)
+            return RotationAxisAngle(**arg, frame=frame)
         elif projection == 'Theta_R':
-            return RotationAxisAngle.max_abs_rotation(values)
+            return RotationAxisAngle.max_abs_rotation(values, frame=frame)
         else:
             raise NotImplementedError(f"Projection {projection} not implemented")
 
@@ -239,7 +242,8 @@ class Composed(ToleranceBase):
         internals = [tol.to_projection() for tol in self._internal]
         return {
             'toleranceProjection': tuple(itertools.chain.from_iterable(t['toleranceProjection'] for t in internals)),
-            'tolerance': tuple(itertools.chain.from_iterable(t['tolerance'] for t in internals))
+            'tolerance': tuple(itertools.chain.from_iterable(t['tolerance'] for t in internals)),
+            'toleranceFrame': tuple(itertools.chain.from_iterable(t['frame'] for t in internals)),
         }
 
     def add(self, other: ToleranceBase, simplify_combinations: bool = True) -> None:
@@ -311,12 +315,14 @@ class Spatial(ToleranceBase, abc.ABC):
     _max_possible: np.ndarray  # Tolerance lower and upper boundaries
     _rounding_error: float = 1e-12  # Valid rounding error for numerical stability
 
-    def __init__(self, *args):
+    def __init__(self, frame: Frame = NOMINAL_FRAME, *args):
         """Sanity checks"""
         if not all(tol.shape == (2,) for tol in args):
             raise ValueError("Tolerances need to define an interval.")
         if not all(tol[0] <= tol[1] for tol in args):
             raise ValueError("Your lower bounds seem to be larger than the upper bounds.")
+
+        self._frame = frame
 
     def to_projection(self) -> Dict[str, Tuple[Union[str, np.ndarray], ...]]:
         """
@@ -332,24 +338,30 @@ class Spatial(ToleranceBase, abc.ABC):
         tol = ret['tolerance']
         keep = np.where(np.logical_or(tol[:, 0] > self._max_possible[:, 0],
                                       tol[:, 1] < self._max_possible[:, 1]))[0]
-        return {'toleranceProjection': tuple(ret['toleranceProjection'][i] for i in keep),
-                'tolerance': tuple(ret['tolerance'][i].tolist() for i in keep)}
+        ret = {'toleranceProjection': tuple(ret['toleranceProjection'][i] for i in keep),
+               'tolerance': tuple(ret['tolerance'][i].tolist() for i in keep),
+               'frame': tuple(self._frame.ID for i in keep)}
+        return ret
 
     def valid(self, desired: TransformationLike, real: TransformationLike) -> bool:
         """Public interface, makes sure child classes only work on (3,) shaped points"""
         desired, real = map(Transformation, (desired, real))
-        diff = self._projection(desired.inv @ real).round(16)  # Tries to prevent precision errors close to 0
+        delta = desired.inv @ real
+        delta_in_frame = self._frame.rotate_to_this_frame(delta, desired)
+        diff = self._projection(delta_in_frame).round(16)  # Rounding tries to prevent precision errors close to 0
         return (all(self.stacked[:, 0] - self._rounding_error <= diff)
                 and all(self.stacked[:, 1] + self._rounding_error >= diff))
 
-    def _add_same(self, other: Spatial) -> Spatial:
+    def _add_same(self, other: Spatial) -> Union[Spatial, Composed]:
         """Combine two pose tolerances"""
+        if self._frame != other._frame:
+            return Composed([self, other], simplify_combinations=False)
         mask_lower = self.stacked[:, 0] > other.stacked[:, 0]
         mask_upper = self.stacked[:, 1] < other.stacked[:, 1]
         mask = np.vstack((mask_lower, mask_upper)).T
         tolerance = other.stacked
         tolerance[mask] = self.stacked[mask]
-        return self.__class__(*tolerance)
+        return self.__class__(*tolerance, frame=self._frame)
 
     @property
     def valid_random_deviation(self) -> 'Transformation':
@@ -412,10 +424,11 @@ class Cartesian(Spatial, abc.ABC):
     def __init__(self,
                  a: Union[List[float], Tuple[float, float], np.ndarray],
                  b: Union[List[float], Tuple[float, float], np.ndarray],
-                 c: Union[List[float], Tuple[float, float], np.ndarray]):
+                 c: Union[List[float], Tuple[float, float], np.ndarray],
+                 frame: Frame = NOMINAL_FRAME):
         """Tolerance is valid if all proj(desired-real) is in the interval [tolerances[:, 0], tolerances[:, 1]]"""
         a, b, c = map(np.squeeze, map(np.asarray, (a, b, c)))
-        super().__init__(a, b, c)
+        super().__init__(frame, a, b, c)
         self._a, self._b, self._c = a, b, c
 
     @property
@@ -430,14 +443,15 @@ class CartesianXYZ(Cartesian):
     def __init__(self,
                  x: Union[List[float], Tuple[float, float], np.ndarray],
                  y: Union[List[float], Tuple[float, float], np.ndarray],
-                 z: Union[List[float], Tuple[float, float], np.ndarray]):
+                 z: Union[List[float], Tuple[float, float], np.ndarray],
+                 frame: Frame = NOMINAL_FRAME):
         """Defines a box-shaped tolerance
 
         :param x: Tolerances for x. Usually expected to be of format [negative, positive]
         :param y: Tolerances for y. Usually expected to be of format [negative, positive]
         :param z: Tolerances for z. Usually expected to be of format [negative, positive]
         """
-        super().__init__(x, y, z)
+        super().__init__(x, y, z, frame)
         if any(tol[0] > 0 for tol in (x, y, z)):
             logging.warning("Got a positive lower tolerance - are you sure you want to define a positive lower bound?")
 
@@ -447,16 +461,17 @@ class CartesianXYZ(Cartesian):
         Overwrite behavior if the other class is a cartesian with a z-tolerance only: Then it can be seen
         as cylindrical as well.
         """
-        if isinstance(other, CartesianCylindrical):
+        if isinstance(other, CartesianCylindrical) and self._frame == other._frame:
             if np.all(other._max_possible[:2, :] == other.stacked[:2, :]):
-                return self._add_same(self.__class__(x=(-np.inf, np.inf), y=(-np.inf, np.inf), z=other.stacked[2, :]))
+                return self._add_same(self.__class__(x=(-np.inf, np.inf), y=(-np.inf, np.inf), z=other.stacked[2, :],
+                                                     frame=self._frame))
 
         return super().__add__(other)
 
     @classmethod
     def default(cls):
         """Returns a CartesianXYZ with default tolerances"""
-        return cls(*[[-1e-3, 1e-3]] * 3)
+        return cls(*[[-1e-3, 1e-3]] * 3, frame=NOMINAL_FRAME)
 
     def _projection(self, nominal: Transformation) -> np.ndarray:
         """CartesianXYZ works in default cartesian coordinates"""
@@ -494,7 +509,8 @@ class CartesianCylindrical(Cartesian):
     def __init__(self,
                  r: Union[List[float], Tuple[float, float], np.ndarray],
                  phi_cyl: Union[List[float], Tuple[float, float], np.ndarray] = (-np.pi, np.pi),
-                 z: Union[List[float], Tuple[float, float], np.ndarray] = (-np.inf, np.inf)
+                 z: Union[List[float], Tuple[float, float], np.ndarray] = (-np.inf, np.inf),
+                 frame: Frame = NOMINAL_FRAME
                  ):
         """Defines a (partial) cylinder as tolerance.
 
@@ -502,7 +518,7 @@ class CartesianCylindrical(Cartesian):
         :param phi_cyl: Lower and upper tolerance for angle of cylinder coordinates between -pi and pi (radian)
         :param z: lower and upper tolerance for the cylinder z coordinates.
         """
-        super().__init__(r, phi_cyl, z)
+        super().__init__(r, phi_cyl, z, frame)
         if not all(np.array(r) >= 0):
             raise ValueError("Can only accept positive radius in cylinder coordinates")
         if all(np.array(z) > 0) or all(np.array(z) < 0):
@@ -516,16 +532,16 @@ class CartesianCylindrical(Cartesian):
         Overwrite behavior if the other class is a cartesian with a z-tolerance only: Then it can be seen
         as cylindrical as well.
         """
-        if isinstance(other, CartesianXYZ):
+        if isinstance(other, CartesianXYZ) and self._frame == other._frame:
             if np.all(other._max_possible[:2, :] == other.stacked[:2, :]):
-                return self._add_same(self.__class__(r=(0, np.inf), z=other.stacked[2, :]))
+                return self._add_same(self.__class__(r=(0, np.inf), z=other.stacked[2, :], frame=self._frame))
 
         return super().__add__(other)
 
     @classmethod
     def default(cls):
         """Returns a CartesianCylindrical with default tolerances"""
-        return cls(r=[0, 1e-3], phi_cyl=[-np.pi, np.pi], z=[-1e-3, 1e-3])
+        return cls(r=[0, 1e-3], phi_cyl=[-np.pi, np.pi], z=[-1e-3, 1e-3], frame=NOMINAL_FRAME)
 
     def _projection(self, nominal: Transformation) -> np.ndarray:
         """Map cartesian to cylindrical coordinates"""
@@ -564,13 +580,14 @@ class CartesianSpheric(Cartesian):
     """https://en.wikipedia.org/wiki/Spherical_coordinate_system"""
 
     _max_possible = np.array(
-        [[0, np.inf], [-np.pi, np.pi], [-np.pi, np.pi]]
+        [[0, np.inf], [0, np.pi], [-np.pi, np.pi]]
     )
 
     def __init__(self,
                  r: Union[List[float], Tuple[float, float], np.ndarray],
                  theta: Union[List[float], Tuple[float, float], np.ndarray] = (0, np.pi),
-                 phi_sph: Union[List[float], Tuple[float, float], np.ndarray] = (-np.pi, np.pi)
+                 phi_sph: Union[List[float], Tuple[float, float], np.ndarray] = (-np.pi, np.pi),
+                 frame: Frame = NOMINAL_FRAME
                  ):
         """Defines a potentially cut out spherical-shaped tolerance
 
@@ -578,7 +595,7 @@ class CartesianSpheric(Cartesian):
         :param theta: lower and upper tolerance for the inclination angle theta between 0 and 180 degree (in radian).
         :param phi_sph: Lower and upper tolerance for the polar angle phi between -180 and 180 degrees (in radian).
         """
-        super().__init__(r, theta, phi_sph)
+        super().__init__(r, theta, phi_sph, frame)
         if not all(np.array(r) >= 0):
             raise ValueError("Can only accept positive radius in spherical coordinates")
         if not theta[0] >= 0 and theta[1] <= np.pi:
@@ -589,7 +606,7 @@ class CartesianSpheric(Cartesian):
     @classmethod
     def default(cls):
         """Returns a CartesianSpheric with default tolerances"""
-        return cls([0, 1e-3])
+        return cls([0, 1e-3], frame=WORLD_FRAME)
 
     def _projection(self, nominal: Transformation) -> np.ndarray:
         """Map cartesian to spherical coordinates"""
@@ -632,7 +649,8 @@ class Rotation(Spatial, abc.ABC):
                  a: Union[List[float], Tuple[float, float], np.ndarray],
                  b: Union[List[float], Tuple[float, float], np.ndarray],
                  c: Union[List[float], Tuple[float, float], np.ndarray],
-                 d: Union[List[float], Tuple[float, float], np.ndarray]):
+                 d: Union[List[float], Tuple[float, float], np.ndarray],
+                 frame: Frame = NOMINAL_FRAME):
         """In general, four values suffice to define a rotation tolerance
 
         :param a: Lower and upper tolerance for the value for the first projection dimension of the rotation.
@@ -641,7 +659,7 @@ class Rotation(Spatial, abc.ABC):
         :param d: Lower and upper tolerance for the value for the fourth projection dimension of the rotation.
         """
         a, b, c, d = map(np.squeeze, map(np.asarray, (a, b, c, d)))
-        super().__init__(a, b, c, d)
+        super().__init__(frame, a, b, c, d)
         self._a, self._b, self._c, self._d = a, b, c, d
 
     @property
@@ -672,7 +690,8 @@ class RotationAxisAngle(Rotation):
                  n_x: Union[List[float], Tuple[float, float], np.ndarray],
                  n_y: Union[List[float], Tuple[float, float], np.ndarray],
                  n_z: Union[List[float], Tuple[float, float], np.ndarray],
-                 theta_r: Union[List[float], Tuple[float, float], np.ndarray]):
+                 theta_r: Union[List[float], Tuple[float, float], np.ndarray],
+                 frame: Frame = NOMINAL_FRAME):
         """The axis angle tolerance is defined by four parameters:
 
         :param n_x: Lower and upper tolerance for the x-part of the unit rotation axis.
@@ -691,7 +710,7 @@ class RotationAxisAngle(Rotation):
         for tolerance in itertools.chain(n_x, n_y, n_z):
             if abs(tolerance) > 1:
                 raise ValueError("Cannot interpret a unit vector element tolerance larger than 1.")
-        super().__init__(n_x, n_y, n_z, theta_r)
+        super().__init__(n_x, n_y, n_z, theta_r, frame)
 
     @classmethod
     def default(cls):
@@ -704,9 +723,9 @@ class RotationAxisAngle(Rotation):
         return cls.max_abs_rotation(np.array([-half_degree, half_degree]))
 
     @classmethod
-    def max_abs_rotation(cls, theta_r: np.ndarray) -> 'RotationAxisAngle':
+    def max_abs_rotation(cls, theta_r: np.ndarray, frame: Frame = NOMINAL_FRAME) -> 'RotationAxisAngle':
         """A utility method to easily create a tolerance on theta_r and an arbitrary axis."""
-        return cls((-1, 1), (-1, 1), (-1, 1), theta_r)
+        return cls((-1, 1), (-1, 1), (-1, 1), theta_r, frame)
 
     def valid(self, desired: TransformationLike, real: TransformationLike) -> bool:
         """
@@ -718,7 +737,9 @@ class RotationAxisAngle(Rotation):
         rotation.
         """
         desired, real = map(Transformation, (desired, real))
-        diff = self._projection(desired.inv @ real).round(16)  # Tries to prevent precision errors close to 0
+        delta = desired.inv @ real
+        delta_in_frame = self._frame.rotate_to_this_frame(delta, desired)
+        diff = self._projection(delta_in_frame).round(16)  # Tries to prevent precision errors close to 0
         if np.isclose(diff[-1], 0, rtol=0, atol=self._rounding_error):
             # theta_r is almost 0, so the axis is not reliable, and we only check if theta=0 is valid after all
             return self.stacked[-1, 0] <= .0 <= self.stacked[-1, 1]

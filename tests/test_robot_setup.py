@@ -10,6 +10,7 @@ from timor.Robot import PinRobot, RobotBase
 from timor.task import Tolerance
 from timor.utilities import logging, prebuilt_robots, spatial
 from timor.utilities.file_locations import robots
+from timor.utilities.frames import Frame, WORLD_FRAME
 from timor.utilities.tolerated_pose import ToleratedPose
 from timor.utilities.transformation import Transformation
 
@@ -207,7 +208,7 @@ class PinocchioRobotSetup(unittest.TestCase):
             # Using a random example for which we know, there's at least one goal configuration
             conf = self.get_random_config(self.rng, robot)
             q_init = self.get_random_config(self.rng, robot)
-            goal = robot.fk(conf)
+            goal = Frame("", robot.fk(conf), WORLD_FRAME)
             if robot.has_self_collision():
                 # Don't test ik in these cases - it might fail due to avoiding self collisions
                 continue
@@ -218,7 +219,7 @@ class PinocchioRobotSetup(unittest.TestCase):
                                            ik_cost_function=translation_cost)
             if success:
                 # Here, we only optimize for position, therefore the Cartesian XYZ tolerance
-                self.assertTrue(scipy_tolerance.valid(goal, robot.fk(conf)))
+                self.assertTrue(scipy_tolerance.valid(goal.in_world_coordinates(), robot.fk(conf)))
                 self.assertTrue(max(abs(conf)) < 2 * np.pi)  # IK result should be mapped to (-2pi, 2pi)
                 self.assertFalse(robot.has_self_collision(conf))
             else:
@@ -227,8 +228,9 @@ class PinocchioRobotSetup(unittest.TestCase):
             robot.update_configuration(q_init)  # Prevent using the scipy result as initial guess
             conf, success = robot.ik_jacobian(ToleratedPose(goal, jacobian_tolerance))
             if success:
-                np_test.assert_array_almost_equal(goal.homogeneous, robot.fk(conf).homogeneous, decimal=2)
-                self.assertTrue(jacobian_tolerance.valid(goal, robot.fk(conf)))
+                np_test.assert_array_almost_equal(goal.in_world_coordinates().homogeneous, robot.fk(conf).homogeneous,
+                                                  decimal=2)
+                self.assertTrue(jacobian_tolerance.valid(goal.in_world_coordinates(), robot.fk(conf)))
                 self.assertTrue(max(abs(conf)) < 2 * np.pi)
                 self.assertFalse(robot.has_self_collision(conf))
             else:

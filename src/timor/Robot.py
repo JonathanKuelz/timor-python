@@ -391,7 +391,7 @@ class RobotBase(abc.ABC):
         q_masked = q_start[joint_mask]
 
         def compute_cost(_q: np.ndarray):
-            return ik_cost_function(self, unmask(_q), eef_pose.nominal)
+            return ik_cost_function(self, unmask(_q), eef_pose.nominal.in_world_coordinates())
 
         def unmask(q_partial):
             q_ik = q_start
@@ -917,12 +917,14 @@ class PinRobot(RobotBase):
                 raise ValueError("joint_mask is only supported if you provide a q_init")
             # Find an initial guess for the solution where the robot is close to the desired point in space
             candidates = [self.configuration] + [self.random_configuration() for _ in range(4)]
-            distances = [self.fk(cand).distance(eef_pose.nominal).translation_euclidean for cand in candidates]
+            distances = \
+                [self.fk(cand).distance(eef_pose.nominal.in_world_coordinates()).translation_euclidean
+                 for cand in candidates]
             q = candidates[np.argmin(distances)]
         else:
             q = q_init
         joint_idx_pin = self.model.frames[self.tcp].parent
-        desired = pin.SE3(eef_pose.nominal.homogeneous)
+        desired = pin.SE3(eef_pose.nominal.in_world_coordinates().homogeneous)
         joint_desired = desired.act(self.model.frames[self.tcp].placement.inverse())
 
         def inv(J: np.ndarray):

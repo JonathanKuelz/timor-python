@@ -1,31 +1,36 @@
 from __future__ import annotations
 
+import itertools
 import json
 from typing import Dict, List, Union
 
 from pinocchio.visualize import MeshcatVisualizer
 
 from timor.task import Tolerance
+from timor.utilities.frames import Frame, FrameTree, NOMINAL_FRAME, WORLD_FRAME
 from timor.utilities.jsonable import JSONable_mixin
-from timor.utilities.transformation import Transformation, TransformationLike
+from timor.utilities.transformation import Transformation
 
 
 class ToleratedPose(JSONable_mixin):
     """Defines a desired nominal placement/pose in world coordinates with a tolerance around."""
 
-    nominal: Transformation  # The desired/nominal placement
+    nominal: Frame  # The desired/nominal placement
 
     def __init__(self,
-                 nominal: TransformationLike,
+                 nominal: Union[Transformation, Frame],
                  tolerance: Tolerance.ToleranceBase = None
                  ):
         """A tolerated placement defines a nominal placement and a volume around it which is considered valid.
 
-        :param nominal: The nominal placement (placement-like, so a 4x4 transform).
+        :param nominal: The nominal placement, either as a frame or a transformation assumed to be relative to the world
+            frame.
         :param tolerance: The tolerance around the nominal placement. Can be any cartesian or rotation tolerance.
             Defaults to a narrow spatial tolerance.
         """
-        self.nominal = Transformation(nominal)
+        if isinstance(nominal, Transformation):
+            nominal = Frame("", nominal, parent=WORLD_FRAME)
+        self.nominal = nominal
         if tolerance is None:
             tolerance = Tolerance.DEFAULT_SPATIAL
         self.__set_tolerance(tolerance)
@@ -37,28 +42,52 @@ class ToleratedPose(JSONable_mixin):
         :param other: The placement to compare to.
         :return: True if the other is valid with regard to self, False otherwise.
         """
-        return self.tolerance.valid(self.nominal, other)
+        return self.tolerance.valid(self.nominal.in_world_coordinates(), other)
 
     @classmethod
     def from_json_data(cls, d: Dict[str, any], *args, **kwargs) -> ToleratedPose:
         """Create a ToleratedPose from a json description.
 
         :param d: A json description as defined in the task documentation.
+        :param kwargs:
+          * 'frameName': The name of the nominal frame.
+          * 'frames': A FrameTree to resolve add / find the nominal frame.
+          * 'annonymousFrame': If True, the nominal frame will not be added to the FrameTree.
         :return: A ToleratedPose.
         """
         nominal = d['nominal']
+        nominal_parent = d.get('nominalParent', 'world')
+        frame_name = kwargs.get('frameName', None)
+        frames: FrameTree = kwargs['frames']
+        if kwargs.get('annonymousFrame', False):
+            nominal = Frame("", nominal, parent=frames[nominal_parent])
+        else:
+            if frame_name in frames:
+                nominal = frames[frame_name]
+            else:
+                nominal = frames.add(frame_name, nominal, nominal_parent)
         projections = d.get('toleranceProjection', ())
         tolerance_values = d.get('tolerance', ())
-        if not len(projections) == len(tolerance_values):
+        tolerance_frames = d.get('toleranceFrame', tuple(itertools.repeat(NOMINAL_FRAME, len(projections))))
+        tolerance_frames = tuple(map(lambda f: frames[f] if isinstance(f, str) else f, tolerance_frames))
+        if len(projections) != len(tolerance_values):
             raise ValueError("The number of tolerance projections must match "
                              "the number of given tolerances (lower+upper).")
-        tolerance = Tolerance.Composed([Tolerance.ToleranceBase.from_projection(p, v)
-                                        for p, v in zip(projections, tolerance_values)])
+        if len(projections) != len(tolerance_frames):
+            raise ValueError("The number of tolerance projections must match "
+                             "the number of given frames.")
+        tolerance = Tolerance.Composed([Tolerance.ToleranceBase.from_projection(p, v, f)
+                                        for p, v, f in zip(projections, tolerance_values, tolerance_frames)])
         return cls(nominal, tolerance)
 
     def to_json_data(self) -> Dict[str, Union[List, str]]:
         """The json-compatible serialization of a placement with tolerance"""
-        return {'nominal': self.nominal.to_json_data(), **self.tolerance.to_projection()}
+        frame_data = self.nominal.to_json_data()
+        # Repackage for nominal pose
+        if 'parent' in frame_data:
+            frame_data['nominalParent'] = self.nominal.pop('parent')
+        frame_data['nominal'] = frame_data.pop('transformation')
+        return {**frame_data, **self.tolerance.to_projection()}
 
     @property
     def tolerance(self) -> Tolerance.ToleranceBase:
@@ -76,7 +105,7 @@ class ToleratedPose(JSONable_mixin):
         For detailed kwargs refer to Transformation::visualize
         """
         self.nominal.visualize(viz, name, scale, **kwargs)
-        self.tolerance.visualize(viz, self.nominal.homogeneous, name=name + '_tol')
+        self.tolerance.visualize(viz, self.nominal.in_world_coordinates().homogeneous, name=name + '_tol')
 
     def __set_tolerance(self, value: Tolerance.ToleranceBase):
         """Type checking before setting the tolerance."""
@@ -94,7 +123,7 @@ class ToleratedPose(JSONable_mixin):
 
     def __getitem__(self, item):
         """Indexing a ToleratedPose defaults to indexing the nominal placement"""
-        return self.nominal[item]
+        return self.nominal.in_world_coordinates()[item]
 
     def __str__(self):
         """Make human-readable."""

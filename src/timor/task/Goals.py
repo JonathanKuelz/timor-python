@@ -12,6 +12,7 @@ from timor import task
 from timor.task import Constraints, Solution, Tolerance
 from timor.utilities.dtypes import fuzzy_dict_key_matching
 from timor.utilities.errors import TimeNotFoundError
+from timor.utilities.frames import FrameTree
 from timor.utilities.jsonable import JSONable_mixin
 import timor.utilities.logging as logging
 from timor.utilities.tolerated_pose import ToleratedPose
@@ -39,7 +40,7 @@ class GoalBase(ABC, JSONable_mixin):
         self._assert_constraints_local()
 
     @staticmethod
-    def goal_from_json_data(description: Dict[str, any]):
+    def goal_from_json_data(description: Dict[str, any], frames: FrameTree) -> GoalBase:
         """Maps a json description to a goal instance"""
         type2class = {
             'At': At,
@@ -60,7 +61,7 @@ class GoalBase(ABC, JSONable_mixin):
         keywords = fuzzy_dict_key_matching(description, {},
                                            desired_only=tuple(inspect.signature(class_ref.__init__).parameters.keys()))
 
-        return class_ref.from_json_data(keywords)
+        return class_ref.from_json_data(keywords, frames=frames)
 
     @property
     def id(self) -> str:
@@ -232,8 +233,10 @@ class At(GoalBase):
         """Loads the At goal to a dictionary description."""
         return cls(
             ID=d['ID'],
-            goalPose=ToleratedPose.from_json_data(d['goalPose']),
-            constraints=[Constraints.ConstraintBase.from_json_data(c) for c in d.get('constraints', [])]
+            goalPose=ToleratedPose.from_json_data(d['goalPose'], frames=kwargs['frames'], frameName=f"goal.{d['ID']}"),
+            constraints=[Constraints.ConstraintBase.
+                         from_json_data(c, frames=kwargs['frames'], frameName=f"goal.{d['ID']}")
+                         for c in d.get('constraints', [])]
         )
 
     @property
@@ -292,9 +295,11 @@ class Reach(At):
         """Loads the Reach goal to a dictionary description."""
         return cls(
             ID=d['ID'],
-            goalPose=ToleratedPose.from_json_data(d['goalPose']),
+            goalPose=ToleratedPose.from_json_data(d['goalPose'], frames=kwargs['frames'], frameName=f"goal.{d['ID']}"),
             velocity_tolerance=Tolerance.Abs6dPoseTolerance.default(),
-            constraints=[Constraints.ConstraintBase.from_json_data(c) for c in d.get('constraints', [])]
+            constraints=[Constraints.ConstraintBase.
+                         from_json_data(c, frames=kwargs['frames'], frameName=f"goal.{d['ID']}")
+                         for c in d.get('constraints', [])]
         )
 
     def to_json_data(self) -> Dict[str, any]:
@@ -351,7 +356,9 @@ class ReturnTo(GoalBase):
         return cls(
             ID=d['ID'],
             returnToGoal=d.get('returnToGoal', None),
-            constraints=[Constraints.ConstraintBase.from_json_data(c) for c in d.get('constraints', [])]
+            constraints=[Constraints.ConstraintBase.from_json_data(c, frames=kwargs['frames'],
+                                                                   frameName=f"goal.{d['ID']}")
+                         for c in d.get('constraints', [])]
         )
 
     def to_json_data(self) -> Dict[str, any]:
@@ -417,7 +424,9 @@ class Pause(GoalWithDuration):
         return cls(
             ID=d['ID'],
             duration=d['duration'],
-            constraints=[Constraints.ConstraintBase.from_json_data(c) for c in d.get('constraints', [])]
+            constraints=[Constraints.ConstraintBase.
+                         from_json_data(c, frames=kwargs['frames'], frameName=f"goal.{d['ID']}")
+                         for c in d.get('constraints', [])]
         )
 
     def to_json_data(self) -> Dict[str, any]:
@@ -514,11 +523,12 @@ class Follow(GoalWithDuration):
         """Loads the Follow goal from a dictionary description."""
         return cls(
             ID=d['ID'],
-            trajectory=Trajectory.from_json_data(d['trajectory']),
+            trajectory=Trajectory.from_json_data(d['trajectory'], frames=kwargs['frames'], frameName=f"goal.{d['ID']}"),
             external_forces=d.get('externalForce', None),
             external_torques=d.get('externalTorque', None),
             force_torque_reference_frame=d.get('forceTorqueReferenceFrame', 'world'),
-            constraints=[Constraints.ConstraintBase.from_json_data(c) for c in d.get('constraints', [])]
+            constraints=[Constraints.ConstraintBase.from_json_data(
+                c, frames=kwargs['frames'], frameName=f"goal.{d['ID']}") for c in d.get('constraints', [])]
         )
 
     def to_json_data(self) -> Dict[str, any]:

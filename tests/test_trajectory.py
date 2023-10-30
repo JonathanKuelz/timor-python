@@ -9,6 +9,7 @@ import numpy.testing as np_test
 from timor import Transformation
 from timor.utilities import logging
 from timor.utilities.dtypes import Lazy
+from timor.utilities.frames import Frame, FrameTree, WORLD_FRAME
 from timor.utilities.tolerated_pose import ToleratedPose
 from timor.utilities.trajectory import Trajectory
 import timor.utilities.errors as err
@@ -146,16 +147,16 @@ class TestTrajectoryClasses(unittest.TestCase):
 
     def test_PoseTrajectory(self):
         example_pose_trajectory = Trajectory(pose=np.asarray([
-            ToleratedPose(Transformation.neutral()),
-            ToleratedPose(Transformation.from_translation((0, 0, 1))),
-            ToleratedPose(Transformation.from_translation((0, 1, 1)))]))
+            ToleratedPose(Frame("", Transformation.neutral(), WORLD_FRAME)),
+            ToleratedPose(Frame("", Transformation.from_translation((0, 0, 1)), WORLD_FRAME)),
+            ToleratedPose(Frame("", Transformation.from_translation((0, 1, 1)), WORLD_FRAME))]))
         example_timed_pose_trajectory = Trajectory(t=np.asarray((0., 0.1, 0.2)),
                                                    pose=example_pose_trajectory.pose,
                                                    _allowed_deviation_in_time=0.01)
 
         self.assertEqual(3, len(example_pose_trajectory))
         self.assertTrue(example_pose_trajectory[2].pose[0].valid(Transformation.from_translation((0, 0.9999, 1))))
-        t_new = Trajectory.from_json_data(example_pose_trajectory.to_json_data())
+        t_new = Trajectory.from_json_data(example_pose_trajectory.to_json_data(), frames=FrameTree.empty())
         self.assertEqual(example_pose_trajectory, t_new)
         with self.assertRaises(ValueError):  # len(t) != len(pose)
             _ = Trajectory(t=np.asarray((0., 0.1, 0.2, 0.3)),
@@ -166,12 +167,14 @@ class TestTrajectoryClasses(unittest.TestCase):
         with self.assertRaises(ValueError):
             example_pose_trajectory.get_at_time(0.1)
         self.assertTrue(example_timed_pose_trajectory.get_at_time(0.1).pose[0].
-                        valid(example_pose_trajectory.pose[1].nominal))
+                        valid(example_pose_trajectory.pose[1].nominal.in_world_coordinates()))
         # Check access via index instead of time
-        self.assertTrue(example_timed_pose_trajectory[1].pose[0].valid(example_pose_trajectory.pose[1].nominal))
+        self.assertTrue(
+            example_timed_pose_trajectory[1].pose[0].valid(
+                example_pose_trajectory.pose[1].nominal.in_world_coordinates()))
         self.assertFalse(example_timed_pose_trajectory.get_at_time(0.1).pose[0].
-                         valid(example_pose_trajectory.pose[2].nominal))
-        t_timed_new = Trajectory.from_json_data(example_timed_pose_trajectory.to_json_data())
+                         valid(example_pose_trajectory.pose[2].nominal.in_world_coordinates()))
+        t_timed_new = Trajectory.from_json_data(example_timed_pose_trajectory.to_json_data(), frames=FrameTree.empty())
         self.assertEqual(example_timed_pose_trajectory, t_timed_new)
         self.assertNotEqual(example_pose_trajectory, example_timed_pose_trajectory)
 

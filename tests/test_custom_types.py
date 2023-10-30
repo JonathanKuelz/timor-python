@@ -6,7 +6,7 @@ import unittest
 
 import numpy as np
 
-from timor.utilities.dtypes import EternalDict, LimitedSizeMap, SingleSet, TypedHeader, timeout
+from timor.utilities.dtypes import EternalDict, LimitedSizeMap, SingletonMeta, SingleSet, TypedHeader, timeout
 import timor.utilities.errors as err
 
 
@@ -62,6 +62,20 @@ class CustomTypeUnitTests(unittest.TestCase):
         self.assertTrue(95 in d)
         d.pop(95)
         self.assertFalse(95 in d)
+
+    def test_Singleton(self):
+        """Tests the Singleton concept as implemented in SingletonMeta."""
+        class Singleton(metaclass=SingletonMeta):
+            """This class can only be instantiated once -- every other try will return the initial instance."""
+
+            def __init__(self, val: any):
+                self.a = val
+
+        s1 = Singleton(1)
+        s2 = Singleton(2)
+
+        self.assertEqual(s2.a, 1)
+        self.assertIs(s1, s2)
 
     def test_SingleSet(self):
         robots = SingleSet()

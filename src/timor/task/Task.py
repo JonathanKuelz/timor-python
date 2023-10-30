@@ -24,6 +24,7 @@ from timor.task.Obstacle import Obstacle
 from timor.utilities import configurations
 from timor.utilities.dtypes import TypedHeader
 from timor.utilities.file_locations import map2path, schema_dir
+from timor.utilities.frames import FrameTree
 from timor.utilities.jsonable import JSONable_mixin
 import timor.utilities.logging as logging
 from timor.utilities.schema import DEFAULT_DATE_FORMAT, get_schema_validator
@@ -71,7 +72,8 @@ class Task(JSONable_mixin):
                  header: Union[TaskHeader, Dict],
                  obstacles: Collection[Obstacle] = None,
                  goals: Sequence['Goals.GoalBase'] = None,
-                 constraints: Optional[Collection['Constraints.ConstraintBase']] = None
+                 constraints: Optional[Collection['Constraints.ConstraintBase']] = None,
+                 frames: FrameTree = None
                  ):
         """Create a Task:
 
@@ -90,6 +92,10 @@ class Task(JSONable_mixin):
         if obstacles is not None:
             for obstacle in obstacles:
                 self.add_obstacle(obstacle)
+
+        self.frames = frames
+        if frames is None:
+            self.frames = FrameTree({})
 
     @classmethod
     def from_id(cls, id: str, package_dir: Path) -> Task:
@@ -140,18 +146,22 @@ class Task(JSONable_mixin):
             logging.debug(f"Errors: {tuple(validator.iter_errors(d))}")
             raise ValueError("task.json invalid.")
         content = deepcopy(d)  # Make sure we don't modify the original data while popping items
+        frames = FrameTree.from_json_data(content.pop('frames', {}))
+
+        # Parse rest of task - TODO give ft to obstacles, goals, constraints such that they can add their nominal frames
         header = TaskHeader(**{key: arg for key, arg in content.pop('header').items()})
         obstacles = [Obstacle.from_json_data(specs) for specs in content.pop('obstacles')]
-        goals = [Goals.GoalBase.goal_from_json_data(goal) for goal in content.pop('goals', [])]
+        goals = [Goals.GoalBase.goal_from_json_data(goal, frames=frames) for goal in content.pop('goals', [])]
         if 'Constraints' in content:
             logging.error("Constraints is written in upper case but should be lower case!")
             content['constraints'] = content.pop('Constraints')
-        constraints = [Constraints.ConstraintBase.from_json_data(c) for c in content.pop('constraints', [])]
+        constraints = \
+            [Constraints.ConstraintBase.from_json_data(c, frames=frames) for c in content.pop('constraints', [])]
         if 'objects' in content:
             content.pop('objects')  # TODO: support objects
         if len(content) > 0:
             raise ValueError("Unresolved keys: {}".format(', '.join(content)))
-        task = cls(header, obstacles, goals=goals, constraints=constraints)
+        task = cls(header, obstacles, goals=goals, constraints=constraints, frames=frames)
         return task
 
     def to_json_file(self,
@@ -235,6 +245,10 @@ class Task(JSONable_mixin):
 
         # Goals
         content['goals'] = [goal.to_json_data() for goal in self.goals]
+
+        # Frames
+        content['frames'] = self.frames.to_json_data()
+
         return content
 
     @property
@@ -283,6 +297,7 @@ class Task(JSONable_mixin):
                   show_obstacle: bool = True,
                   show_goals: bool = True,
                   show_constraints: bool = True,
+                  show_frames: bool = True,
                   show_names: bool = False,
                   center_view: bool = True
                   ) -> pin.visualize.MeshcatVisualizer:
@@ -298,6 +313,7 @@ class Task(JSONable_mixin):
         :param show_obstacle: bool to turn on obstacle rendering (default true)
         :param show_goals: bool to turn on goal rendering (default true)
         :param show_constraints: bool to turn on constraint rendering for those that can be displayed (default true)
+        :param show_frames: bool to turn on frame rendering (default true)
         :param show_names: bool to turn on name rendering, e.g., for goals (default false)
         :param center_view: if set to true try to find  a reasonable camera position such that task visible, i.e.
           try to center camera on the first robot's base and if that is not set try to center the base constraint pose.
@@ -335,6 +351,9 @@ class Task(JSONable_mixin):
                     # Not every constraint can be visualized, and that's okay
                     pass
 
+        if show_frames:
+            self.frames.visualize(viz)
+
         if center_view and robots is None:
             try:
                 base_constraint = self.base_constraint
@@ -345,11 +364,13 @@ class Task(JSONable_mixin):
         return viz
 
     def __deepcopy__(self, memodict={}):
-        """Custom deepcopy for a scneario class. Experimental!"""
+        """Custom deepcopy for the task class. Experimental!"""
         cpy = self.__class__(header=deepcopy(self.header))
+        cpy.frames = deepcopy(self.frames)
         cpy.obstacles = [deepcopy(o) for o in self.obstacles]
-        cpy.goals = tuple(deepcopy(t) for t in self.goals)
-        cpy.constraints = tuple(deepcopy(c) for c in self.constraints)
+        cpy.goals = tuple(Goals.GoalBase.goal_from_json_data(g.to_json_data(), frames=cpy.frames) for g in self.goals)
+        cpy.constraints = tuple(
+            Constraints.ConstraintBase.from_json_data(c.to_json_data(), frames=cpy.frames) for c in self.constraints)
         return cpy
 
     def __eq__(self, other):
@@ -359,7 +380,8 @@ class Task(JSONable_mixin):
         return (self.header == other.header
                 and self.obstacles == other.obstacles
                 and self.goals == other.goals
-                and self.constraints == other.constraints)
+                and self.constraints == other.constraints
+                and self.frames == other.frames)
 
     def __getstate__(self):
         """Return objects which will be pickled and saved."""
