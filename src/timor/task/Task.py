@@ -71,7 +71,7 @@ class Task(JSONable_mixin):
                  header: Union[TaskHeader, Dict],
                  obstacles: Collection[Obstacle] = None,
                  goals: Sequence['Goals.GoalBase'] = None,
-                 constraints: Collection['Constraints.ConstraintBase'] = None
+                 constraints: Optional[Collection['Constraints.ConstraintBase']] = None
                  ):
         """Create a Task:
 
@@ -84,7 +84,7 @@ class Task(JSONable_mixin):
 
         self.obstacles: List[Obstacle] = list()  # High-Level Objects
         self.goals: Tuple['Goals.GoalBase'] = tuple() if goals is None else tuple(goals)
-        self.constraints: Tuple['Constraints.ConstraintBase'] = tuple() if constraints is None \
+        self.constraints: Tuple['Constraints.ConstraintBase'] = Constraints.DEFAULT_CONSTRAINTS if constraints is None \
             else tuple(constraints)
 
         if obstacles is not None:
@@ -147,6 +147,8 @@ class Task(JSONable_mixin):
             logging.error("Constraints is written in upper case but should be lower case!")
             content['constraints'] = content.pop('Constraints')
         constraints = [Constraints.ConstraintBase.from_json_data(c) for c in content.pop('constraints', [])]
+        if 'objects' in content:
+            content.pop('objects')  # TODO: support objects
         if len(content) > 0:
             raise ValueError("Unresolved keys: {}".format(', '.join(content)))
         task = cls(header, obstacles, goals=goals, constraints=constraints)

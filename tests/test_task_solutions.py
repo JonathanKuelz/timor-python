@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 # Author: Jonathan Külz
 # Date: 17.02.22
-import random
 import unittest
 
 import numpy as np
@@ -38,9 +37,8 @@ class TestSolution(unittest.TestCase):
         self.task_dir = file_locations["task_dir"]
         self.asset_dir = file_locations["asset_dir"]
 
-        random.seed(123)
-        np.random.seed(123)
-        self.random_configurations = np.asarray([pin.randomConfiguration(self.robot.model) for _ in range(200)])
+        self.rng = np.random.default_rng(123)
+        self.random_configurations = np.asarray([self.robot.random_configuration(self.rng) for _ in range(200)])
 
     def test_cost_parsing(self):
         """
@@ -50,15 +48,15 @@ class TestSolution(unittest.TestCase):
 
         for _ in range(100):
             # Generate random descriptor string
-            num_costs = random.randint(1, len(abbreviations))
-            num_weights = random.randint(1, len(abbreviations))
+            num_costs = self.rng.integers(1, len(abbreviations))
+            num_weights = self.rng.integers(1, len(abbreviations))
             cost_string = ''
             for i in range(num_costs):
                 if i >= num_weights:
-                    weight = str(float(random.random()))
-                    cost_string += random.choice(abbreviations) + '_' + weight
+                    weight = str(float(self.rng.random()))
+                    cost_string += self.rng.choice(abbreviations) + '_' + weight
                 else:
-                    cost_string += random.choice(abbreviations)
+                    cost_string += self.rng.choice(abbreviations)
                 if i < num_costs - 1:
                     cost_string += ','
 
@@ -106,14 +104,14 @@ class TestSolution(unittest.TestCase):
                                  constraints=[Constraints.JointAngles(robot.joint_limits)])
 
         for _ in range(10):
-            bad_trajectory = Trajectory(t=dt, q=np.random.random(q_array_shape))
-            t_start = random.choice(tuple(bad_trajectory.t[bad_trajectory.t < max(bad_trajectory.t) - pause_duration]))
+            bad_trajectory = Trajectory(t=dt, q=self.rng.random(q_array_shape))
+            t_start = self.rng.choice(list(bad_trajectory.t[bad_trajectory.t < max(bad_trajectory.t) - pause_duration]))
             t_end = t_start + pause_duration
             q_good = bad_trajectory.q.copy()
 
             # Manually ensure there is a pause
             pause_mask = np.logical_and(t_start <= bad_trajectory.t, bad_trajectory.t <= t_end)
-            q_good[pause_mask] = random.random()
+            q_good[pause_mask] = self.rng.random()
             good_trajectory = Trajectory(t=dt, q=q_good)
             good_trajectory.dq[pause_mask] = 0
             good_trajectory.ddq[pause_mask] = 0
@@ -134,7 +132,7 @@ class TestSolution(unittest.TestCase):
             self.assertTrue(pause_goal.achieved(valid))
             self.assertFalse(pause_goal.achieved(invalid))
 
-            good_trajectory.dq = np.random.random(q_array_shape)
+            good_trajectory.dq = self.rng.random(q_array_shape)
             self.assertFalse(pause_goal.achieved(valid))
 
             bad_trajectory_to_short = Trajectory.stationary(q=np.zeros(q_array_shape[1]),
@@ -146,15 +144,15 @@ class TestSolution(unittest.TestCase):
             self.assertFalse(pause_goal.achieved(invalid_too_short))
 
             # Test that times in goal duration rightly calculated
-            sol_times, sol_times_indices = pause_goal._get_time_range_goal(valid)
+            sol_times, sol_times_indices = pause_goal.get_time_range_goal(valid)
             self.assertListEqual(np.where(pause_mask)[0].tolist(), list(sol_times_indices))
             np_test.assert_array_less(t_start - dt, np.asarray(sol_times))
             np_test.assert_array_less(np.asarray(sol_times), t_end + dt)
 
             # Test constraint in duration - replace a single time-step inside pause with joint limit + a_bit_over_0
             q_bad_outside_joint_limits = good_trajectory.q.copy()
-            q_bad_outside_joint_limits[np.random.choice(np.argwhere(pause_mask).squeeze())] = \
-                robot.joint_limits[1, :] + np.random.random(robot.njoints)
+            q_bad_outside_joint_limits[self.rng.choice(np.argwhere(pause_mask).squeeze())] = \
+                robot.joint_limits[1, :] + self.rng.random(robot.njoints)
             bad_trajectory_outside_joint_limits = Trajectory(t=dt, q=q_bad_outside_joint_limits,
                                                              goal2time=good_trajectory.goal2time)
             bad_sol_outside_joint_limits = \
@@ -242,9 +240,9 @@ class TestSolution(unittest.TestCase):
         robot_assembly = get_six_axis_assembly()
         qs = []  # 4 self-collision free robot configurations
         for _ in range(4):
-            q = robot_assembly.robot.random_configuration()
+            q = robot_assembly.robot.random_configuration(self.rng)
             while robot_assembly.robot.has_self_collision(q):
-                q = robot_assembly.robot.random_configuration()
+                q = robot_assembly.robot.random_configuration(self.rng)
             qs.append(q)
         pose_trajectory = Trajectory(pose=np.asarray(tuple(ToleratedPose(robot_assembly.robot.fk(q)) for q in qs)))
         timed_pose_trajectory = Trajectory(pose=pose_trajectory.pose, t=np.asarray((0., .1, .2, .3)))
@@ -262,7 +260,7 @@ class TestSolution(unittest.TestCase):
             # Still ok with additional qs
             valid_sol = SolutionTrajectory(
                 Trajectory(t=np.asarray((0., .1, .15, .2, .3)),
-                           q=np.asarray((*qs[:2], robot_assembly.robot.random_configuration(), *qs[2:])),
+                           q=np.asarray((*qs[:2], robot_assembly.robot.random_configuration(self.rng), *qs[2:])),
                            goal2time={"0": 0.3}),
                 SolutionHeader("tmp"), task, robot_assembly, QDist(), Transformation.neutral())
             self.assertTrue(follow_goal.achieved(valid_sol))
@@ -283,7 +281,7 @@ class TestSolution(unittest.TestCase):
             # Break by changing timing
             valid_sol = SolutionTrajectory(
                 Trajectory(t=np.asarray((0., .1, .15, .23, .4)),
-                           q=np.asarray((*qs[:2], robot_assembly.robot.random_configuration(), *qs[2:])),
+                           q=np.asarray((*qs[:2], robot_assembly.robot.random_configuration(self.rng), *qs[2:])),
                            goal2time={"0": 0.4}),
                 SolutionHeader("tmp"), task, robot_assembly, QDist(), Transformation.neutral())
             if traj.is_timed:
@@ -296,7 +294,7 @@ class TestSolution(unittest.TestCase):
             # Break altering q
             valid_sol = SolutionTrajectory(
                 Trajectory(t=np.asarray((0., .1, .2, .3)),
-                           q=np.asarray((*qs[:2], robot_assembly.robot.random_configuration(), *qs[3:])),
+                           q=np.asarray((*qs[:2], robot_assembly.robot.random_configuration(self.rng), *qs[3:])),
                            goal2time={"0": 0.3}),
                 SolutionHeader("tmp"), task, robot_assembly, QDist(), Transformation.neutral())
             self.assertFalse(follow_goal.achieved(valid_sol))
@@ -307,7 +305,7 @@ class TestSolution(unittest.TestCase):
 
         # Test constraints on whole duration with adding / removing self-collision during execution
         while not robot_assembly.robot.has_self_collision():
-            robot_assembly.robot.configuration = robot_assembly.robot.random_configuration()
+            robot_assembly.robot.update_configuration(robot_assembly.robot.random_configuration(self.rng))
         q_self_collision = robot_assembly.robot.configuration
         follow_goal_with_constraint = Goals.Follow("0", traj, constraints=(Constraints.SelfCollisionFree(),))
         task = Task.Task(TaskHeader("tmp", timeStepSize=0.1), goals=(follow_goal_with_constraint,))
@@ -320,9 +318,9 @@ class TestSolution(unittest.TestCase):
             valid_sol, valid_sol.t_goals["0"], len(valid_sol.trajectory)))
 
         # Adding a random, non-colliding should be fine without time
-        q_rand_coll_free = robot_assembly.robot.random_configuration()
+        q_rand_coll_free = robot_assembly.robot.random_configuration(self.rng)
         while robot_assembly.robot.has_self_collision(q_rand_coll_free):
-            q_rand_coll_free = robot_assembly.robot.random_configuration()
+            q_rand_coll_free = robot_assembly.robot.random_configuration(self.rng)
         validish_sol = SolutionTrajectory(
             Trajectory(t=np.asarray((0., .1, .2, .3, .4)),
                        q=np.asarray((*qs[:2], q_rand_coll_free, *qs[2:])), goal2time={"0": 0.4}),
@@ -344,6 +342,55 @@ class TestSolution(unittest.TestCase):
         self.assertFalse(follow_goal_with_constraint.achieved(invalid_sol))
         self.assertFalse(follow_goal_with_constraint._valid(
             invalid_sol, invalid_sol.t_goals["0"], len(invalid_sol.trajectory)))
+
+    def test_follow_force_torque_constraint(self):
+        assembly = get_six_axis_assembly()
+        robot = assembly.robot
+        robot.model.effortLimit = 10 * np.ones(robot.njoints)  # high torque limits
+        len_desired = 15
+        len_additional = 5
+        dt = .1
+        q = []
+        while len(q) < len_desired + len_additional:
+            new = q[-1] + self.rng.random((robot.njoints,)) * 0.01 if len(q) > 0 \
+                else robot.random_configuration(self.rng)
+            if not robot.has_self_collision(new) \
+                    and robot.tau_in_torque_limits(robot.static_torque(new)) \
+                    and robot.q_in_joint_limits(new):
+                q.append(new)
+
+        desired = Trajectory(pose=np.asarray(tuple(ToleratedPose(robot.fk(qi)) for qi in q[:len_desired])), t=dt)
+        follow_goal_with_constraint = Goals.Follow("0", desired,
+                                                   constraints=(Constraints.JointLimits(parts=('q',)),))
+        task = Task.Task(TaskHeader("tmp", timeStepSize=dt),
+                         goals=(follow_goal_with_constraint,),
+                         constraints=(Constraints.JointLimits(parts=('q', 'tau')),
+                                      Constraints.AllGoalsFulfilled(),
+                                      Constraints.CollisionFree()
+                                      )
+                         )
+
+        trajectory = Trajectory(q=np.asarray(q), t=dt, goal2time={"0": (len_desired - 1) * dt})
+        solution = SolutionTrajectory(trajectory, {'taskID': task.id}, task, assembly, QDist())
+
+        # Thus far, the solution should be valid (assuming the robot is not moving too fast yet)
+        self.assertTrue(solution.valid)
+
+        # Add high external force
+        follow_goal_with_constraint._external_forces = self.rng.random((3,)) * 1000
+        solution = SolutionTrajectory(trajectory, {'taskID': task.id}, task, assembly, QDist())
+        self.assertFalse(solution.valid)
+        follow_goal_with_constraint._external_forces = np.zeros((3,))  # reset
+
+        # Add high external torques
+        follow_goal_with_constraint._external_torques = self.rng.random((3,)) * 1000
+        solution = SolutionTrajectory(trajectory, {'taskID': task.id}, task, assembly, QDist())
+        self.assertFalse(solution.valid)
+
+        # Remove the torque constraint
+        task.constraints = (Constraints.AllGoalsFulfilled(), Constraints.CollisionFree())
+        solution = SolutionTrajectory(trajectory, {'taskID': task.id}, task, assembly, QDist())
+        self.assertTrue(solution.valid)
 
     def test_solution_derived_properties(self, num_test=10, epsilon=1e-12):
         assembly = get_six_axis_assembly()  # Use IMPROV with significant joint inertia and friction

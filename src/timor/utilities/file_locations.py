@@ -54,7 +54,7 @@ else:
 download_additional_robots(cache_robot_dir, robots)
 module_DBs = robots  # alias
 
-DEFAULT_TASK_FILTER = re.compile(".*(task|PTP_1|PTP_2|PTP_2_cycle|PTP_3|Empty|traj_1|traj_window)+.json")
+DEFAULT_TASK_FILTER = re.compile(r".*\.json")
 
 
 def get_test_tasks(task_name: re.Pattern = DEFAULT_TASK_FILTER) -> Dict[str, Union[Path, List[Path]]]:
@@ -66,7 +66,7 @@ def get_test_tasks(task_name: re.Pattern = DEFAULT_TASK_FILTER) -> Dict[str, Uni
     """
     if test_data is None:
         raise FileNotFoundError("Test data not found. It is only available if the package is installed from source.")
-    task_dir = test_data.joinpath('sample_tasks/simple')
+    task_dir = test_data.joinpath('sample_tasks')
     task_files = task_dir.rglob("**/*.json")
 
     task_files = [task for task in task_files if task_name.search(task.name)]
