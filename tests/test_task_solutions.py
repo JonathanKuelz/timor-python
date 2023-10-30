@@ -12,8 +12,9 @@ from timor.task import Constraints, CostFunctions, Goals, Solution, Task, Tolera
 from timor.task.CostFunctions import QDist
 from timor.task.Solution import SolutionHeader, SolutionTrajectory
 from timor.task.Task import TaskHeader
-from timor.utilities import prebuilt_robots, spatial, visualization
+from timor.utilities import prebuilt_robots, visualization
 from timor.utilities.file_locations import get_test_tasks, robots
+from timor.utilities.frames import Frame, WORLD_FRAME
 from timor.utilities.prebuilt_robots import get_six_axis_assembly
 from timor.utilities.tolerated_pose import ToleratedPose
 from timor.utilities.trajectory import Trajectory
@@ -168,13 +169,15 @@ class TestSolution(unittest.TestCase):
         pos_tolerance = Tolerance.CartesianXYZ(*[[-.1, .1]] * 3)
         rot_tolerance = Tolerance.RotationAxisAngle.default()
         base_tolerance = pos_tolerance + rot_tolerance
-        constraint_base = Constraints.BasePlacement(ToleratedPose(Transformation.neutral(), base_tolerance))
+        constraint_base = Constraints.BasePlacement(ToleratedPose(WORLD_FRAME, base_tolerance))
         all_goals = Constraints.AllGoalsFulfilled()
 
         # Set up two goals
-        at_goal = Goals.At('At pos z', ToleratedPose(spatial.homogeneous([.1, .1, .5])),
+        at_goal = Goals.At('At pos z',
+                           ToleratedPose(Frame("", Transformation.from_translation([.1, .1, .5]), WORLD_FRAME)),
                            constraints=[constraint_joints])
-        reach_goal = Goals.Reach('Reach z', ToleratedPose(spatial.homogeneous([.1, .1, .5])),
+        reach_goal = Goals.Reach('Reach z',
+                                 ToleratedPose(Frame("", Transformation.from_translation([.1, .1, .5]), WORLD_FRAME)),
                                  constraints=[constraint_joints])
 
         # Combine the goals in a new task (without obstacles for now)

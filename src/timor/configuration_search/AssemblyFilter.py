@@ -367,9 +367,10 @@ class AssemblyModuleLengthFilter(AssemblyFilter):
             if not self._applies(goal):
                 continue
             if isinstance(goal, Goals.Follow):
-                d = max(base_nominal.distance(n.nominal).translation_euclidean for n in goal.trajectory.pose)
+                d = max(base_nominal.absolute.distance(n.nominal.absolute).translation_euclidean
+                        for n in goal.trajectory.pose)
             elif isinstance(goal, (Goals.At, Goals.Reach)):
-                d = base_nominal.distance(goal.goal_pose.nominal).translation_euclidean
+                d = base_nominal.absolute.distance(goal.goal_pose.nominal.absolute).translation_euclidean
             else:
                 raise NotImplementedError(f'Cannot compute required robot length for a goal of type {type(goal)}.')
             distance = max(distance, d)

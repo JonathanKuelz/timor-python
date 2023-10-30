@@ -50,17 +50,17 @@ class ConstraintBase(ABC, JSONable_mixin):
         # Shortcut to _from_json_data if used on subclasses to return Error or expected type if possible
         if cls is not ConstraintBase:
             if cls is type2class[constraint_type]:
-                return cls._from_json_data(d)
+                return cls._from_json_data(d, *args, **kwargs)
             raise ValueError(f"Want to create {type(cls)} with description of type {constraint_type}.")
         try:
             class_ref = type2class[constraint_type]
         except KeyError as e:
             raise AttributeError(f"Unknown constraint of type {constraint_type}!") from e
 
-        return class_ref._from_json_data(d)
+        return class_ref._from_json_data(d, *args, **kwargs)
 
     @classmethod
-    def _from_json_data(cls, description: Dict[str, any]) -> ConstraintBase:
+    def _from_json_data(cls, description: Dict[str, any], *args, **kwargs) -> ConstraintBase:
         """
         Default constraints can just be constructed from using json fields as constructor inputs.
 
@@ -317,9 +317,12 @@ class BasePlacement(ConstraintBase):
         self.base_pose = base_pose
 
     @classmethod
-    def _from_json_data(cls, description: Dict[str, any]) -> ConstraintBase:
+    def _from_json_data(cls, description: Dict[str, any], *args, **kwargs) -> ConstraintBase:
         """Create Base placement constraint from json data."""
-        base_pose = ToleratedPose.from_json_data(description['pose'])
+        frame_name = 'constraint.base'
+        if 'frameName' in kwargs:
+            frame_name = f"{kwargs.pop('frameName', None)}.{frame_name}"
+        base_pose = ToleratedPose.from_json_data(description['pose'], **kwargs, frameName=frame_name)
         return cls(base_pose)
 
     @property
@@ -508,8 +511,12 @@ class EndEffector(ConstraintBase):
                             "eef_constraint will always be invalid.")
 
     @classmethod
-    def _from_json_data(cls, description: Dict[str, any]) -> ConstraintBase:
-        pose = ToleratedPose.from_json_data(description.pop('pose')) if "pose" in description else None
+    def _from_json_data(cls, description: Dict[str, any], *args, **kwargs) -> ConstraintBase:
+        frame_name = 'constraint.eef'
+        if 'frameName' in kwargs:
+            frame_name = f"{kwargs.pop('frameName', None)}.{frame_name}"
+        pose = ToleratedPose.from_json_data(description.pop('pose'), frameName=frame_name, **kwargs) \
+            if "pose" in description else None
         velocity_lim = np.asarray((description.pop('v_min', -math.inf), description.pop('v_max', math.inf)))
         rotation_velocity_lim = np.asarray((description.pop('o_min', -math.inf), description.pop('o_max', math.inf)))
         return cls(pose=pose, velocity_lim=velocity_lim, rotation_velocity_lim=rotation_velocity_lim)

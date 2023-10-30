@@ -259,7 +259,7 @@ class Transformation(JSONable_mixin):
 
     @classmethod
     def neutral(cls) -> Transformation:
-        """Returns a neutral placement."""
+        """Returns a neutral transformation."""
         return cls(np.eye(4))
 
     def as_transform3f(self) -> Transform3f:

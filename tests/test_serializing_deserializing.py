@@ -23,6 +23,7 @@ from timor.utilities import file_locations, json_serialization_formatting, prebu
 from timor.utilities.asset_handling import find_key
 from timor.utilities.dtypes import randomly
 from timor.utilities.file_locations import schema_dir
+from timor.utilities.frames import Frame, FrameTree, WORLD_FRAME
 from timor.utilities.prebuilt_robots import random_assembly
 from timor.utilities.schema import get_schema_validator
 from timor.utilities.tolerated_pose import ToleratedPose
@@ -207,15 +208,17 @@ class SerializationTests(unittest.TestCase):
         # Set up some Constraints
         goal_order = Constraints.GoalOrderConstraint(list(map(str, range(100))))
         joint_constraints = Constraints.JointLimits(('q', 'dq', 'ddq', 'tau'))
-        base_placement = Constraints.BasePlacement(ToleratedPose(random_homogeneous, tolerance=cylindrical))
+        base_placement = Constraints.BasePlacement(ToleratedPose(
+            Frame("constraint.base", random_homogeneous, WORLD_FRAME), tolerance=cylindrical))
         collision = Constraints.CollisionFree()
-        eef_constraint_pose = Constraints.EndEffector(pose=ToleratedPose(Transformation.random()))
+        eef_constraint_pose = Constraints.EndEffector(
+            pose=ToleratedPose(Frame("constraint.eef", Transformation.random(), WORLD_FRAME)))
         eef_constraint_v = Constraints.EndEffector(velocity_lim=np.asarray((.1234, 0.2345)),
                                                    rotation_velocity_lim=np.asarray((-.1, .4)))
-        eef_constraint_all = Constraints.EndEffector(pose=ToleratedPose(Transformation.random()),
-                                                     velocity_lim=np.asarray((random.random(), random.random() + 1)),
-                                                     rotation_velocity_lim=np.asarray((-random.random(),
-                                                                                       random.random())))
+        eef_constraint_all = Constraints.EndEffector(
+            pose=ToleratedPose(Frame("constraint.eef", Transformation.random(), WORLD_FRAME)),
+            velocity_lim=np.asarray((random.random(), random.random() + 1)),
+            rotation_velocity_lim=np.asarray((-random.random(), random.random())))
         self.constraints = [goal_order, joint_constraints, base_placement, collision, eef_constraint_pose,
                             eef_constraint_v, eef_constraint_all, Constraints.AlwaysTrueConstraint()]
 
@@ -383,9 +386,10 @@ class SerializationTests(unittest.TestCase):
         for constraint in self.constraints:
             as_json = json.dumps(constraint.to_json_data())
 
-            new = Constraints.ConstraintBase.from_json_data(json.loads(as_json))
+            new = Constraints.ConstraintBase.from_json_data(json.loads(as_json), frames=FrameTree.empty())
             # Also ensure 1-time readable Iterators are parsed
-            from_string = Constraints.ConstraintBase.from_json_string(constraint.to_json_string())
+            from_string = Constraints.ConstraintBase.from_json_string(constraint.to_json_string(),
+                                                                      frames=FrameTree.empty())
             for n in (new, from_string):
                 self.assertIs(type(n), type(constraint))
                 for key in constraint.__dict__:
@@ -395,10 +399,11 @@ class SerializationTests(unittest.TestCase):
                         self.assertEqual(constraint.__dict__[key], n.__dict__[key])
 
                 if isinstance(constraint, Constraints.BasePlacement):  # Test that redirect for from_json_string works
-                    from_string_2 = Constraints.BasePlacement.from_json_string(constraint.to_json_string())
+                    from_string_2 = Constraints.BasePlacement.from_json_string(constraint.to_json_string(),
+                                                                               frames=FrameTree.empty())
                     self.assertIsNotNone(from_string_2)
                     with self.assertRaises(ValueError):
-                        Constraints.EndEffector.from_json_string(constraint.to_json_string())
+                        Constraints.EndEffector.from_json_string(constraint.to_json_string(), frames=FrameTree.empty())
 
     def test_custom_formatting_utils(self, num_random_arrays=10):
         some_arrays = [np.random.rand(3, 4) for _ in range(num_random_arrays)]
@@ -430,12 +435,13 @@ class SerializationTests(unittest.TestCase):
         task = Task.Task(
             Task.TaskHeader(1),
             goals=(
-                Task.Goals.At("1", ToleratedPose(assembly.robot.fk(q1))),
-                Task.Goals.At("2", ToleratedPose(assembly.robot.fk(q2)))
+                Task.Goals.At("1", ToleratedPose(Frame("", assembly.robot.fk(q1), WORLD_FRAME))),
+                Task.Goals.At("2", ToleratedPose(Frame("", assembly.robot.fk(q2), WORLD_FRAME)))
             ),
-            constraints=(Task.Constraints.BasePlacement(ToleratedPose(Transformation.neutral())),
+            constraints=(Task.Constraints.BasePlacement(ToleratedPose(WORLD_FRAME)),
                          Task.Constraints.JointLimits(("q")))
         )
+        task.to_json_data()
         cost_function = CostFunctions.CycleTime(0.2) + CostFunctions.MechanicalEnergy(0.5)
         solution = Solution.SolutionTrajectory(
             trajectory=Trajectory(t=np.asarray((0., 1.)), q=np.asarray((q1, q2)), goal2time={"1": 0., "2": 1.}),
@@ -489,9 +495,11 @@ class SerializationTests(unittest.TestCase):
     def test_load_then_dump_task(self):
         for task_file in self.task_files:
             task = Task.Task.from_json_file(task_file)
+            json_data = task.to_json_data()
+            task_new = Task.Task.from_json_data(json_data)
+            self.assertEqual(task, task_new)
             self.assertEqual(task, deepcopy(task))
             self.assertEqual(task, pickle.loads(pickle.dumps(task)))
-            self.assertEqual(task, Task.Task.from_json_data(task.to_json_data()))
 
             with tempfile.TemporaryDirectory() as tmp_dir:
                 tmp_json_file = Path(tmp_dir).joinpath(f"{task.id}.json")

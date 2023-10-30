@@ -8,6 +8,7 @@ import datetime
 import random
 import re
 import signal
+from threading import Lock
 from typing import Any, Callable, Collection, Dict, Generator, Generic, Iterable, List, Optional, Tuple, Type, \
     TypeVar, Union, get_type_hints
 
@@ -161,6 +162,29 @@ class LimitedSizeMap(MutableMapping):
     def reset(self):
         """Reset the cache"""
         self.store: OrderedDict = OrderedDict()
+
+
+class SingletonMeta(type):
+    """
+    This is a thread-safe implementation of Singleton (a class that can only have one instance exactly).
+
+    Code taken from https://refactoring.guru/design-patterns/singleton/python/example#example-1.
+    """
+
+    _instances = {}
+    _lock: Lock = Lock()
+
+    def __call__(cls, *args, **kwargs):
+        """
+        Possible changes to the value of the `__init__` argument do not affect the returned instance.
+        """
+        with cls._lock:
+            # The first thread to acquire the lock, reaches this conditional,
+            # goes inside and creates the Singleton instance.
+            if cls not in cls._instances:
+                instance = super().__call__(*args, **kwargs)
+                cls._instances[cls] = instance
+        return cls._instances[cls]
 
 
 class SingleSet(set):

@@ -10,10 +10,11 @@ from timor.Module import ModuleAssembly, ModulesDB
 from timor.Robot import PinRobot
 from timor.configuration_search import AssemblyFilter
 from timor.task import Constraints, Goals, Task, Tolerance, Obstacle
-from timor.utilities.trajectory import Trajectory
+from timor.utilities.frames import Frame, WORLD_FRAME
 from timor.utilities.file_locations import get_test_tasks, robots
 from timor.utilities.prebuilt_robots import get_six_axis_assembly
 from timor.utilities.tolerated_pose import ToleratedPose
+from timor.utilities.trajectory import Trajectory
 
 
 class TestFilterRobotsForTasks(unittest.TestCase):
@@ -101,9 +102,10 @@ class TestFilterRobotsForTasks(unittest.TestCase):
         rng = np.random.default_rng(seed=99)
         test_filter = AssemblyFilter.AssemblyModuleLengthFilter(self.modrob_assembly.db)
         assembly = self.modrob_assembly
-
         world = Transformation.neutral()
-        base_constraint = Constraints.BasePlacement(ToleratedPose(world, tolerance=Tolerance.CartesianXYZ.default()))
+
+        base_constraint = Constraints.BasePlacement(ToleratedPose(WORLD_FRAME,
+                                                                  tolerance=Tolerance.CartesianXYZ.default()))
 
         task = Task.Task(Task.TaskHeader("tmp"), constraints=(base_constraint,), goals=())
         # Check it doesn't discard a task with no goals
@@ -139,7 +141,7 @@ class TestFilterRobotsForTasks(unittest.TestCase):
             test_filter.reset()
 
         # Also check for a follow goal
-        oor = random_goal_with_distance(1.5 * total_len).nominal_goal
+        oor = random_goal_with_distance(1.5 * total_len).nominal_goal.absolute
         goal = Goals.Follow(ID=str(rng.random()), trajectory=Trajectory(
             pose=[ToleratedPose(world.interpolate(oor, alpha)) for alpha in np.linspace(0, 1, 100)]))
         task = Task.Task(Task.TaskHeader(str(rng.random)), constraints=(base_constraint,), goals=(goal,))
@@ -183,8 +185,8 @@ class TestFilterRobotsForTasks(unittest.TestCase):
                                                           pose=Transformation.from_translation((1.5, 0., 1.))))
         for _ in range(n_iter):
             q_sample = self.panda_assembly.robot.random_configuration()
-            task = Task.Task(Task.TaskHeader("tmp"), obstacles=(obstacle, ),
-                             goals=(Goals.At("1", ToleratedPose(self.panda_assembly.robot.fk(q_sample))), ))
+            task = Task.Task(Task.TaskHeader("tmp"), obstacles=(obstacle, ), goals=(
+                Goals.At("1", ToleratedPose(Frame("", self.panda_assembly.robot.fk(q_sample), WORLD_FRAME))), ))
             filter = AssemblyFilter.InverseKinematicsSolvable(task=task, q_init=q_sample)  # Just check collision free
             self.assertTrue(any(p is AssemblyFilter.ResultType.collision_free_goal for p in filter.provides))
             self.panda_assembly.robot.update_configuration(q_sample)
