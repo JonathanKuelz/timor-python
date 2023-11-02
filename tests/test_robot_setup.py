@@ -217,6 +217,12 @@ class PinocchioRobotSetup(unittest.TestCase):
             robot.update_configuration(q_init)
             conf, success = robot.ik_scipy(ToleratedPose(goal, scipy_tolerance), q_init=q_init,
                                            ik_cost_function=translation_cost)
+            # Check that multiple runs produce different ik solutions
+            q_s = [robot.ik_scipy(ToleratedPose(goal, scipy_tolerance), ik_cost_function=translation_cost)
+                   for _ in range(10)]
+            q_s = np.asarray([q for q, s in q_s if s])
+            dist = np.linalg.norm(q_s - q_s[0, :], axis=1)
+            self.assertTrue(np.any(dist > 1e-3))
             if success:
                 # Here, we only optimize for position, therefore the Cartesian XYZ tolerance
                 self.assertTrue(scipy_tolerance.valid(goal.in_world_coordinates(), robot.fk(conf)))
@@ -227,6 +233,11 @@ class PinocchioRobotSetup(unittest.TestCase):
 
             robot.update_configuration(q_init)  # Prevent using the scipy result as initial guess
             conf, success = robot.ik_jacobian(ToleratedPose(goal, jacobian_tolerance))
+            # Check that multiple runs produce different ik solutions
+            q_s = [robot.ik_jacobian(ToleratedPose(goal, jacobian_tolerance)) for _ in range(10)]
+            q_s = np.asarray([q for q, s in q_s if s])
+            dist = np.linalg.norm(q_s - q_s[0, :], axis=1)
+            self.assertTrue(np.any(dist > 1e-3))
             if success:
                 np_test.assert_array_almost_equal(goal.in_world_coordinates().homogeneous, robot.fk(conf).homogeneous,
                                                   decimal=2)

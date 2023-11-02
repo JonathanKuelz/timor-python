@@ -874,8 +874,8 @@ class PinRobot(RobotBase):
         Reference: Robotics, Siciliano et al. [2009], Chapter 3.7
 
         :param eef_pose: The desired 4x4 placement of the end effector
-        :param q_init: The joint configuration to start with. If not given, will start the iterative optimization at the
-            current configuration.
+        :param q_init: The joint configuration to start with. If not given, will start the iterative optimization the
+            closest of four random configurations (measured in euclidean translation distance).
         :param gain: Gain Matrix K for closed "control" of q. Higher K leads to faster, but instable solutions. This is
             only used for "transpose" or "pseudo_inverse" methods.
         :param damp: Damping for the damped least squares pseudoinverse method
@@ -916,7 +916,7 @@ class PinRobot(RobotBase):
             if 'joint_mask' in kwargs:
                 raise ValueError("joint_mask is only supported if you provide a q_init")
             # Find an initial guess for the solution where the robot is close to the desired point in space
-            candidates = [self.configuration] + [self.random_configuration() for _ in range(4)]
+            candidates = [self.random_configuration() for _ in range(4)]
             distances = \
                 [self.fk(cand).distance(eef_pose.nominal.in_world_coordinates()).translation_euclidean
                  for cand in candidates]
