@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections import namedtuple, OrderedDict
+from collections import OrderedDict
 from collections.abc import MutableMapping
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass, field, fields
@@ -9,20 +9,19 @@ import random
 import re
 import signal
 from threading import Lock
-from typing import Any, Callable, Collection, Dict, Generator, Generic, Iterable, List, Optional, Tuple, Type, \
-    TypeVar, Union, get_type_hints
-
+from typing import (Any, Callable, Collection, Dict, Generator, Generic, Iterable, List, Optional, Sequence, Tuple,
+                    Type, TypeVar, Union, get_type_hints)
 from hppfcl import hppfcl
 import numpy as np
 import pinocchio as pin
 
+from timor.utilities import configurations as timor_config
 from timor.utilities import errors as err
 from timor.utilities import logging
 from timor.utilities.schema import DEFAULT_DATE_FORMAT
 from timor.utilities.transformation import Transformation, TransformationLike
 
 T = TypeVar('T')
-IntermediateIkResult = namedtuple("IntermediateIkResult", ["q", "distance"])
 
 
 class EternalDict(dict):
@@ -46,6 +45,37 @@ class EternalDict(dict):
     update = _immutable
     pop = _immutable
     popitem = _immutable
+
+
+@dataclass
+class IntermediateIkResult:
+    """Holds data for the current best IK solution"""
+
+    q: np.ndarray
+    cost: float
+
+
+@dataclass
+class IKMeta:
+    """Holds data for IK solvers"""
+
+    dof: int  # The number of degrees of freedom of the robot, necessary to initialize meaningful defaults
+    max_iter: int = timor_config.IK_MAX_ITER
+    allow_random_restart: bool = True
+    intermediate_result: Optional[IntermediateIkResult] = None
+    joint_mask: Optional[Union[bool, Sequence[bool]]] = None  # Optionally mask joints for IK
+    task: Optional['Task.Task'] = None  # A task with obstacles to avoid  # noqa: F821
+
+    def __post_init__(self):
+        """
+        Maxes sure the data has the desired types and that all attributes have meaningful values.
+        """
+        if self.intermediate_result is None:
+            self.intermediate_result = IntermediateIkResult(np.zeros(self.dof), np.inf)
+        if self.joint_mask is None:
+            self.joint_mask = np.ones(self.dof, dtype=bool)
+        else:
+            self.joint_mask = np.asarray(self.joint_mask, dtype=bool)
 
 
 class Lazy(Generic[T]):

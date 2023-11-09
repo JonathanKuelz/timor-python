@@ -16,7 +16,6 @@ import numpy as np
 import pinocchio as pin
 
 from timor.Geometry import ComposedGeometry, EmptyGeometry, Geometry
-from timor.Robot import PinBody
 from timor.utilities import logging
 from timor.utilities.dtypes import SingleSet, SingleSetWithID, hppfcl_collision2pin_geometry
 import timor.utilities.errors as err
@@ -412,3 +411,37 @@ class Body(BodyBase):
 
 class BodySet(SingleSetWithID):
     """A set that raises an error if a duplicate body is added"""
+
+
+class PinBody:
+    """A wrapper for a body in pinocchio, which is usually represented only implicitly"""
+
+    def __init__(self, inertia: pin.Inertia, placement: pin.SE3, name: str,
+                 collision_geometries: List[pin.GeometryObject] = None,
+                 visual_geometries: List[pin.GeometryObject] = None
+                 ):
+        """
+        Set up a container for a pinocchio body.
+
+        :param inertia: the inertia of the body, as a pinocchio inertia object
+        :param placement: the placement of the body, as a pinocchio SE3 object
+        :param name: the name of the body, should be unique within the robot
+        :param collision_geometries: the collision geometries of the body
+        :param visual_geometries: the visual geometries of the body
+        """
+        self.inertia: pin.Inertia = inertia
+        self.placement: pin.SE3 = placement
+        self.name: str = name
+        self.collision_geometries: List[pin.GeometryObject] = collision_geometries if collision_geometries else []
+        self.visual_geometries: List[pin.GeometryObject] = visual_geometries if visual_geometries else []
+
+    def body_data(self, parent_joint_id: int):
+        """Returns a dictionary that can be used as kwargs for appendBodyToJoint (pinocchio)"""
+        return {'joint_id': parent_joint_id, 'body_inertia': self.inertia, 'body_placement': self.placement}
+
+    def body_frame_data(self, parent_joint_id: int, parent_frame_id: int):
+        """Returns a dictionary that can be used as kwargs for addBodyFrame (pinocchio)"""
+        return {'body_name': self.name,
+                'parentJoint': parent_joint_id,
+                'body_placement': self.placement,
+                'previous_frame': parent_frame_id}

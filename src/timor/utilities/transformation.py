@@ -204,10 +204,12 @@ class Transformation(JSONable_mixin):
         return Transformation(other) @ self  # For transformations, this is implemented as __matmul__
 
     @classmethod
-    def random(cls):
+    def random(cls, rng: Optional[np.random.Generator] = None) -> Transformation:
         r"""Returns a random transformation where the L1-Norm of the translation :math:`\leq` 3."""
-        rotation = spatial.random_rotation()
-        translation = np.random.random((3,))
+        if rng is None:
+            rng = np.random.default_rng()
+        rotation = spatial.random_rotation(rng)
+        translation = rng.random((3,))
         return cls.from_roto_translation(rotation, translation)
 
     @classmethod

@@ -13,7 +13,7 @@ import numpy as np
 
 from timor import AtomicModule, ModuleAssembly, ModulesDB
 from timor.Robot import RobotBase
-from timor.task import Goals, Task, Tolerance
+from timor.task import Constraints, Goals, Task, Tolerance
 from timor.utilities import dtypes, logging
 from timor.utilities.dtypes import LimitedSizeMap
 from timor.utilities.trajectory import Trajectory
@@ -499,14 +499,18 @@ class InverseKinematicsSolvable(GoalByGoalFilter):
         self.kwargs: Dict[str, any] = ik_kwargs
         if 'task' in self.kwargs:
             self.provides += (ResultType.collision_free_goal,)
-        if self.kwargs.get('check_static_torques', False):
-            self.provides += (ResultType.tau_static,)
+        for c in itertools.chain(ik_kwargs.get('outer_constraints', ()),
+                                 ik_kwargs.get('task', Task.Task.empty()).constraints):
+            if isinstance(c, Constraints.JointLimits):
+                if c.tau:
+                    self.provides += (ResultType.tau_static,)
+                    break
         super().__init__(skip_not_applicable)
 
     @property
     def ensures_static_torques(self) -> bool:
         """Does this filter ensure that static torques are respected?"""
-        return self.kwargs.get('check_static_torques', False)
+        return ResultType.tau_static in self.provides
 
     @property
     def ensures_collision_free_goal(self) -> bool:
@@ -639,8 +643,8 @@ def default_filters(t: Task.Task) -> Tuple[AssemblyFilter, ...]:
     """
     assembly_length = AssemblyModuleLengthFilter()
     create_robot = RobotCreationFilter()
-    ik_simple = InverseKinematicsSolvable(ignore_self_collision=True, max_iter=150, max_n_tries=3)
-    ik_complex = InverseKinematicsSolvable(task=t, max_iter=1500, max_n_tries=100, check_static_torques=True)
+    ik_simple = InverseKinematicsSolvable(ignore_self_collision=True, max_iter=150)
+    ik_complex = InverseKinematicsSolvable(task=t, max_iter=1500)
     return assembly_length, create_robot, ik_simple, ik_complex
 
 

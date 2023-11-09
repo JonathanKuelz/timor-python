@@ -1,5 +1,4 @@
 import logging
-import random
 import unittest
 
 import numpy as np
@@ -20,14 +19,13 @@ from timor.utilities.trajectory import Trajectory
 class TestFilterRobotsForTasks(unittest.TestCase):
     """Test all robot filters."""
     def setUp(self) -> None:
-        random.seed(99)
-        np.random.seed(99)
+        self.rng = np.random.default_rng(seed=99)
         panda_urdf = robots['panda'].joinpath('urdf').joinpath('panda.urdf')
         self.panda_assembly = \
-            ModuleAssembly.from_monolithic_robot(PinRobot.from_urdf(panda_urdf, robots['panda'].parent))
+            ModuleAssembly.from_monolithic_robot(PinRobot.from_urdf(panda_urdf, robots['panda'].parent, rng=self.rng))
         self.modrob_assembly = get_six_axis_assembly()
         self.panda_fk = tuple(self.panda_assembly.robot.fk(q)
-                              for q in (self.panda_assembly.robot.random_configuration() for _ in range(30))
+                              for q in (self.panda_assembly.robot.random_configuration(self.rng) for _ in range(30))
                               if not self.panda_assembly.robot.has_self_collision(q)
                               )
 
@@ -43,12 +41,12 @@ class TestFilterRobotsForTasks(unittest.TestCase):
         modrob_solved = 0
         num_tests = 20
         for test_task in range(num_tests):
-            num_goals = random.randint(1, 5)
+            num_goals = self.rng.integers(1, 5)
             logging.debug(f"Test goal with {num_goals} goals")
             # Relaxed tolerance to faster compute an ik
             position_tolerance = Tolerance.CartesianXYZ(x=(-.1, .1), y=(-.1, .1), z=(-.1, .1))
             goals = tuple(Goals.At(ID=str(i),
-                                   goalPose=ToleratedPose(random.choice(self.panda_fk), position_tolerance))
+                                   goalPose=ToleratedPose(self.rng.choice(self.panda_fk), position_tolerance))
                           for i in range(num_goals))
             header = Task.TaskHeader(ID=str(test_task))
 
@@ -75,7 +73,7 @@ class TestFilterRobotsForTasks(unittest.TestCase):
 
     def test_intermediate_results(self):
         ir = AssemblyFilter.IntermediateFilterResults(
-            q_goal_pose=AssemblyFilter.EternalResult(g1=np.random.rand(10, 6)),
+            q_goal_pose=AssemblyFilter.EternalResult(g1=self.rng.random(size=(10, 6))),
             tau_static=AssemblyFilter.EternalResult(g1=.1)
         )
 
@@ -83,7 +81,7 @@ class TestFilterRobotsForTasks(unittest.TestCase):
         ir.tau_static['g2'] = .2
 
         with self.assertRaises(AssemblyFilter.OverwritesIntermediateResult):
-            ir.q_goal_pose = {'g1': np.random.rand(10, 6)}
+            ir.q_goal_pose = {'g1': self.rng.random(size=(10, 6))}
         with self.assertRaises(AssemblyFilter.OverwritesIntermediateResult):
             ir.tau_static['g1'] = .1
 
@@ -99,7 +97,6 @@ class TestFilterRobotsForTasks(unittest.TestCase):
 
     def test_length_filter(self):
         """Test the length filter"""
-        rng = np.random.default_rng(seed=99)
         test_filter = AssemblyFilter.AssemblyModuleLengthFilter(self.modrob_assembly.db)
         assembly = self.modrob_assembly
         world = Transformation.neutral()
@@ -115,36 +112,36 @@ class TestFilterRobotsForTasks(unittest.TestCase):
             """Creates a random goal with distance d to the origin"""
             t = Transformation.random()
             t = Transformation.from_roto_translation(t[:3, :3], t.translation / np.linalg.norm(t.translation) * d)
-            return Goals.At(ID=str(rng.random()), goalPose=ToleratedPose(t))
+            return Goals.At(ID=str(self.rng.random()), goalPose=ToleratedPose(t))
 
         # First check that the filter doesn't discard assemblies that are not too long obviously
         for _ in range(10):
-            conf = rng.random(assembly.robot.njoints)
-            goal = Goals.At(ID=str(rng.random()), goalPose=ToleratedPose(assembly.robot.fk(conf)))
-            task = Task.Task(Task.TaskHeader(str(rng.random)), constraints=(base_constraint,), goals=(goal,))
+            conf = self.rng.random(assembly.robot.njoints)
+            goal = Goals.At(ID=str(self.rng.random()), goalPose=ToleratedPose(assembly.robot.fk(conf)))
+            task = Task.Task(Task.TaskHeader(str(self.rng.random)), constraints=(base_constraint,), goals=(goal,))
             self.assertTrue(test_filter.check(assembly, task, AssemblyFilter.IntermediateFilterResults()))
             test_filter.reset()
 
         lengths = [test_filter.module_lengths[mid] for mid in assembly.original_module_ids]
         total_len = sum(lengths)
         for i in range(10):
-            task = Task.Task(Task.TaskHeader(str(rng.random)), constraints=(base_constraint,),
+            task = Task.Task(Task.TaskHeader(str(self.rng.random)), constraints=(base_constraint,),
                              goals=(random_goal_with_distance(total_len * 0.95),))
             self.assertTrue(test_filter.check(assembly, task, AssemblyFilter.IntermediateFilterResults()))
             test_filter.reset()
 
         # Now check that the filter discards assemblies that are too short
         for i in range(10):
-            task = Task.Task(Task.TaskHeader(str(rng.random)), constraints=(base_constraint,),
+            task = Task.Task(Task.TaskHeader(str(self.rng.random)), constraints=(base_constraint,),
                              goals=(random_goal_with_distance(total_len * 1.05),))
             self.assertFalse(test_filter.check(assembly, task, AssemblyFilter.IntermediateFilterResults()))
             test_filter.reset()
 
         # Also check for a follow goal
         oor = random_goal_with_distance(1.5 * total_len).nominal_goal.absolute
-        goal = Goals.Follow(ID=str(rng.random()), trajectory=Trajectory(
+        goal = Goals.Follow(ID=str(self.rng.random()), trajectory=Trajectory(
             pose=[ToleratedPose(world.interpolate(oor, alpha)) for alpha in np.linspace(0, 1, 100)]))
-        task = Task.Task(Task.TaskHeader(str(rng.random)), constraints=(base_constraint,), goals=(goal,))
+        task = Task.Task(Task.TaskHeader(str(self.rng.random)), constraints=(base_constraint,), goals=(goal,))
         self.assertFalse(test_filter.check(assembly, task, AssemblyFilter.IntermediateFilterResults()))
 
     def test_limits_met_filter(self):
@@ -161,8 +158,8 @@ class TestFilterRobotsForTasks(unittest.TestCase):
         acc_limit = dt * .2 * robot.joint_velocity_limits
         for i in range(time_steps):
             # Create a trajectory with random but valid accelerations
-            sign = -1 if random.random() < .5 else 1
-            factor = random.random() * sign * 0.5
+            sign = -1 if self.rng.random() < .5 else 1
+            factor = self.rng.random() * sign * 0.5
             ddq = factor * acc_limit
             # Provisional integration
             dq = robot.dq + dt * ddq
@@ -184,9 +181,9 @@ class TestFilterRobotsForTasks(unittest.TestCase):
         obstacle = Obstacle.Obstacle("tmp", collision=Box(parameters={"x": 2., "y": 2., "z": 2.},
                                                           pose=Transformation.from_translation((1.5, 0., 1.))))
         for _ in range(n_iter):
-            q_sample = self.panda_assembly.robot.random_configuration()
+            q_sample = self.panda_assembly.robot.random_configuration(self.rng)
             task = Task.Task(Task.TaskHeader("tmp"), obstacles=(obstacle, ), goals=(
-                Goals.At("1", ToleratedPose(Frame("", self.panda_assembly.robot.fk(q_sample), WORLD_FRAME))), ))
+                Goals.At("1", ToleratedPose(Frame("", self.panda_assembly.robot.fk(q_sample), WORLD_FRAME))),))
             filter = AssemblyFilter.InverseKinematicsSolvable(task=task, q_init=q_sample)  # Just check collision free
             self.assertTrue(any(p is AssemblyFilter.ResultType.collision_free_goal for p in filter.provides))
             self.panda_assembly.robot.update_configuration(q_sample)
@@ -203,15 +200,15 @@ class TestFilterRobotsForTasks(unittest.TestCase):
                 self.assertTrue(self.panda_assembly.robot.has_collisions(task))
                 self.assertFalse(intermediate_result.collision_free_goal["1"])
 
-    def test_test_InverseKinematicSolvableWithTau(self, n_iter: int = 100):
+    def test_InverseKinematicSolvableWithTau(self, n_iter: int = 100):
         self.panda_assembly.robot.model.inertias[-1].mass *= 10  # Make eef heavier such that static fails
         for _ in range(n_iter):
-            q_sample = self.panda_assembly.robot.random_configuration()
+            q_sample = self.panda_assembly.robot.random_configuration(self.rng)
             goal_pose = ToleratedPose(self.panda_assembly.robot.fk(q_sample))
             task = Task.Task(Task.TaskHeader("tmp"), obstacles=(),
-                             goals=(Goals.At("1", goal_pose),))
-            filter = AssemblyFilter.InverseKinematicsSolvable(check_static_torques=True, q_init=q_sample)
-
+                             goals=(Goals.At("1", goal_pose),),
+                             constraints=Constraints.DEFAULT_CONSTRAINTS + (Constraints.JointLimits(('tau',)),))
+            filter = AssemblyFilter.InverseKinematicsSolvable(q_init=q_sample, task=task)
             self.assertTrue(any(p is AssemblyFilter.ResultType.tau_static for p in filter.provides))
             self.panda_assembly.robot.update_configuration(q_sample)
             intermediate_result = AssemblyFilter.IntermediateFilterResults()

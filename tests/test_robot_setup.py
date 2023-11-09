@@ -7,7 +7,7 @@ import pinocchio as pin
 
 from timor.Module import ModuleAssembly, ModulesDB
 from timor.Robot import PinRobot, RobotBase
-from timor.task import Tolerance
+from timor.task import Constraints, Tolerance
 from timor.utilities import logging, prebuilt_robots, spatial
 from timor.utilities.file_locations import robots
 from timor.utilities.frames import Frame, WORLD_FRAME
@@ -215,10 +215,10 @@ class PinocchioRobotSetup(unittest.TestCase):
             n += 1  # Keep track of how many examples were really worked with
             robot.model.effortLimit = inf_limits  # Make it impossible to fail due to the torque limits
             robot.update_configuration(q_init)
-            conf, success = robot.ik_scipy(ToleratedPose(goal, scipy_tolerance), q_init=q_init,
-                                           ik_cost_function=translation_cost)
+            conf, success = robot.ik(ToleratedPose(goal, scipy_tolerance), q_init=q_init, ik_method='scipy',
+                                     ik_cost_function=translation_cost)
             # Check that multiple runs produce different ik solutions
-            q_s = [robot.ik_scipy(ToleratedPose(goal, scipy_tolerance), ik_cost_function=translation_cost)
+            q_s = [robot.ik(ToleratedPose(goal, scipy_tolerance), ik_cost_function=translation_cost, ik_method='scipy')
                    for _ in range(10)]
             q_s = np.asarray([q for q, s in q_s if s])
             dist = np.linalg.norm(q_s - q_s[0, :], axis=1)
@@ -232,9 +232,9 @@ class PinocchioRobotSetup(unittest.TestCase):
                 error_count['scipy'] += 1
 
             robot.update_configuration(q_init)  # Prevent using the scipy result as initial guess
-            conf, success = robot.ik_jacobian(ToleratedPose(goal, jacobian_tolerance))
+            conf, success = robot.ik(ToleratedPose(goal, jacobian_tolerance), ik_method='jacobian')
             # Check that multiple runs produce different ik solutions
-            q_s = [robot.ik_jacobian(ToleratedPose(goal, jacobian_tolerance)) for _ in range(10)]
+            q_s = [robot.ik(ToleratedPose(goal, jacobian_tolerance), ik_method='jacobian') for _ in range(10)]
             q_s = np.asarray([q for q, s in q_s if s])
             dist = np.linalg.norm(q_s - q_s[0, :], axis=1)
             self.assertTrue(np.any(dist > 1e-3))
@@ -251,18 +251,21 @@ class PinocchioRobotSetup(unittest.TestCase):
             # Test that masking joints in the ik works
             q_start = self.get_random_config(self.rng, robot)
             mask = np.array([random.random() > 0.5 for _ in range(len(conf))])
-            conf, success = robot.ik_jacobian(ToleratedPose(goal, jacobian_tolerance), q_init=q_start, joint_mask=mask)
+            conf, success = robot.ik(ToleratedPose(goal, jacobian_tolerance), q_init=q_start, joint_mask=mask,
+                                     ik_method='jacobian')
             np_test.assert_array_almost_equal(q_start[~mask], conf[~mask])
-            conf, success = robot.ik_scipy(ToleratedPose(goal, jacobian_tolerance), q_init=q_start, joint_mask=mask)
+            conf, success = robot.ik(ToleratedPose(goal, jacobian_tolerance), q_init=q_start,
+                                     ik_method='scipy', joint_mask=mask)
             np_test.assert_array_almost_equal(q_start[~mask], conf[~mask])
 
             # Test joint torque limits
             robot.model.effortLimit = zero_limits
-            conf, success = robot.ik_jacobian(ToleratedPose(goal, jacobian_tolerance), max_iter=50,
-                                              check_static_torques=True)
+            torque_constraint = Constraints.JointLimits(parts=('tau',))
+            conf, success = robot.ik(ToleratedPose(goal, jacobian_tolerance), max_iter=50, ik_method='jacobian',
+                                     outer_constraints=(torque_constraint,))
             self.assertFalse(success)
-            conf, success = robot.ik_scipy(ToleratedPose(goal, jacobian_tolerance), max_iter=50,
-                                           check_static_torques=True)
+            conf, success = robot.ik(ToleratedPose(goal, jacobian_tolerance), max_iter=50, ik_method='scipy',
+                                     outer_constraints=(torque_constraint,))
             self.assertFalse(success)
 
         for k, v in error_count.items():

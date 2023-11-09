@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Author: Jonathan Külz
 # Date: 17.01.22
-from typing import Collection
+from typing import Collection, Optional
 
 import hppfcl
 import numpy as np
@@ -216,9 +216,11 @@ def mat2euler(R: np.ndarray, seq: str = 'xyz') -> np.ndarray:
     return Rotation.from_matrix(R.copy()).as_euler(seq)  # Calling copy to being able working with read-only arrays
 
 
-def random_rotation() -> np.ndarray:
+def random_rotation(rng: Optional[np.random.Generator] = None) -> np.ndarray:
     """Returns a random 3x3 rotation matrix."""
-    return Rotation.random().as_matrix()
+    if rng is not None:
+        rng = np.random.default_rng()
+    return Rotation.random(random_state=rng).as_matrix()
 
 
 def rotation_in_bounds(rot: np.ndarray, bounds: np.ndarray) -> np.ndarray:
