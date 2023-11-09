@@ -48,6 +48,12 @@ flake8 linting:
     - pip install flake8==5.0.4
     - flake8
 
+notebook check:
+  stage: static_check
+  script:
+    - pip install nb-clean
+    - find tutorials/ -type f -name "*.ipynb" -exec nb-clean check {} +
+
 pip_py_38:
   stage: build
   image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/python:3.8
