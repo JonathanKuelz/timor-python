@@ -29,6 +29,10 @@ db_assets_copy_behavior = "error"
 [COLLISION]
 safety_margin = 0.01  # Safety margin in meters for collision checking
 
+[KINEMATICS]
+ik_max_iter = 1000  # Number of iterations for numeric inverse kinematics solvers
+ik_random_candidates = 5  # The number of random initial configurations that are being used for numeric IK solvers
+
 # Here, you can specify hyperparameters preferences for optimizers used in Timor.
 [Optimizers]
 save_solutions_dir = <path_to_folder>

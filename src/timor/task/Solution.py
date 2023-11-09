@@ -59,8 +59,8 @@ class SolutionBase(abc.ABC, JSONable_mixin):
     def __init__(self,
                  header: Union[Dict, SolutionHeader],
                  task: Task.Task,
-                 assembly: ModuleAssembly,
-                 cost_function: CostFunctions.CostFunctionBase,
+                 assembly: Union[ModuleAssembly, RobotBase],
+                 cost_function: Optional[CostFunctions.CostFunctionBase] = None,
                  base_pose: TransformationLike = Transformation.neutral(),
                  ):
         """
@@ -69,12 +69,17 @@ class SolutionBase(abc.ABC, JSONable_mixin):
         :param header: The header of the solution, containing information about the task it was crafted for and
             some more distinctive meta-information.
         :param task: The task the solution was crafted for
-        :param assembly: The assembly that solves the task
+        :param assembly: The assembly that solves the task. Providing a robot instance is supported but disencouraged -
+            it will trigger an internal wrapping to assembly, which is not efficient.
         :param cost_function: The cost function used to evaluate the solution (usually the lower, the better)
         :param base_pose: The base placement of the assembly
         """
         self.header: SolutionHeader = header if isinstance(header, SolutionHeader) else SolutionHeader(**header)
+        if cost_function is None:
+            cost_function = CostFunctions.CostFunctionBase.empty()
         self.cost_function: CostFunctions.CostFunctionBase = cost_function
+        if isinstance(assembly, RobotBase):
+            assembly = ModuleAssembly.from_monolithic_robot(assembly)
         self._module_assembly: ModuleAssembly = assembly
         self._base_pose: Transformation = Transformation(base_pose)
         self._cost: Union[Lazy, bool] = Lazy(self._evaluate_cost)
@@ -346,8 +351,8 @@ class SolutionTrajectory(SolutionBase):
                  trajectory: Trajectory,
                  header: Union[Dict, SolutionHeader],
                  task: Task.Task,
-                 assembly: ModuleAssembly,
-                 cost_function: CostFunctions.CostFunctionBase,
+                 assembly: Union[ModuleAssembly, RobotBase],
+                 cost_function: Optional[CostFunctions.CostFunctionBase] = None,
                  base_pose: TransformationLike = Transformation.neutral(),
                  ):
         """Build a solution based on a given trajectory

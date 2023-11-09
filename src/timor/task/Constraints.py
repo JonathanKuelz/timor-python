@@ -2,13 +2,13 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 import math
-from typing import Any, Dict, Iterable, Optional, Tuple, Union
+from typing import Any, Dict, Iterable, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import pinocchio
 
-from timor import PinRobot
-from timor.task import Solution, Tolerance
+from timor import RobotBase
+from timor.task import Solution, Task, Tolerance
 from timor.utilities import logging
 from timor.utilities.jsonable import JSONable_mixin
 from timor.utilities.tolerated_pose import ToleratedPose
@@ -109,10 +109,59 @@ class ConstraintBase(ABC, JSONable_mixin):
         return self._equality_parameters == other._equality_parameters
 
 
-class AlwaysTrueConstraint(ConstraintBase):
+class RobotConstraint(ABC):
+    """
+    This is a mixin for constraints that can be verified given a task, a robot, and its joint positions and velocities.
+
+    They are not necessarily to be used only in tasks, but can be used to check whether a robot is in a valid state for
+    downstream tasks like the computation of the inverse kinematics.
+    """
+
+    def check_single_state(self,
+                           task: Optional[Task.Task],
+                           robot: RobotBase,
+                           q: Sequence[float],
+                           dq: Sequence[float],
+                           ddq: Optional[Sequence[float]] = None) -> bool:
+        """
+        Checks whether the constraint is fulfilled for a single state of the robot.
+
+        :param task: The task that is being solved -- if not provided, an empty task will be generated.
+        :param robot: The robot that is used to solve the task.
+        :param q: The joint positions of the robot.
+        :param dq: The joint velocities of the robot.
+        :param ddq: The joint accelerations of the robot.
+        """
+
+        def reshape(arr: Sequence[float]) -> np.ndarray:
+            """Helper to reshape arrays to (1, dof)"""
+            ret = np.reshape(arr, (1, -1))
+            if not ret.shape[1] == robot.njoints:
+                raise ValueError(f"Invalid shape of input argument q and/or dq: {np.asarray(arr).shape}")
+            return ret
+
+        q, dq = map(reshape, (q, dq))
+        ddq = reshape(ddq) if ddq is not None else None
+        task = task if task is not None else Task.Task.empty()
+        return self._check_single_state(task, robot, q, dq, ddq)
+
+    @abstractmethod
+    def _check_single_state(self, task: Optional[Task.Task], robot: RobotBase, q: np.ndarray, dq: np.ndarray,
+                            ddq: Optional[np.ndarray] = None) -> bool:
+        """
+        This method needs to be implemented by all constraints that inherit from this mixin.
+        """
+
+
+class AlwaysTrueConstraint(ConstraintBase, RobotConstraint):
     """
     This constraint is always true and can be used for constraints ensured by the software library before evaluation.
     """
+
+    def _check_single_state(self, task: Optional[Task.Task], robot: RobotBase, q: np.ndarray, dq: np.ndarray,
+                            ddq: Optional[np.ndarray]) -> bool:
+        """As the name says, this constraint is always valid"""
+        return True
 
     def is_valid_at(self, solution: Solution.SolutionBase, t: float) -> bool:
         """As the name says, this constraint is always valid"""
@@ -244,7 +293,7 @@ class AllGoalsFulfilled(ConstraintBase):
         return tuple()
 
 
-class JointLimits(ConstraintBase):
+class JointLimits(ConstraintBase, RobotConstraint):
     """Holds constraints on the robots (hardware) limits like position, velocity, torques, etc."""
 
     robot_limit_types = ('q', 'dq', 'ddq', 'tau')
@@ -265,6 +314,31 @@ class JointLimits(ConstraintBase):
         self.dq = 'dq' in parts
         self.ddq = 'ddq' in parts
         self.tau = 'tau' in parts
+
+    def _check_single_state(self, task: Task.Task, robot: RobotBase, q: np.ndarray, dq: np.ndarray,
+                            ddq: Optional[np.ndarray] = None) -> bool:
+        """
+        Checks whether the limits of the robot are held.
+
+        As a single state doesn't have a solution reference, this check assumes no external influences.
+        :param task: The task is not being used in this check.
+        :param robot: The robot for which the limits are checked.
+        :param q: The joint positions of the robot.
+        :param dq: The joint velocities of the robot.
+        :param ddq: The joint accelerations of the robot.
+        """
+        get_att = {'q': lambda: q, 'dq': lambda: dq, 'ddq': lambda: ddq if ddq is not None else np.zeros_like(q)}
+        get_att['tau'] = lambda: robot.id(q, dq, get_att['ddq']())
+        valid = True
+        for kind, robot_att in zip(self.robot_limit_types, self._robot_attributs):
+            if getattr(self, kind):  # Check what kinds of limits are tested
+                limits = getattr(robot, robot_att)  # Get the limits for the robot
+                state = get_att[kind]()
+                if len(limits.shape) == 2:  # Lower and upper limits
+                    valid = valid and np.all(limits[0, :] <= state) and np.all(limits[1, :] >= state)
+                else:
+                    valid = valid and np.all(np.abs(state) <= limits)
+        return valid
 
     def is_valid_at(self, solution: Solution.SolutionBase, t: float) -> bool:
         """Evaluates the solution at time t"""
@@ -384,7 +458,7 @@ class BasePlacement(ConstraintBase):
         return (self.base_pose,)
 
 
-class CoterminalJointAngles(ConstraintBase):
+class CoterminalJointAngles(ConstraintBase, RobotConstraint):
     """Constrains a robot can reach a certain pose, being ignorant about full circle rotation deviations
 
     This constraint checks whether given joint position, given by joint angles, can be reached in general.
@@ -406,6 +480,11 @@ class CoterminalJointAngles(ConstraintBase):
     def map(q: Union[float, np.ndarray]) -> Union[float, np.ndarray]:
         """Maps the input q to the range [-pi, pi)."""
         return np.mod(q + np.pi, 2 * np.pi) - np.pi
+
+    def _check_single_state(self, task: Optional[Task.Task], robot: RobotBase, q: np.ndarray,
+                            dq: np.ndarray, ddq: Optional[np.ndarray] = None) -> bool:
+        """Checks if q is within the joint limits, ignoring all other arguments."""
+        return self._validate(q)
 
     def _validate(self, q: np.ndarray) -> bool:
         """
@@ -450,14 +529,32 @@ class JointAngles(CoterminalJointAngles):
         raise NotImplementedError("Use JointAnglesRobot - independent joint angles constraint not yet defined")
 
 
-class CollisionFree(ConstraintBase):
+class CollisionFree(ConstraintBase, RobotConstraint):
     """A constraint that checks whether the robot is in collision with the environment or itself."""
+
+    def __init__(self, safety_margin: float = 0):
+        """
+        Initialize collision-free constraint
+
+        :param safety_margin: A safety margin to use for collision checking. The default is 0, which means that the
+            collision checking is done with the exact geometries. For any value larger than 0, the collision checking
+            is done with the inflated geometries.
+        """
+        super().__init__()
+        if safety_margin < 0:
+            raise ValueError("Safety margin must be non-negative.")
+        self.safety_margin: float = safety_margin
+
+    def _check_single_state(self, task: Optional[Task.Task], robot: RobotBase, q: np.ndarray, dq: np.ndarray,
+                            ddq: Optional[np.ndarray] = None) -> bool:
+        """Checks the constraint for the given task in configuration q."""
+        robot.update_configuration(q)
+        return not robot.has_collisions(task, safety_margin=self.safety_margin)
 
     def is_valid_at(self, solution: Solution.SolutionBase, t: float) -> bool:
         """Checks whether the robot is in collision with the environment or itself at time t."""
-        q = solution.q[solution.get_time_id(t)]
-        solution.robot.update_configuration(q)
-        return not solution.robot.has_collisions(solution.task, safety_margin=0.)
+        return self._check_single_state(solution.task, solution.robot, solution.q[solution.get_time_id(t)],
+                                        solution.dq[solution.get_time_id(t)])
 
     def to_json_data(self) -> Dict:
         """Dumps this constraint to a dictionary"""
@@ -469,20 +566,30 @@ class CollisionFree(ConstraintBase):
         return ()
 
 
-class SelfCollisionFree(CollisionFree):
+class SelfCollisionFree(CollisionFree, RobotConstraint):
     """A constraint that checks whether the robot is in collision with itself."""
 
-    def is_valid_at(self, solution: Solution.SolutionBase, t: float) -> bool:
-        """Checks whether the robot is in collision with itself at time t."""
-        q = solution.q[solution.get_time_id(t)]
-        return not solution.robot.has_self_collision(q)
+    def __init__(self, safety_margin: float = 0):
+        """
+        Initialize self-collision-free constraint
+
+        :param safety_margin: For self collisions, this parameter is currently ignored.
+        """
+        super().__init__(safety_margin=safety_margin)
+        if safety_margin != 0:
+            logging.warning(f"The safety margin of {safety_margin} is currently ignored for self collision checking.")
+
+    def _check_single_state(self, task: Optional[Task.Task], robot: RobotBase, q: np.ndarray, dq: np.ndarray,
+                            ddq: Optional[np.ndarray] = None) -> bool:
+        """Checks the constraint for the given task in configuration q."""
+        return not robot.has_self_collision(q)
 
     def to_json_data(self) -> Dict[str, any]:
         """Dumps this constraint to a dictionary"""
         return {'type': 'selfCollisionFree'}
 
 
-class EndEffector(ConstraintBase):
+class EndEffector(ConstraintBase, RobotConstraint):
     """A constraint that checks whether the end-effector (eef) keeps a certain pose and/or velocity."""
 
     default_velocity_limits = np.asarray((-math.inf, math.inf))
@@ -521,8 +628,9 @@ class EndEffector(ConstraintBase):
         rotation_velocity_lim = np.asarray((description.pop('o_min', -math.inf), description.pop('o_max', math.inf)))
         return cls(pose=pose, velocity_lim=velocity_lim, rotation_velocity_lim=rotation_velocity_lim)
 
-    def check_single_state(self, robot: PinRobot, q: np.ndarray, dq: np.ndarray) -> bool:
-        """Can be used to check this constraint against a single, existing robot state."""
+    def _check_single_state(self, task: Task, robot: RobotBase, q: np.ndarray, dq: np.ndarray,
+                            ddq: Optional[np.ndarray] = None) -> bool:
+        """Can be used to check this constraint against a single, existing robot state. The task is ignored."""
         robot.update_configuration(q, dq)
         v_robot = robot.tcp_velocity
         v_robot, o_robot = np.linalg.norm(v_robot[:3]), np.linalg.norm(v_robot[3:])
@@ -538,7 +646,7 @@ class EndEffector(ConstraintBase):
         """Checks whether the robot obeys eef velocity and pose constraints at time t."""
         q = solution.q[solution.get_time_id(t)]
         dq = solution.dq[solution.get_time_id(t)]
-        return self.check_single_state(solution.robot, q, dq)
+        return self.check_single_state(task=None, robot=solution.robot, q=q, dq=dq)
 
     def to_json_data(self) -> Dict[str, any]:
         """Dumps this constraint to a dictionary."""

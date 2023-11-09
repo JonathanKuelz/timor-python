@@ -270,3 +270,33 @@ class TestConstraints(unittest.TestCase):
         for t in np.arange(0., 3., 1.):
             self.assertTrue(eef_constraint_allow_any_pose.is_valid_until(sol, t))
             self.assertFalse(eef_constraint_allow_first_pose.is_valid_until(sol, t))
+
+    def test_robot_constraints(self):
+        """Test the functionality of the robot constraints"""
+        q_rand = self.robot.random_configuration(self.rng)
+        dq_rand = self.rng.random(self.robot.njoints) * self.robot.joint_velocity_limits
+        dq0 = np.zeros_like(dq_rand)
+
+        c = Constraints.AlwaysTrueConstraint()
+        self.assertTrue(c.check_single_state(None, self.robot, q_rand, dq_rand))
+
+        # Test limits
+        c = Constraints.JointLimits(parts=('q', 'dq', 'tau'))
+        self.assertTrue(c.check_single_state(None, self.robot, q_rand, dq0))
+        self.assertTrue(c.check_single_state(None, self.robot, q_rand, dq_rand))
+        self.assertFalse(c.check_single_state(None, self.robot, q_rand, self.robot.joint_velocity_limits + 1))
+        # Ensure that constraint check does not modify the robot's placement
+        old_placement = self.robot.placement
+        self.robot.set_base_placement(Transformation.from_translation((1., 2., 3.)))
+        c.check_single_state(None, self.robot, q_rand, dq_rand)
+        self.assertEqual(self.robot.placement, Transformation.from_translation((1., 2., 3.)))
+        self.robot.set_base_placement(old_placement)
+
+        # Test collision
+        c1 = Constraints.CollisionFree()
+        c2 = Constraints.SelfCollisionFree()
+        while not self.robot.has_self_collision():
+            q_rand = self.robot.random_configuration(self.rng)
+            self.robot.update_configuration(q_rand)
+        self.assertFalse(c1.check_single_state(None, self.robot, q_rand, dq0))
+        self.assertFalse(c2.check_single_state(None, self.robot, q_rand, dq0))
