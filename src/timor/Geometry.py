@@ -640,7 +640,7 @@ class ComposedGeometry(Geometry):
 
     @property
     def urdf_properties(self) -> Tuple[str, Dict[str, Union[float, np.ndarray]]]:
-        """urdf does not know the concept of composed geometries."""
+        """urdf does not know the concept of composed geometries for collisions."""
         raise NotImplementedError("ComposedGeometries cannot be saved as urdf.")
 
     @property

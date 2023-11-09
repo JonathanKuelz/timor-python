@@ -544,6 +544,8 @@ class ParameterizedCylinderLink(ParameterizableModule):
             connector_arguments = dict()
         connectors = self._generate_connectors(**connector_arguments)
         self.__connector_arguments = connector_arguments  # store for later use
+        if isinstance(header, dict):
+            header = ModuleHeader(**header)
         link = ParameterizableCylinderBody(body_id=f'{header.ID}_link', parameters=(radius, length),
                                            parameter_limits=limits, mass_density=mass_density, connectors=connectors)
         self.link: ParameterizableCylinderBody = link
@@ -615,8 +617,8 @@ class ParameterizedOrthogonalLink(ParameterizableModule):
         coordinate systems share origins with the connectors -- body coordinate systems are pointing inwards though.
 
         :param header: The module header for the generated link module
-        :param lengths: The lengths of the cylinders
-        :param radius: The radius of the cylinder
+        :param lengths: The lengths l1 and l2 of the cylinders
+        :param radius: The radius of the cylinders
         :param mass_density: The mass density of the link's material (kg/m^3) -- assumed to be uniform
         :param limits: Optional lower and upper bounds on the link's lengths and radius (r, l1, l2)
         :param connector_arguments: Mapping from keyword to 2-tuples of values for gender, size, type.
@@ -628,6 +630,8 @@ class ParameterizedOrthogonalLink(ParameterizableModule):
             connector_arguments = dict()
         connectors = self._generate_connectors(**connector_arguments)
         self.__connector_arguments = connector_arguments  # store for later use
+        if isinstance(header, dict):
+            header = ModuleHeader(**header)
 
         self.link: ParameterizableMultiBody = ParameterizableMultiBody(
             body_id=f'{header.ID}_link_1',
@@ -651,7 +655,7 @@ class ParameterizedOrthogonalLink(ParameterizableModule):
         return self._length1
 
     @l1.setter
-    def length(self, value: float):
+    def l1(self, value: float):
         """Sets the length of the link and updates the underlying body."""
         self.resize((self.radius, value, self.l2))
 
@@ -762,12 +766,16 @@ class ParameterizedStraightJoint(ParameterizableModule):
             connector_arguments = dict()
         connectors = self._generate_connectors(**connector_arguments)
         self.__connector_arguments = connector_arguments  # store for later use
+        if isinstance(header, dict):
+            header = ModuleHeader(**header)
+        limits = np.asarray(limits)
+        body_limits = (limits[0], limits[1] / 2)  # divide by two as the length is split between the two bodies
         proximal_link = ParameterizableCylinderBody(body_id=f'{header.ID}_proximal', parameters=(radius, length / 2),
-                                                    parameter_limits=limits, mass_density=mass_density,
+                                                    parameter_limits=body_limits, mass_density=mass_density,
                                                     connectors=(connectors[0],))
         self.proximal_link: ParameterizableCylinderBody = proximal_link
         distal_link = ParameterizableCylinderBody(body_id=f'{header.ID}_distal', parameters=(radius, length / 2),
-                                                  parameter_limits=limits, mass_density=mass_density,
+                                                  parameter_limits=body_limits, mass_density=mass_density,
                                                   connectors=(connectors[1],))
         self.distal_link: ParameterizableCylinderBody = distal_link
         self.joint = Joint(joint_id=f'{header.ID}_joint', joint_type=joint_type, parent_body=proximal_link,
@@ -886,6 +894,8 @@ class ParameterizedOrthogonalJoint(ParameterizableModule):
             connector_arguments = dict()
         connectors = self._generate_connectors(**connector_arguments)
         self.__connector_arguments = connector_arguments  # store for later use
+        if isinstance(header, dict):
+            header = ModuleHeader(**header)
         proximal_link = ParameterizableCylinderBody(body_id=f'{header.ID}_proximal', parameters=(radius, self.l1),
                                                     parameter_limits=(limits[0], limits[1]), mass_density=mass_density,
                                                     connectors=(connectors[0],))

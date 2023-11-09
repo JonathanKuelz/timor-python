@@ -168,7 +168,7 @@ class TrajectoryPlanner:
         t_start = time()
         q_init = q_previous[-1]
         while True:
-            q, success = self.robot.ik(goal.goal_pose, q_init)
+            q, success = self.robot.ik(goal.goal_pose, q_init=q_init)
             if success:
                 break
             q_init = self.robot.random_configuration()
