@@ -477,7 +477,7 @@ class ModulesDB(SingleSet, JSONable_mixin):
         self._name = name
         self._model_generation_kwargs = model_generation_kwargs
 
-    def add(self, element: AtomicModule) -> None:
+    def add(self, element: ModuleBase) -> None:
         """
         As the connector ID is composed of (module ID, body ID, connector ID), we need an additional check,
 
@@ -487,7 +487,7 @@ class ModulesDB(SingleSet, JSONable_mixin):
         #     raise err.UniqueValueError("There cannot be two connectors with identical IDs in a module")
         super().add(element)
 
-    def filter(self, func: Callable[[AtomicModule], bool]) -> ModulesDB:
+    def filter(self, func: Callable[[ModuleBase], bool]) -> ModulesDB:
         """
         Apply a custom filter to this DB to get a new DB with only the modules that pass the filter.
 
@@ -1217,6 +1217,7 @@ class ModuleAssembly(JSONable_mixin):
 
         :return: pinocchio robot for this assembly
         """
+        from timor.parameterized import ParameterizableBody  # local import necessary to avoid circular imports
         robot = Robot.PinRobot(wrapper=pin.RobotWrapper(pin.Model()))
         if len(self.module_instances) == 0:
             logging.info("You created an empty robot from an assembly without modules.")
@@ -1294,7 +1295,7 @@ class ModuleAssembly(JSONable_mixin):
         robot.set_base_placement(Transformation(base_placement))
 
         if ignore_collisions != 'rigid':  # Remove collision pairs depending on the collision mode
-            bodies = [node for node in G.nodes if isinstance(node, Body)]
+            bodies = [node for node in G.nodes if isinstance(node, BodyBase)]
             # Remove collisions between bodies connected by a joint
             neighbors_to_clean = set()
             for first, second in itertools.combinations(bodies, 2):
@@ -1306,8 +1307,9 @@ class ModuleAssembly(JSONable_mixin):
                         remove = True
                     else:
                         # We have to check whether the paths with one joint only are of the form body-joint-body
-                        node_types = tuple(tuple(type(node) for node in p) for p, n_joint in
-                                           zip(paths, n_joints) if n_joint <= 1)
+                        node_types = tuple(
+                            tuple(type(node) if not isinstance(node, ParameterizableBody) else Body for node in p)
+                            for p, n_joint in zip(paths, n_joints) if n_joint <= 1)
                         target_types = (Body, Joint, Body)
                         remove = any(t == target_types for t in node_types)
                 if remove:
