@@ -822,7 +822,7 @@ class ParameterizedStraightJoint(ParameterizableModule):
     def _get_copy_args(self) -> Tuple:
         """Returns the arguments to use when copying this module."""
         return (self.length, self.radius, self.proximal_link.mass_density,
-                np.concatenate((self.proximal_link.parameter_limits, self.distal_link.parameter_limits)),
+                (self.proximal_link.parameter_limits[0], self.proximal_link.parameter_limits[1] * 2),
                 self.joint.type, self.__joint_parameters, self.__connector_arguments)
 
     def _update_connector_placements(self):
@@ -959,7 +959,7 @@ class ParameterizedOrthogonalJoint(ParameterizableModule):
     def _get_copy_args(self) -> Tuple:
         """Returns the arguments to use when copying this module."""
         return ((self.l1, self.l2), self.radius, self.proximal_link.mass_density,
-                np.concatenate((self.proximal_link.parameter_limits, self.distal_link.parameter_limits)),
+                np.concatenate((self.proximal_link.parameter_limits, self.distal_link.parameter_limits[1:, :])),
                 self.joint.type, self.__joint_parameters, self.__connector_arguments)
 
     def _update_connector_placements(self):

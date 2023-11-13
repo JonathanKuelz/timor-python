@@ -300,12 +300,20 @@ class TestModule(unittest.TestCase):
         """Check parameterized modules that contain at least one joint"""
         straight_header = ModuleHeader('J1', 'Straight Prismatic Joint')
         straight = ParameterizedStraightJoint(straight_header, radius=.1, joint_type=TimorJointType.prismatic,
+                                              limits=((0, 1), (0, 20)),
                                               joint_parameters={'q_limits': (-.3, .5)})
         orthogonal_header = ModuleHeader('J2', 'Orthogonal Revolute Joint')
-        orthogonal = ParameterizedOrthogonalJoint(orthogonal_header, radius=.1, joint_type=TimorJointType.revolute)
+        orthogonal = ParameterizedOrthogonalJoint(orthogonal_header, radius=.1, joint_type=TimorJointType.revolute,
+                                                  limits=((0, 1), (0, 10), (0, 10)))
 
         self.assertEqual(straight.joint.type, TimorJointType.prismatic)
         self.assertEqual(orthogonal.joint.type, TimorJointType.revolute)
+
+        for module in (straight, orthogonal):
+            cpy = module.copy('cpy')
+            self.assertEqual(module.parameters, cpy.parameters)
+            for b1, b2 in zip(sorted(module.bodies, key=lambda x: x._id), sorted(cpy.bodies, key=lambda x: x._id)):
+                self.assertTrue(np.all(b1.parameter_limits == b2.parameter_limits))
 
         Gs = straight.module_graph
         self.assertTrue(nx.is_weakly_connected(Gs))

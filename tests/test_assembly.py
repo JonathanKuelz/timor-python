@@ -138,6 +138,9 @@ class TestModuleAssembly(unittest.TestCase):
         self.assertAlmostEqual(fk[1, 3], rob.fk()[1, 3])
         self.assertAlmostEqual(fk[2, 3] + orthogonal.l2 * 2, rob.fk()[2, 3])
 
+        # Basic collision check
+        self.assertFalse(rob.has_self_collision(np.array([0, 0])))
+
     def test_robot_property(self):
         assembly = ModuleAssembly(self.db)
         empty_robot = assembly.robot
