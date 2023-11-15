@@ -254,8 +254,8 @@ class Task(JSONable_mixin):
     @property
     def collision_objects(self) -> Tuple[hppfcl.CollisionObject, ...]:
         """All hppfcl collision objects by obstacles in the task"""
-        warnings.warn("New feature collision objects - so far not tested!")
-        return tuple(itertools.chain.from_iterable(obstacle.collision_objects for obstacle in self.obstacles))
+        return tuple(itertools.chain.from_iterable(obstacle.collision.as_hppfcl_collision_object
+                                                   for obstacle in self.obstacles))
 
     @property
     def goals_by_id(self) -> Dict[str, 'Goals.GoalBase']:
