@@ -235,7 +235,7 @@ class Composed(ToleranceBase):
 
     def _add_same(self, other: Composed) -> Composed:
         """Combine two composed tolerances"""
-        return self.__class__(itertools.chain(self._internal, other._internal))
+        return self.__class__(tuple(itertools.chain(self._internal, other._internal)))
 
     def to_projection(self) -> Dict[str, Tuple[Union[str, np.ndarray], ...]]:
         """Projects all internal tolerances"""

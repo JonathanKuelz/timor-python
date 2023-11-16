@@ -72,6 +72,10 @@ class TestTolerances(unittest.TestCase):
         self.assertFalse((cartesian_large + cartesian_medium + cartesian_small)
                          .valid(goal, Transformation.from_translation(np.array([0, -.5, 1.5]))))
 
+        composed = Tolerance.Composed((cartesian_large, cartesian_medium, cartesian_small))
+        copy = composed + composed
+        self.assertEqual(composed, copy)
+
     def test_tolerance_types(self):
         # Get all classes defined in the Tolerance namespace
 
