@@ -12,7 +12,6 @@ from scipy.spatial.transform import Rotation
 from timor.utilities import logging, spatial
 from timor.utilities import errors as err
 from timor.utilities.jsonable import JSONable_mixin
-
 _TransformationConvertable = Union[
     List[Union[List[float], Tuple[float, float, float, float]]],
     Tuple[Union[List[float], Tuple[float, float, float, float]],
@@ -25,7 +24,7 @@ _TransformationConvertable = Union[
     pin.SE3,
     hppfcl.Transform3f
 ]
-TransformationConvertable = Union[_TransformationConvertable, Iterable[_TransformationConvertable]]
+TransformationConvertable = Union[_TransformationConvertable, Iterable[_TransformationConvertable], "Frame"]  # noqa: F821, E501
 
 
 class Norm:
@@ -132,6 +131,7 @@ class Transformation(JSONable_mixin):
             is not the case, tries to auto-correct. Defaults to false as the check is expensive and should not be done
             for every transformation to avoid performance issues.
         """
+        from timor.utilities.frames import Frame
         if isinstance(transformation, Transformation):
             # The __init__ basically becomes a shallow copy
             transformation = transformation.homogeneous
@@ -142,6 +142,8 @@ class Transformation(JSONable_mixin):
             new[:3, :3] = transformation.getRotation()
             new[:3, 3] = transformation.getTranslation()
             transformation = new
+        elif isinstance(transformation, Frame):
+            transformation = transformation.in_world_coordinates()
         try:
             transformation = np.asarray(transformation, dtype=float)
         except ValueError:  # Multiple transformations cannot be packed in one np array
