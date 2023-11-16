@@ -141,7 +141,7 @@ def animation(robot: 'Robot.PinRobot', q: np.ndarray, dt: float,  # pragma: no c
     :param dt: The time step between frames
     :param visualizer: If given, the movie will be generated in the existing visualizer
     """
-    if q.shape[1] != robot.njoints:
+    if q.shape[1] != robot.dof:
         raise ValueError("The provided configurations must be of shape time steps x dof")
 
     robot.update_configuration(q[0, :])

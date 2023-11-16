@@ -70,7 +70,7 @@ class RobotBase(abc.ABC):
         """
         self._name: str = name
         if home_configuration is None:
-            home_configuration = np.zeros((self.njoints,))
+            home_configuration = np.zeros((self.dof,))
         self.configuration: np.ndarray = np.empty_like(home_configuration)
         self.update_configuration(home_configuration)
         self.velocities: np.ndarray = np.zeros(self.configuration.shape)
@@ -103,7 +103,7 @@ class RobotBase(abc.ABC):
 
     @property
     @abc.abstractmethod
-    def njoints(self) -> int:
+    def dof(self) -> int:
         """Returns the number of joints in the robot."""
 
     @property
@@ -124,22 +124,22 @@ class RobotBase(abc.ABC):
     @property
     @abc.abstractmethod
     def joint_limits(self) -> np.ndarray:
-        """Returns an array of shape 2xnjoints containing the lower and upper joint position limits"""
+        """Returns an array of shape 2xdof containing the lower and upper joint position limits"""
 
     @property
     @abc.abstractmethod
     def joint_acceleration_limits(self) -> np.ndarray:
-        """Returns an array of shape 1xnjoints containing the absolute joint acceleration limits"""
+        """Returns an array of shape 1xdof containing the absolute joint acceleration limits"""
 
     @property
     @abc.abstractmethod
     def joint_torque_limits(self) -> np.ndarray:
-        """Returns an array of shape 1xnjoints containing the absolute joint torque limits"""
+        """Returns an array of shape 1xdof containing the absolute joint torque limits"""
 
     @property
     @abc.abstractmethod
     def joint_velocity_limits(self) -> np.ndarray:
-        """Returns an array of shape 1xnjoints containing the absolute joint velocity limits"""
+        """Returns an array of shape 1xdof containing the absolute joint velocity limits"""
 
     @property
     @abc.abstractmethod
@@ -233,7 +233,7 @@ class RobotBase(abc.ABC):
         """
         Updates the current joint angles/configuration.
 
-        :param q: Dimension njointsx1.
+        :param q: Dimension dofx1.
         :param dq: Velocities, optional
         :param ddq: Acceleration, optional
         """
@@ -343,7 +343,7 @@ class RobotBase(abc.ABC):
         """
         from timor.task.Constraints import CollisionFree, SelfCollisionFree, RobotConstraint
 
-        if self.njoints == 0:
+        if self.dof == 0:
             return self.configuration, eef_pose.valid(self.fk())
 
         if inner_callbacks is None:
@@ -378,7 +378,7 @@ class RobotBase(abc.ABC):
             distances = [ik_cost_function(self, q, eef_pose.nominal.in_world_coordinates()) for q in candidates]
             q_init = candidates[np.argmin(distances)]
 
-        info = IKMeta(dof=self.njoints, max_iter=max_iter, intermediate_result=current_best, joint_mask=joint_mask,
+        info = IKMeta(dof=self.dof, max_iter=max_iter, intermediate_result=current_best, joint_mask=joint_mask,
                       task=task, allow_random_restart=allow_random_restart)
 
         q = self.configuration
@@ -537,7 +537,7 @@ class RobotBase(abc.ABC):
             rng = self._rng
         lower = np.maximum(self.joint_limits[0, :], -2 * np.pi)
         upper = np.minimum(self.joint_limits[1, :], 2 * np.pi)
-        return (upper - lower) * rng.random(self.njoints) + lower
+        return (upper - lower) * rng.random(self.dof) + lower
 
     def tau_in_torque_limits(self, tau: np.ndarray) -> bool:
         """
@@ -545,7 +545,7 @@ class RobotBase(abc.ABC):
 
         We assume that the torque limits of the robot are symmetric (tau_min = -tau_max)
 
-        :param tau: A torque vector of dimension njoints x 1. The limits will be checked against abs(tau)
+        :param tau: A torque vector of dimension dof x 1. The limits will be checked against abs(tau)
         """
         return bool((np.abs(tau) <= self.joint_torque_limits).all())  # bool() to convert np.bool to python bool
 
@@ -680,9 +680,9 @@ class PinRobot(RobotBase):
         return pin.computeTotalMass(self.model) + self.model.inertias[0].mass
 
     @property
-    def njoints(self) -> int:
-        """Number of actuated joints."""
-        return self.model.njoints - 1  # The universe is not really a joint
+    def dof(self) -> int:
+        """Number of actuated degrees of freedom."""
+        return self.model.nq
 
     @property
     def parents(self) -> Dict[str, str]:
@@ -708,7 +708,7 @@ class PinRobot(RobotBase):
     @property
     def joint_acceleration_limits(self) -> np.ndarray:
         """Numpy array where arr[0,:] are the lower joint limits and arr[1,:] are the upper acceleration limits."""
-        return np.ones((self.njoints,), float) * np.inf
+        return np.ones((self.dof,), float) * np.inf
 
     @property
     def joint_torque_limits(self) -> np.ndarray:
@@ -786,8 +786,8 @@ class PinRobot(RobotBase):
         :param arr: A numpy array. If this is None, this method will automatically return an array of zeros.
         """
         if arr is None:
-            return np.zeros((self.njoints,))
-        return np.reshape(arr, (self.njoints,))
+            return np.zeros((self.dof,))
+        return np.reshape(arr, (self.dof,))
 
     def friction(self, dq: np.ndarray) -> np.ndarray:
         """Computes the forces due to friction"""
@@ -880,7 +880,8 @@ class PinRobot(RobotBase):
         Solves the equation M * a_q + b = tau_q, where a_q is the joint acceleration (ddq), M is the mass matrix,
         b is the drift (composed of Coriolis, ???, and gravitation) and tau_q is the applied torques in the joints.
 
-        :param motor_inertia: Whether to consider torques to balance motor side inertia
+        :param motor_inertia: Whether to consider torques to balance motor side inertia. Even if set to true, the
+            coriolis forces induced by the fast-rotating motors are not considered.
         :param friction: Whether to consider friction compensating torques
         :param eef_wrench: [f_x, f_y, f_z, tau_x, tau_y, tau_z] acting on the end-effector
         :param eef_wrench_frame: Frame the eef_wrench is described in (still acting on eef position!);
@@ -895,7 +896,7 @@ class PinRobot(RobotBase):
             raise ValueError(f"{eef_wrench_frame} not in known frames {known_frames}")
         # pin expects (nDoF,) array but 1D robot can produce scalar q's
         f_ext_vec = pin.StdVec_Force()  # Force acting in each _joint_ frame
-        for i in range(self.njoints):
+        for i in range(self.dof):
             f = pin.Force()
             f.setZero()
             f_ext_vec.append(f)
@@ -930,7 +931,7 @@ class PinRobot(RobotBase):
         :return: A tuple of (q_solution, success [boolean])
         """
         if ik_method is None:
-            if self.njoints < 6:
+            if self.dof < 6:
                 ik_method = 'scipy'
             else:
                 ik_method = 'jacobian'
@@ -1068,14 +1069,14 @@ class PinRobot(RobotBase):
                 vo.placement = displacement * vo.placement
             frame.placement = displacement * frame.placement
         self.model.jointPlacements[0] = displacement * self.model.jointPlacements[0]
-        for i in range(1, self.njoints + 1):
+        for i in range(1, self.dof + 1):
             # Move all joints that are directly connected to "world" (i.e. the first joint[s])
             if self.model.parents[i] != 0:
                 continue
             try:
                 self.model.jointPlacements[i] = displacement * self.model.jointPlacements[i]
             except IndexError:
-                assert self.njoints == 0, "Could not find the first joint, but there seems to be one"
+                assert self.dof == 0, "Could not find the first joint, but there seems to be one"
         self.update_configuration(self.configuration)
         self._base_placement = Transformation(self.placement.multiply_from_left(displacement.homogeneous),
                                               set_safe=True)

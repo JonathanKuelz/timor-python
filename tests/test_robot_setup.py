@@ -23,7 +23,7 @@ class PinocchioRobotSetup(unittest.TestCase):
         """Random configuration generator depending on numpy only (no pinocchio, so randomness is controlled)"""
         lim_lower = np.maximum(robot.joint_limits[0, :], -2 * np.pi)
         lim_upper = np.minimum(robot.joint_limits[1, :], 2 * np.pi)
-        return (lim_upper - lim_lower) * rng.random(robot.njoints) + lim_lower
+        return (lim_upper - lim_lower) * rng.random(robot.dof) + lim_lower
 
     def setUp(self) -> None:
         self.package_dir = robots['panda'].parent

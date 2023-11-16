@@ -116,7 +116,7 @@ class TestFilterRobotsForTasks(unittest.TestCase):
 
         # First check that the filter doesn't discard assemblies that are not too long obviously
         for _ in range(10):
-            conf = self.rng.random(assembly.robot.njoints)
+            conf = self.rng.random(assembly.robot.dof)
             goal = Goals.At(ID=str(self.rng.random()), goalPose=ToleratedPose(assembly.robot.fk(conf)))
             task = Task.Task(Task.TaskHeader(str(self.rng.random)), constraints=(base_constraint,), goals=(goal,))
             self.assertTrue(test_filter.check(assembly, task, AssemblyFilter.IntermediateFilterResults()))
@@ -151,10 +151,10 @@ class TestFilterRobotsForTasks(unittest.TestCase):
         time_steps = 1000
         robot = self.modrob_assembly.robot
         dt = .1
-        t_wait = Trajectory(t=dt, q=np.zeros((time_steps, robot.njoints)))
-        q_edge_case = np.empty((time_steps, robot.njoints), dtype=float)
-        dq_edge_case = np.empty((time_steps, robot.njoints), dtype=float)
-        ddq_realistic = np.empty((time_steps, robot.njoints), dtype=float)
+        t_wait = Trajectory(t=dt, q=np.zeros((time_steps, robot.dof)))
+        q_edge_case = np.empty((time_steps, robot.dof), dtype=float)
+        dq_edge_case = np.empty((time_steps, robot.dof), dtype=float)
+        ddq_realistic = np.empty((time_steps, robot.dof), dtype=float)
         acc_limit = dt * .2 * robot.joint_velocity_limits
         for i in range(time_steps):
             # Create a trajectory with random but valid accelerations

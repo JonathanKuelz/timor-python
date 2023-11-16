@@ -69,18 +69,18 @@ class TestModulesDB(unittest.TestCase):
         db = ModulesDB.from_name('geometric_primitive_modules')
         assembly = ModuleAssembly.from_serial_modules(db, ['base'] + ['l_15'] * 5)
         robot = assembly.to_pin_robot()
-        self.assertEqual(robot.njoints, 0)
+        self.assertEqual(robot.dof, 0)
         self.assertAlmostEqual(robot.mass, assembly.mass)
         self.assertIsInstance(robot.fk(), Transformation)
         goal = ToleratedPose(nominal=Transformation.from_translation((9, 9, 9)))
         q, success = robot.ik(goal)
         self.assertIsInstance(q, np.ndarray)
-        self.assertEqual(q.size, robot.njoints)
+        self.assertEqual(q.size, robot.dof)
         self.assertFalse(success)
 
         q, success = robot.ik(ToleratedPose(robot.fk()))
         self.assertTrue(success)
-        self.assertEqual(q.size, robot.njoints)
+        self.assertEqual(q.size, robot.dof)
 
     def test_possible_connections(self):
         possibilities = self.db.possible_connections
@@ -123,7 +123,7 @@ class TestModulesDB(unittest.TestCase):
         self.assertAlmostEqual(assembly.mass, robot.mass)
 
         # Visualize in a random configuration (meshcat visualizer, will be closed when tests are done)
-        robot.update_configuration(np.random.random((robot.njoints,)))
+        robot.update_configuration(np.random.random((robot.dof,)))
         robot.visualize(coordinate_systems='joints')
 
         # Ensure propagation of joint dynamics

@@ -99,7 +99,7 @@ class TestSolution(unittest.TestCase):
         pause_duration = .4
         dt = 0.01
         time_steps = 100
-        q_array_shape = (time_steps, robot.njoints)
+        q_array_shape = (time_steps, robot.dof)
         # Add constraint such that _valid can be tested as well
         pause_goal = Goals.Pause(ID='pause', duration=pause_duration,
                                  constraints=[Constraints.JointAngles(robot.joint_limits)])
@@ -153,7 +153,7 @@ class TestSolution(unittest.TestCase):
             # Test constraint in duration - replace a single time-step inside pause with joint limit + a_bit_over_0
             q_bad_outside_joint_limits = good_trajectory.q.copy()
             q_bad_outside_joint_limits[self.rng.choice(np.argwhere(pause_mask).squeeze())] = \
-                robot.joint_limits[1, :] + self.rng.random(robot.njoints)
+                robot.joint_limits[1, :] + self.rng.random(robot.dof)
             bad_trajectory_outside_joint_limits = Trajectory(t=dt, q=q_bad_outside_joint_limits,
                                                              goal2time=good_trajectory.goal2time)
             bad_sol_outside_joint_limits = \
@@ -349,13 +349,13 @@ class TestSolution(unittest.TestCase):
     def test_follow_force_torque_constraint(self):
         assembly = get_six_axis_assembly()
         robot = assembly.robot
-        robot.model.effortLimit = 10 * np.ones(robot.njoints)  # high torque limits
+        robot.model.effortLimit = 10 * np.ones(robot.dof)  # high torque limits
         len_desired = 15
         len_additional = 5
         dt = .1
         q = []
         while len(q) < len_desired + len_additional:
-            new = q[-1] + self.rng.random((robot.njoints,)) * 0.01 if len(q) > 0 \
+            new = q[-1] + self.rng.random((robot.dof,)) * 0.01 if len(q) > 0 \
                 else robot.random_configuration(self.rng)
             if not robot.has_self_collision(new) \
                     and robot.tau_in_torque_limits(robot.static_torque(new)) \

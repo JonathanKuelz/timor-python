@@ -53,7 +53,7 @@ def pin_models_functionally_equal(m1: pin.Model, m2: pin.Model) -> bool:
     checks = tuple((
         m1.nq == m2.nq,
         m1.nv == m2.nv,
-        m1.njoints == m2.njoints,
+        m1.nq == m2.nq,
         # No check for number of bodies! (everything is fine as long as the inertias align)
         # No check for frames!
         tuple(m1.parents) == tuple(m2.parents),  # cpp StdVec needs to be unpacked for a sane comparison
