@@ -421,7 +421,7 @@ class RobotBase(abc.ABC):
             else:
                 q_init = q_new
 
-            if not info.max_iter < max_iter:
+            if not success and info.max_iter >= max_iter:
                 raise RuntimeError("Running the inner IK did not reduce the number of iterations left. Danger of"
                                    "infinite recursion")
             max_iter = info.max_iter
@@ -518,6 +518,9 @@ class RobotBase(abc.ABC):
             bounds=bounds,
             **scipy_kwargs
         )
+        if sol.nit == 0:
+            logging.warning("The scipy IK solver converged after a single iteration.")
+            info.max_iter = info.max_iter - 1  # Avoids infinite recursion
         info.max_iter = info.max_iter - sol.nit
         q_sol = unmask(sol.x)
 
@@ -1000,6 +1003,7 @@ class PinRobot(RobotBase):
 
         success = False
         q = q_init
+        self.update_configuration(q, frames=True, geometry=True)
         for i in range(info.max_iter):
             joint_current = self.data.oMi[joint_idx_pin]
             diff = joint_current.actInv(joint_desired)
@@ -1131,14 +1135,17 @@ class PinRobot(RobotBase):
         :param geometry: If true, geometry (visual and collision) placements are updated
         :return: None
         """
-        if dq is None and ddq is not None:
+        velocity_given = dq is not None
+        acceleration_given = ddq is not None
+
+        if acceleration_given and not velocity_given:
             raise ValueError("If ddq is specified, dq must be specified as well")
 
         q, dq, ddq = map(self._resize_for_pinocchio, (q, dq, ddq))
         self.configuration = q
-        if dq is not None:
+        if velocity_given:
             self.velocities = dq
-            if ddq is None:
+            if acceleration_given:
                 pin.forwardKinematics(self.model, self.data, self.configuration, dq)
                 self.accelerations = np.zeros_like(self.q)
             else:
