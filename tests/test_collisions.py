@@ -50,7 +50,7 @@ class TestCollisionUtilities(unittest.TestCase):
         robot_no_collisions = improv_assembly.to_pin_robot(ignore_collisions='rigid_via_joint')
 
         known_collision_free = (  # Some poses that should be collision free judging from the plots
-            np.zeros(robot_all.njoints),
+            np.zeros(robot_all.dof),
             np.array((0, 0, np.pi / 2, 0, 0, -np.pi / 2)),
             np.array((0, -np.pi / 4, np.pi / 8, np.pi / 8, -np.pi / 6, 0))
         )

@@ -274,7 +274,7 @@ class TestConstraints(unittest.TestCase):
     def test_robot_constraints(self):
         """Test the functionality of the robot constraints"""
         q_rand = self.robot.random_configuration(self.rng)
-        dq_rand = self.rng.random(self.robot.njoints) * self.robot.joint_velocity_limits
+        dq_rand = self.rng.random(self.robot.dof) * self.robot.joint_velocity_limits
         dq0 = np.zeros_like(dq_rand)
 
         c = Constraints.AlwaysTrueConstraint()

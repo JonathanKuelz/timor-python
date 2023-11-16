@@ -136,7 +136,7 @@ class RobotConstraint(ABC):
         def reshape(arr: Sequence[float]) -> np.ndarray:
             """Helper to reshape arrays to (1, dof)"""
             ret = np.reshape(arr, (1, -1))
-            if not ret.shape[1] == robot.njoints:
+            if not ret.shape[1] == robot.dof:
                 raise ValueError(f"Invalid shape of input argument q and/or dq: {np.asarray(arr).shape}")
             return ret
 

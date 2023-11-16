@@ -123,7 +123,7 @@ class TrajectoryPlanner:
             if isinstance(goal, Goals.Pause):
                 trajectory = trajectory + self._solve_pause_goal(goal_id, q_previous)
                 continue
-            dq_end = np.zeros(self.robot.njoints,)
+            dq_end = np.zeros(self.robot.dof, )
 
             # Only add a new trajectory if you are not already pretty much at the goal
             if np.linalg.norm(q_previous[-1, :] - goal_traj[goal_id][0, :]) > 1e-4:

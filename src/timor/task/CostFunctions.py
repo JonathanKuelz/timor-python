@@ -252,7 +252,7 @@ class NumJoints(CostFunctionBase):
 
     def _evaluate(self, solution: Solution.SolutionBase) -> float:
         """The number of actuated joints in the solution robot"""
-        return solution.robot.njoints
+        return solution.robot.dof
 
 
 class RobotMass(CostFunctionBase):
