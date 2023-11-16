@@ -579,20 +579,3 @@ def timeout(timeout_s: int, logging_callback: Optional[Callable[[Exception], Non
             logging_callback(exe)
     finally:
         signal.alarm(0)
-
-
-def uniform_collision_geometry(geometry: Union[hppfcl.CollisionObject, pin.pinocchio_pywrap.GeometryObject]) -> \
-        Tuple[hppfcl.CollisionObject, Union[hppfcl.Transform3f, pin.SE3]]:
-    """
-    Takes either a hppfcl collision object or a pin geometry object and returns the according geometry + transform.
-
-    This is needed if hppfcl collide() should be used on a combination of hhpfcl native and pin native collision
-    geometries.
-
-    :return: A tuple of (geometry, transform) to feed in collide()
-    """
-    if isinstance(geometry, hppfcl.CollisionObject):
-        return geometry.collisionGeometry(), geometry.getTransform()
-    elif isinstance(geometry, pin.pinocchio_pywrap.GeometryObject):
-        return geometry.geometry, geometry.placement
-    raise ValueError("Unknown Geometry Type: {}".format(type(geometry)))
