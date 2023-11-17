@@ -198,7 +198,7 @@ class TestFilterRobotsForTasks(unittest.TestCase):
             else:  # or at least q_sample was in collision
                 self.panda_assembly.robot.update_configuration(q_sample)
                 self.assertTrue(self.panda_assembly.robot.has_collisions(task))
-                self.assertFalse(intermediate_result.collision_free_goal["1"])
+                self.assertNotIn('1', intermediate_result.collision_free_goal)
 
     def test_InverseKinematicSolvableWithTau(self, n_iter: int = 100):
         self.panda_assembly.robot.model.inertias[-1].mass *= 10  # Make eef heavier such that static fails

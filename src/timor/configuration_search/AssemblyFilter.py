@@ -546,7 +546,8 @@ class InverseKinematicsSolvable(GoalByGoalFilter):
                                                     <= results.robot.joint_torque_limits).all()
         if self.ensures_collision_free_goal:
             results.robot.update_configuration(q)
-            results.collision_free_goal[goal.id] = valid or not results.robot.has_collisions(self.kwargs['task'])
+            if valid:
+                results.collision_free_goal[goal.id] = True
         return valid
 
 
