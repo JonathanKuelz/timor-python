@@ -304,7 +304,7 @@ class TestModule(unittest.TestCase):
                                               joint_parameters={'q_limits': (-.3, .5)})
         orthogonal_header = ModuleHeader('J2', 'Orthogonal Revolute Joint')
         orthogonal = ParameterizedOrthogonalJoint(orthogonal_header, radius=.1, joint_type=TimorJointType.revolute,
-                                                  limits=((0, 1), (0, 10), (0, 10)))
+                                                  limits=((0, 1), (0, 10), (0, 9.5)))
 
         self.assertEqual(straight.joint.type, TimorJointType.prismatic)
         self.assertEqual(orthogonal.joint.type, TimorJointType.revolute)
