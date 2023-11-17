@@ -702,8 +702,8 @@ class ParameterizedOrthogonalLink(ParameterizableModule):
 
     def _get_copy_args(self) -> Tuple:
         """Returns the arguments for the copy constructor."""
-        return ((self.l1, self.l2), self.radius, self.link.mass_density, self.link.parameter_limits,
-                self.__connector_arguments)
+        parameter_limits = np.vstack((self.link.parameter_limits[0, :], self.link.parameter_limits[1::2, :]))
+        return (self.l1, self.l2), self.radius, self.link.mass_density, parameter_limits, self.__connector_arguments
 
     def _update_connector_placements(self):
         """Makes sure the connectors are always placed on the bottom/top and centered in the link."""
