@@ -21,7 +21,7 @@ from timor.Bodies import PinBody
 from timor.task.Obstacle import Obstacle
 from timor.utilities import logging, spatial
 from timor.utilities.callbacks import CallbackReturn, IKCallback, chain_callbacks
-from timor.utilities.configurations import IK_RANDOM_CANDIDATES, SAFETY_MARGIN_COLLISION
+from timor.utilities.configurations import IK_RANDOM_CANDIDATES
 from timor.utilities.dtypes import IKMeta, IntermediateIkResult, float2array
 from timor.utilities.tolerated_pose import ToleratedPose
 from timor.utilities.transformation import Transformation, TransformationLike
@@ -157,8 +157,7 @@ class RobotBase(abc.ABC):
 
     # ---------- Abstract Methods ----------
     @abc.abstractmethod
-    def collisions(self, task: 'Task.Task',  # noqa: F821
-                   safety_margin: float = SAFETY_MARGIN_COLLISION) -> List[Tuple[RobotBase, Obstacle]]:
+    def collisions(self, task: 'Task.Task', safety_margin: float = 0) -> List[Tuple[RobotBase, Obstacle]]:  # noqa: F821
         """
         Returns all collisions that appear between the robot and itself or obstacles in the task.
 
@@ -177,7 +176,7 @@ class RobotBase(abc.ABC):
         """
 
     @abc.abstractmethod
-    def has_collisions(self, task: 'Task.Task', safety_margin: float = SAFETY_MARGIN_COLLISION) -> bool:  # noqa: F821
+    def has_collisions(self, task: 'Task.Task', safety_margin: float = 0) -> bool:  # noqa: F821
         """
         Returns true if there is at least one collision in the task or one self-collision.
 
@@ -1165,7 +1164,7 @@ class PinRobot(RobotBase):
     def __check_collisions(self,
                            task: 'Task.Task',  # noqa: F821
                            return_at_first: bool,
-                           safety_margin: float = SAFETY_MARGIN_COLLISION
+                           safety_margin: float = 0,
                            ) -> Union[bool, List[Tuple[RobotBase, Union[RobotBase, Obstacle]]]]:
         """
         Checks all collision pairs or all collisions pairs until the first colliding one is found.
@@ -1205,7 +1204,7 @@ class PinRobot(RobotBase):
 
     def collisions(self,
                    task: 'Task.Task',  # noqa: F821
-                   safety_margin: float = SAFETY_MARGIN_COLLISION
+                   safety_margin: float = 0,
                    ) -> List[Tuple[RobotBase, Union[RobotBase, Obstacle]]]:
         """
         Returns all collisions that appear between the robot and itself or obstacles in the task.
@@ -1216,7 +1215,7 @@ class PinRobot(RobotBase):
         """
         return self.__check_collisions(task, return_at_first=False, safety_margin=safety_margin)
 
-    def has_collisions(self, task: 'Task.Task', safety_margin: float = SAFETY_MARGIN_COLLISION) -> bool:  # noqa: F821
+    def has_collisions(self, task: 'Task.Task', safety_margin: float = 0) -> bool:  # noqa: F821
         """
         Returns true if there is at least one collision in the task or one self-collision.
 
