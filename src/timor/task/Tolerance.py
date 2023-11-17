@@ -404,7 +404,7 @@ class Spatial(ToleranceBase, abc.ABC):
 
     def __eq__(self, other):
         """Two cartesian tolerances are equal if they have the same tolerance values and dtype"""
-        if type(other) != type(self):
+        if type(other) is not type(self):
             return NotImplemented
         return (self.stacked == other.stacked).all()
 
@@ -669,7 +669,7 @@ class Rotation(Spatial, abc.ABC):
 
     def __eq__(self, other):
         """Two rotation tolerances are equal if they have the same tolerance values"""
-        if type(other) != type(self):
+        if type(other) is not type(self):
             return NotImplemented
         return (self.stacked == other.stacked).all()
 
@@ -807,7 +807,7 @@ class Abs6dPoseTolerance(ToleranceBase):
 
     def __eq__(self, other):
         """Two absolute pose tolerances are equal if they have the same tolerance values"""
-        if type(other) != type(self):
+        if type(other) is not type(self):
             return NotImplemented
         return self.tolerance == other.tolerance
 

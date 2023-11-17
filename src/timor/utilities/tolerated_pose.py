@@ -117,7 +117,7 @@ class ToleratedPose(JSONable_mixin):
 
     def __eq__(self, other):
         """Compares tolerated poses"""
-        if type(other) != type(self):
+        if type(other) is not type(self):
             return NotImplemented
         return self.nominal == other.nominal and self.tolerance == other.tolerance
 
