@@ -102,7 +102,7 @@ class SphereVolume(Volume):
         r"""
         The basic building block of a spherical volume.
 
-        :param limits: Defined by :math:(r, \theta, \phi) with shape (3,2),
+        :param limits: Defined by :math:`(r, \theta, \phi)` with shape (3,2),
                        where, :math:`\theta` is in the range of :math:`(0, \pi).`
                        :math:`\phi` is in the range of :math:`(-\pi, \pi).`
         :param offset: Transformation offset of the volume, inherited from super class

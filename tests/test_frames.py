@@ -188,13 +188,13 @@ class TestFrames(unittest.TestCase):
         task_data["goals"][1]["goalPose"]["toleranceFrame"] = ("nominal", "1")
         task = Task.from_json_data(task_data)
         self.assertIsInstance(
-            tuple(task.goals_by_id["1"].goal_pose.tolerance.tolerances)[0], Tolerance.RotationAxisAngle)
+            tuple(task.goals_by_id["1"].goal_pose.tolerance.tolerances)[0], Tolerance.RotationAbsolute)
         self.assertIsInstance(
             tuple(task.goals_by_id["1"].goal_pose.tolerance.tolerances)[1], Tolerance.CartesianSpheric)
         self.assertEqual(tuple(task.goals_by_id["1"].goal_pose.tolerance.tolerances)[0]._frame, WORLD_FRAME)
         self.assertEqual(tuple(task.goals_by_id["1"].goal_pose.tolerance.tolerances)[1]._frame, NOMINAL_FRAME)
         self.assertIsInstance(
-            tuple(task.goals_by_id["2"].goal_pose.tolerance.tolerances)[0], Tolerance.RotationAxisAngle)
+            tuple(task.goals_by_id["2"].goal_pose.tolerance.tolerances)[0], Tolerance.RotationAbsolute)
         self.assertIsInstance(
             tuple(task.goals_by_id["2"].goal_pose.tolerance.tolerances)[1], Tolerance.CartesianSpheric)
         self.assertEqual(tuple(task.goals_by_id["2"].goal_pose.tolerance.tolerances)[0]._frame, task.frames["1"])
@@ -341,7 +341,7 @@ class TestFrames(unittest.TestCase):
         self.assertTrue(tuple(pose.tolerance.tolerances)[0]._frame is WORLD_FRAME)
 
     def test_axis_angle(self):
-        tolerance = Tolerance.RotationAxisAngle([0, 0], [0, 0], [1, 1], [-np.pi, np.pi])  # Any rotation around z
+        tolerance = Tolerance.RotationAxis([0, 0], [0, 0], [-np.pi, np.pi])  # Any rotation around z
         for _ in range(10):
             self.assertTrue(tolerance.valid(Transformation.neutral(),
                                             Transformation(spatial.rotZ(random.random() * 10))))
@@ -353,7 +353,7 @@ class TestFrames(unittest.TestCase):
             self.assertFalse(tolerance.valid(T, T @ spatial.rotX(random.random() * 10)))
 
         # Any rotation around _world_ z
-        tolerance = Tolerance.RotationAxisAngle([0, 0], [0, 0], [1, 1], [-np.pi, np.pi], frame=WORLD_FRAME)
+        tolerance = Tolerance.RotationAxis([0, 0], [0, 0], [-np.pi, np.pi], frame=WORLD_FRAME)
         for _ in range(10):
             self.assertTrue(tolerance.valid(Transformation(spatial.rotZ(random.random() * 10)),
                                             Transformation.neutral()))

@@ -83,7 +83,7 @@ class Projection:
         Returns the rotation part of the placement as (3,)-shaped axis angle representation.
 
         :source: https://en.wikipedia.org/wiki/Axis%E2%80%93angle_representation
-        :returns: Rotation representation :math:`(n_x * \theta_R, n_y * \theta_R, n_z * \theta_R)`.
+        :returns: Rotation representation :math:`(n_x * \theta_R, n_y * \theta_R, n_z * \theta_R), \theta \in [0, \pi]`.
         """
         return self.axis_angles[:3] * self.axis_angles[3]
 

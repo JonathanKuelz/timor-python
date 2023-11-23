@@ -202,8 +202,9 @@ class SerializationTests(unittest.TestCase):
 
         # Set up some Tolerances
         cylindrical = Tolerance.CartesianCylindrical(r=[.5, 1.5], phi_cyl=[-np.pi / 8, np.pi / 4], z=[2., 2.5])
-        axis_angles = Tolerance.RotationAxisAngle(n_x=[.5, .7], n_y=[0, .1], n_z=[-.2, .2], theta_r=[-0.1, 0.1])
-        self.tolerances = [cylindrical, axis_angles]
+        axis_angles = Tolerance.RotationAxis(n_x=[.5, .7], n_y=[0, .1], n_z=[-.2, .2])
+        rot_absolute = Tolerance.RotationAbsolute(theta=.75)
+        self.tolerances = [cylindrical, axis_angles, rot_absolute]
 
         # Set up some Constraints
         goal_order = Constraints.GoalOrderConstraint(list(map(str, range(100))))

@@ -204,10 +204,9 @@ class TestConstraints(unittest.TestCase):
         self.assertTrue(eef_constraint_allow_any_pose.fulfilled(sol))
 
         # Constructed case - movement along line with invariant rotation about line, e.g. drilling
-        orientation_tolerance = Tolerance.RotationAxisAngle(n_x=(-np.pi / 100, np.pi / 100),
-                                                            n_y=(-np.pi / 100, np.pi / 100),
-                                                            n_z=(-1, 1),  # Any rotation about local z-axis is ok
-                                                            theta_r=(0, np.pi))
+        orientation_tolerance = Tolerance.RotationAxis(n_x=(-np.pi / 100, np.pi / 100),
+                                                       n_y=(-np.pi / 100, np.pi / 100),
+                                                       n_z=(-np.pi, np.pi))
         ik_tolerance = Tolerance.Composed((orientation_tolerance, Tolerance.CartesianXYZ.default()))
         start_pose = Transformation.from_translation((0.5, 0., 0.5)) @ spatial.rotY(np.pi / 2)
         # Construct movement steps - q_start, q_end, q_mid_ok, q_mid_nok (small rot), q_end_to_far
@@ -219,8 +218,8 @@ class TestConstraints(unittest.TestCase):
                   # q_mid - all with random translation in 0, 0.2 and rotation about drill axis
                   *(Transformation.from_translation((self.rng.random() * 0.2, 0., 0.)) @
                     start_pose @ spatial.rotZ(self.rng.random()) for _ in range(N_middle)),
-                  Transformation.from_translation((.11, 0., 0.)) @ start_pose @ spatial.rotX(0.02),  # q_mid_not_ok
-                  Transformation.from_translation((.11, 0., 0.)) @ start_pose @ spatial.rotY(-0.02),  # q_mid_not_ok
+                  Transformation.from_translation((.11, 0., 0.)) @ start_pose @ spatial.rotX(0.2),  # q_mid_not_ok
+                  Transformation.from_translation((.11, 0., 0.)) @ start_pose @ spatial.rotY(-0.2),  # q_mid_not_ok
                   Transformation.from_translation((.22, 0., 0.)) @ start_pose  # q_end_to_far
                   ):
             q, success = self.robot.ik(ToleratedPose(T, ik_tolerance))
@@ -229,7 +228,7 @@ class TestConstraints(unittest.TestCase):
         drill_eef_constraint = Constraints.EndEffector(pose=ToleratedPose(
             nominal=start_pose,
             tolerance=Tolerance.Composed((
-                Tolerance.CartesianXYZ((-0.01, 0.01), (-0.01, 0.01), (-0.01, 0.2)),  # Drill along z
+                Tolerance.CartesianXYZ((-0.01, 0.01), (-0.01, 0.01), (-0.01, 0.201)),  # Drill along z
                 orientation_tolerance
             ))
         ))
