@@ -5,7 +5,6 @@ import itertools
 import json
 from pathlib import Path
 import pickle
-import random
 import time
 from typing import Callable, Dict, List, Optional, Sequence, Tuple, Union
 
@@ -83,13 +82,15 @@ class GA:
                                   'num_generations': 100,
                                   'num_genes': 12,
                                   'mutation_probability': 0.2,
-                                  'initial_prob_joint': .5,
                                   'num_parents_mating': 5,
                                   'keep_parents': 4,
                                   'keep_elitism': 5,
                                   }
 
-    def __init__(self, db: Union[str, ModulesDB]):
+    def __init__(self,
+                 db: Union[str, ModulesDB],
+                 mutation_weights: Optional[Dict[str, float]] = None,
+                 rng: Optional[np.random.Generator] = None):
         """
         Initialize the GA optimizer by performing necessary pre-computations once a DB is provided.
 
@@ -99,11 +100,18 @@ class GA:
         :param db: Either the name of a ModulesDB or a ModulesDB instance that will be used for the GA. The operators
             for the genetic optimization expect each module to have exactly two connectors -- if the DB contains any
             modules with more or less connectors, this method will raise an error.
+        :param mutation_weights: Maps a module ID or the `EMPTY` ID to a weight that determines how likely it is to be
+            chosen as a replacement during mutation. If None, all modules have the same weight.
+        :param rng: A numpy random number generator. If None, a new one will be created.
         """
         if isinstance(db, str):
             self.db: ModulesDB = ModulesDB.from_name(db)
         elif isinstance(db, ModulesDB):
             self.db: ModulesDB = db
+
+        if rng is None:
+            rng = np.random.default_rng()
+        self.rng: np.random.Generator = rng
 
         if not all(len(m.available_connectors) == 2 for m in self.db):
             raise ValueError('The GA optimizer only works for modules with exactly two connectors!')
@@ -149,6 +157,13 @@ class GA:
             for option in TIMOR_CONFIG.options('OPTIMIZERS.GA'):
                 self.hp[option] = TIMOR_CONFIG.get('OPTIMIZERS.GA', option)
         logging.debug(f"Class default Hyperparameters: {json.dumps(self.hp)}")
+
+        if mutation_weights is None:
+            mutation_weights = dict.fromkeys(self.all_modules, 1.)
+        if not set(self.all_modules).issubset(set(mutation_weights.keys())):
+            missing = set(self.all_modules).difference(set(mutation_weights.keys()))
+            raise ValueError(f"Modules {missing} are not covered by the mutation weights!")
+        self.mutation_weights: Dict[str, float] = mutation_weights
 
         self._last_ga_instance: Optional[pygad.GA] = None
 
@@ -258,20 +273,21 @@ class GA:
         :param population: The offspring to be mutated.
         :param ga_instance: The instance of pygad.GA class.
         """
-        mutate = np.where(np.random.random(population.shape) < ga_instance.mutation_probability)
+        mutate = np.where(self.rng.random(population.shape) < ga_instance.mutation_probability)
         offspring = population.copy()
-        for (i, j) in zip(*mutate):  # i is the individual, j is the gene
-            gene_initial_id = self.all_modules[offspring[i, j]]
+        for (individual, gene) in zip(*mutate):
+            gene_initial_id = self.all_modules[offspring[individual, gene]]
             replacement_candidates = self.same_connector_cache[gene_initial_id].copy()
             # Check if gene is at the start or end of chromosome. We will never replace base and eef with empty module.
-            if j != 0 and j != offspring.shape[1] - 1:
+            if gene not in {0, offspring.shape[1] - 1}:
                 replacement_candidates.append(self.__empty_slot)
-            valid_gene_found = False
-            while not valid_gene_found:
-                gene_new_id = np.random.choice(replacement_candidates)
-                offspring[i, j] = self.id2num[gene_new_id]
-                if self.check_individual(offspring[i]):
-                    valid_gene_found = True
+            weights = np.array([self.mutation_weights[c] for c in replacement_candidates])
+            p_mutation = weights / weights.sum()
+            while True:
+                gene_new_id = self.rng.choice(replacement_candidates, p=p_mutation)
+                offspring[individual, gene] = self.id2num[gene_new_id]
+                if self.check_individual(offspring[individual]):
+                    break
         return offspring
 
     def optimize(self,
@@ -346,9 +362,9 @@ class GA:
             self.fitness_cache[module_ids] = fitness_value
             return fitness_value
 
-        initial_population = self._get_initial_population((int(run_hp.pop('population_size')),
-                                                           int(run_hp['num_genes'])),
-                                                          float(run_hp.pop('initial_prob_joint')))
+        initial_population = self._get_initial_population(
+            population_size=(int(run_hp.pop('population_size')), int(run_hp['num_genes'])),
+            module_weights=run_hp.pop('initial_module_weights', None))
 
         if 'logger' not in ga_kwargs:
             ga_kwargs['logger'] = logging.getLogger()
@@ -477,7 +493,7 @@ class GA:
         offsprings = []
         split_positions = np.array(range(offspring_size[1]))
 
-        for p1, p2, s in randomly(itertools.product(parents, parents, split_positions)):
+        for p1, p2, s in randomly(itertools.product(parents, parents, split_positions), rng=self.rng):
             child = np.concatenate((p1[:s], p2[s:]))
             if self.check_individual(child):
                 offsprings.append(child)
@@ -545,7 +561,7 @@ class GA:
 
     def _get_initial_population(self,
                                 population_size: Tuple[int, int],
-                                prob_joint: float = None
+                                module_weights: Optional[Dict[str, float]] = None
                                 ) -> np.ndarray:
         """
         Generates the initial population for the genetic algorithm.
@@ -556,48 +572,67 @@ class GA:
         between are links and joints. The length of the chromosome equals to the gene_len.
 
         :param population_size: The size of the initial population as a tuple of (num_offsprings, num_genes).
-        :param prob_joint: The probability of a joint being selected as a gene.
+        :param module_weights: A dictionary, mapping each module ID in the database to be optimized to a
+            weight that determines how likely it is to be chosen as a replacement during mutation.
         """
-        if prob_joint is None:
-            prob_joint = self.hp_default['initial_prob_joint']
+        module_weights = module_weights if module_weights is not None else dict.fromkeys(self.all_modules, 1.)
+        if not set(self.all_modules).issubset(set(module_weights.keys())):
+            missing = set(self.all_modules).difference(set(module_weights.keys()))
+            raise ValueError(f"Modules {missing} are not covered by the mutation weights!")
+
+        p_bases = np.array([module_weights[_id] for _id in self.base_ids])
+        p_eef = np.array([module_weights[_id] for _id in self.eef_ids])
+        p_bases = p_bases / p_bases.sum()
+        p_eef = p_eef / p_eef.sum()
+
         initial_population = []
         for _ in range(population_size[0]):
-            base = self.db.by_id[random.choice(self.base_ids)]
-            eef = self.db.by_id[random.choice(self.eef_ids)]
+            base = self.db.by_id[self.rng.choice(self.base_ids, p=p_bases)]
+            eef = self.db.by_id[self.rng.choice(self.eef_ids, p=p_eef)]
             path = nx.shortest_path(self.G, base, eef)
             while len(path) < population_size[1]:
                 # return edge connecting the two modules in the randomly selected location
-                loc = random.randint(0, len(path) - 2)
-                if path[loc] is path[loc + 1]:
-                    num_edges = self.G.number_of_edges(path[loc], path[loc + 1])
-                    rand_edge = random.randint(0, num_edges - 1)
-                    shortest_path = [[(path[loc], path[loc + 1], rand_edge)]]
+                if len(path) == 2:
+                    loc = 0  # Numpy rng.integers() does not support high=0
                 else:
-                    shortest_path = list(nx.all_simple_edge_paths(self.G, path[loc], path[loc + 1], cutoff=1))
+                    loc = self.rng.integers(low=0, high=len(path) - 2)
+                if path[loc] == self.__empty_slot:
+                    continue
+                loc_next = loc + 1
+                while path[loc_next] == self.__empty_slot:
+                    loc_next = loc_next + 1
+                if path[loc] is path[loc_next]:
+                    num_edges = self.G.number_of_edges(path[loc], path[loc_next])
+                    rand_edge = self.rng.integers(0, num_edges - 1)
+                    shortest_path = [[(path[loc], path[loc_next], rand_edge)]]
+                else:
+                    shortest_path = list(nx.all_simple_edge_paths(self.G, path[loc], path[loc_next], cutoff=1))
+
                 connector_parent = self.G.edges[shortest_path[0][0]]['connectors'][0]
                 connector_child = self.G.edges[shortest_path[0][0]]['connectors'][1]
-                neighbors_parent = set(self.G.neighbors(path[0]))
-                neighbors_child = set(self.G.neighbors(path[1]))
+                neighbors_parent = set(self.G.neighbors(path[loc]))
+                neighbors_child = set(self.G.neighbors(path[loc_next]))
                 shared = [m for m in neighbors_parent.intersection(neighbors_child)
                           if not any(con.type in {'base', 'eef'} for con in m.available_connectors.values())]
-                random.shuffle(shared)
-                try_choose_joint = random.random() < prob_joint
-                if try_choose_joint:
-                    _shared = {m for m in shared if m.num_joints > 0}
-                    shared = randomly(_shared) if len(_shared) > 0 else shared
-                else:
-                    _shared = {m for m in shared if m.num_joints == 0}
-                    shared = _shared if len(_shared) > 0 else shared
-                for m in shared:
+                if connector_child.connects(connector_parent):
+                    shared.append(self.__empty_slot)
+                weights = np.array([module_weights[m if m == self.__empty_slot else m.id] for m in shared])
+                p_draw = weights / weights.sum()
+                shared = np.array(shared)[p_draw > 0]
+                draw = self.rng.choice(shared, size=len(shared), replace=False, p=p_draw[p_draw > 0], shuffle=False)
+                for m in draw:
+                    if m == self.__empty_slot:
+                        path.insert(loc_next, self.__empty_slot)
+                        break
                     c_x1 = list(m.available_connectors.values())[0]
                     c_x2 = list(m.available_connectors.values())[1]
                     # check if the two connectors are compatible
                     if (connector_parent.connects(c_x2) and connector_child.connects(c_x1)) \
                             or (connector_parent.connects(c_x1) and connector_child.connects(c_x2)):
-                        path.insert(1, m)
+                        path.insert(loc_next, m)
                         break
             for i in range(len(path)):
-                path[i] = self.id2num[path[i].id]
+                path[i] = self.id2num[path[i].id if path[i] != self.__empty_slot else self.__empty_slot]
             initial_population.append(path)
 
         return np.array(initial_population)
