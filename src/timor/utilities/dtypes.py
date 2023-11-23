@@ -542,14 +542,19 @@ def possibly_nest_as_list(value: any, tuple_ok: bool = True):
     return value
 
 
-def randomly(seq: Collection) -> Iterable:
+def randomly(col: Collection, rng: Optional[np.random.Generator] = None) -> Iterable:
     """
-    Returns a random iterator over seq.
+    Returns a random iterator over col.
 
     :source: https://stackoverflow.com/questions/9252373/random-iteration-in-python
+    :param col: A collection to iterate over
+    :param rng: A random number generator to use. If None, the python builtin random module is used.
     """
-    shuffled = list(seq)
-    random.shuffle(shuffled)
+    shuffled = list(col)
+    if rng is None:
+        random.shuffle(shuffled)
+    else:
+        rng.shuffle(shuffled)
     return iter(shuffled)
 
 
