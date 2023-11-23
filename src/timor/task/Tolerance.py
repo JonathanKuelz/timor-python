@@ -11,6 +11,7 @@ from warnings import warn
 import meshcat
 import numpy as np
 from pinocchio.visualize import MeshcatVisualizer
+from scipy.spatial.transform import Rotation as scipy_rotation
 
 from timor import Volume as TimorVolume
 from timor.utilities import spatial
@@ -62,12 +63,12 @@ class ToleranceBase(abc.ABC):
         elif projection == 'phi_sph':
             return CartesianSpheric(r=[0, np.inf], phi_sph=values, frame=frame)
         elif re.match('N_[xyz]', projection):
-            default = {'n_x': [-1, 1], 'n_y': [-1, 1], 'n_z': [-1, 1], 'theta_r': [-np.pi, np.pi]}
+            default = {'n_x': [-np.pi, np.pi], 'n_y': [-np.pi, np.pi], 'n_z': [-np.pi, np.pi]}
             arg = default.copy()
             arg.update({projection.lower(): values})
-            return RotationAxisAngle(**arg, frame=frame)
+            return RotationAxis(**arg, frame=frame)
         elif projection == 'Theta_R':
-            return RotationAxisAngle.max_abs_rotation(values, frame=frame)
+            return RotationAbsolute(values, frame=frame)
         else:
             raise NotImplementedError(f"Projection {projection} not implemented")
 
@@ -319,8 +320,12 @@ class Spatial(ToleranceBase, abc.ABC):
         """Sanity checks"""
         if not all(tol.shape == (2,) for tol in args):
             raise ValueError("Tolerances need to define an interval.")
-        if not all(tol[0] <= tol[1] for tol in args):
+        if any(tol[0] > tol[1] for tol in args):
             raise ValueError("Your lower bounds seem to be larger than the upper bounds.")
+        if any(tol[0] < self._max_possible[i, 0] for i, tol in enumerate(args)):
+            raise ValueError("Your lower bounds seem to be smaller than the minimum possible.")
+        if any(tol[1] > self._max_possible[i, 1] for i, tol in enumerate(args)):
+            raise ValueError("Your upper bounds seem to be larger than the maximum possible.")
 
         self._frame = frame
 
@@ -641,131 +646,137 @@ class CartesianSpheric(Cartesian):
 
 
 class Rotation(Spatial, abc.ABC):
-    """Rotation tolerances based on projections of a 4x4 placement - implements projections."""
+    """Rotation tolerances based on projections of a 4x4 transformation - implements projections."""
 
     _visual_material = meshcat.geometry.PointsMaterial()
 
-    def __init__(self,
-                 a: Union[List[float], Tuple[float, float], np.ndarray],
-                 b: Union[List[float], Tuple[float, float], np.ndarray],
-                 c: Union[List[float], Tuple[float, float], np.ndarray],
-                 d: Union[List[float], Tuple[float, float], np.ndarray],
-                 frame: Frame = NOMINAL_FRAME):
-        """In general, four values suffice to define a rotation tolerance
+    def __init__(self, frame: Frame = NOMINAL_FRAME, *args):
+        """This class does not provide much functionality on its own, but it's useful to have a rotation super-class."""
+        super().__init__(frame, *args)
 
-        :param a: Lower and upper tolerance for the value for the first projection dimension of the rotation.
-        :param b: Lower and upper tolerance for the value for the second projection dimension of the rotation.
-        :param c: Lower and upper tolerance for the value for the third projection dimension of the rotation.
-        :param d: Lower and upper tolerance for the value for the fourth projection dimension of the rotation.
+
+class RotationAbsolute(Rotation):
+    r"""
+    Constrains the norm of all valid rotations in axis-angles (defines the maximum allowed absolute rotation).
+
+    Any rotation can be expressed by exactly one axis and one angle. This tolerance class constrains the angle,
+    irrespective of the axis. In the space of 3D-axis angle rotations $R \in \mathbb{R}^3$, this tolerance defines a
+    sphere of radius theta around the origin. All rotations with an axis-angle representation within this sphere are
+    valid.
+    :ref: https://en.wikipedia.org/wiki/Axis%E2%80%93angle_representation
+    """
+
+    _max_possible = np.array([[0, np.pi]])
+
+    def __init__(self, theta: Union[np.ndarray, float], frame: Frame = NOMINAL_FRAME):
+        """Defines a maximum absolute rotation tolerance.
+
+        :param theta: The maximum allowed absolute rotation in radians. Theoretically, one could define this tolerance
+            with a lower/upper limit structure to also define a minimum rotation needed. This is barely useful though,
+            so other than the other tolerances, this one is defined by a single value.
         """
-        a, b, c, d = map(np.squeeze, map(np.asarray, (a, b, c, d)))
-        super().__init__(frame, a, b, c, d)
-        self._a, self._b, self._c, self._d = a, b, c, d
+        if isinstance(theta, (int, float)):
+            theta = np.array([0, theta])  # We enforce the lower bound to be 0
+        else:
+            theta = np.asarray(theta).reshape((2,))
+        super().__init__(frame, theta)
+        self._theta: np.ndarray = theta.reshape((1, 2))  # Store theta as "stacked parameters"
+
+    @classmethod
+    def default(cls):
+        """Default absolute rotation tolerance, allows a deviation of at most 1/2 degree."""
+        return cls((np.pi / 180) / 2)
+
+    def _projection(self, nominal: Transformation) -> np.ndarray:
+        """We project any transformation to its axis angle."""
+        return np.array([nominal.projection.axis_angles[-1]])
+
+    def _inv_projection(self, projected: np.ndarray) -> Transformation:
+        """The projection is not injective, so we this inverse is not a true inverse but includes randomness."""
+        random_axis = np.random.random(3)
+        random_axis /= np.linalg.norm(random_axis)
+        return Transformation.from_rotation(spatial.axis_angle2rot_mat(np.concatenate((random_axis, [projected[0]]))))
+
+    @property
+    def _pose_projection_data(self) -> Dict[str, Union[Tuple[str], np.ndarray]]:
+        return {
+            'toleranceProjection': ('Theta_R',),
+            'tolerance': self.stacked
+        }
 
     @property
     def stacked(self) -> np.ndarray:
-        """Stacks all tolerances into a single array."""
-        return np.vstack((self._a, self._b, self._c, self._d))
-
-    def __eq__(self, other):
-        """Two rotation tolerances are equal if they have the same tolerance values"""
-        if type(other) is not type(self):
-            return NotImplemented
-        return (self.stacked == other.stacked).all()
-
-    def __hash__(self):
-        """The class is defined by the tolerance bounds that can be hashed"""
-        return sum(hash(tol) for tol in self.stacked.flat)
+        """Just theta"""
+        return self._theta
 
 
-class RotationAxisAngle(Rotation):
-    """Tolerance on rotations defined in thee axis-angle representation.
+class RotationAxis(Rotation):
+    r"""
+    Constrains the maximum rotation around an interval of user-defined axes.
 
-    https://en.wikipedia.org/wiki/Axis%E2%80%93angle_representation
+    Any rotation can be expressed by exactly one axis and one angle. This tolerance class constrains the dot direction
+    and extend of a relative rotation between an intended and a real orientation. In the space of 3D-axis angle
+    rotations $R \in \mathbb{R}^3$, this tolerance defines a hyper-rectangle centered in the origin.
+    All rotations with an axis-angle representation within this rectangle are valid.
+    :ref: https://en.wikipedia.org/wiki/Axis%E2%80%93angle_representation
     """
 
-    _max_possible = np.array([[-1, 1], [-1, 1], [-1, 1], [-np.pi, np.pi]])
+    _max_possible = np.array([[-np.pi, np.pi], [-np.pi, np.pi], [-np.pi, np.pi]])
 
     def __init__(self,
                  n_x: Union[List[float], Tuple[float, float], np.ndarray],
                  n_y: Union[List[float], Tuple[float, float], np.ndarray],
                  n_z: Union[List[float], Tuple[float, float], np.ndarray],
-                 theta_r: Union[List[float], Tuple[float, float], np.ndarray],
                  frame: Frame = NOMINAL_FRAME):
-        """The axis angle tolerance is defined by four parameters:
+        r"""
+        Defines the interval of allowed axis angle rotations.
 
-        :param n_x: Lower and upper tolerance for the x-part of the unit rotation axis.
-        :param n_y: Lower and upper tolerance for the y-part of the unit rotation axis.
-        :param n_z: Lower and upper tolerance for the z-part of the unit rotation axis.
-        :param theta_r: Lower and upper tolerance for the total rotation in the interval [-pi, pi]. Having theta in the
-            interval [0, pi] is sufficient to define every single rotation - however, enforcing it makes it hard to
-            define tolerances around theta=0, so we allow negative thetas which leaves us with multiple possible
-            solutions to define a desired rotation tolerance.
+        If the relative rotation between desired and real pose is represented by the axis-angle representation
+        :math:`v = a_x, a_y, a_z`, where :math:`\norm{v} = \theta` is the angle of rotation, then this tolerance
+        constrains the scaled elements of :math:`v` to be within the given intervals.
+
+        The axis angle tolerance is defined by three parameters:
+
+        :param n_x: Lower and upper tolerance for the x-part of the scaled rotation axis.
+        :param n_y: Lower and upper tolerance for the y-part of the scaled rotation axis.
+        :param n_z: Lower and upper tolerance for the z-part of the scaled rotation axis.
         """
-        n_x, n_y, n_z, theta_r = map(np.asarray, (n_x, n_y, n_z, theta_r))
-        mask = abs(theta_r) != np.pi
-        theta_r[mask] = ((theta_r + np.pi) % (2 * np.pi) - np.pi)[mask]  # Ensure theta_r is in [-pi, pi]
-        if theta_r[0] < 0 and theta_r[1] < 0:
-            logging.warning("RotationAxis Tolerances that can be defined using positive theta only should do so.")
-        for tolerance in itertools.chain(n_x, n_y, n_z):
-            if abs(tolerance) > 1:
-                raise ValueError("Cannot interpret a unit vector element tolerance larger than 1.")
-        super().__init__(n_x, n_y, n_z, theta_r, frame)
-
-    @classmethod
-    def default(cls):
-        """Default rotation tolerance:
-
-        The default tolerance is only on theta_r, leading to a maximum tolerance deviation around an
-        arbitrary axis.
-        """
-        half_degree = (np.pi / 180) / 2  # Total tolerance of one degree, 1/2 of a degree in both directions
-        return cls.max_abs_rotation(np.array([-half_degree, half_degree]))
-
-    @classmethod
-    def max_abs_rotation(cls, theta_r: np.ndarray, frame: Frame = NOMINAL_FRAME) -> 'RotationAxisAngle':
-        """A utility method to easily create a tolerance on theta_r and an arbitrary axis."""
-        return cls((-1, 1), (-1, 1), (-1, 1), theta_r, frame)
-
-    def valid(self, desired: TransformationLike, real: TransformationLike) -> bool:
-        """
-        Override the default valid check to prevent bugs due to rounding and negative theta_r:
-
-        As long as theta ~=0, the rotation axis is not reliable and therefore not evaluated.
-        The calculated diff will always have a positive theta_r - however, this class allows setting it negative aswell,
-        so in case theta is negative, we need to check if diff is valid if written as R(-n, -theta), which is the same
-        rotation.
-        """
-        desired, real = map(Transformation, (desired, real))
-        delta = desired.inv @ real
-        delta_in_frame = self._frame.rotate_to_this_frame(delta, desired)
-        diff = self._projection(delta_in_frame).round(16)  # Tries to prevent precision errors close to 0
-        if np.isclose(diff[-1], 0, rtol=0, atol=self._rounding_error):
-            # theta_r is almost 0, so the axis is not reliable, and we only check if theta=0 is valid after all
-            return self.stacked[-1, 0] <= .0 <= self.stacked[-1, 1]
-        valid = (all(self.stacked[:, 0] - self._rounding_error <= diff)
-                 and all(self.stacked[:, 1] + self._rounding_error >= diff))
-        if not valid and self.stacked[-1, 0] < 0:  # Lower bound for theta_r is negative
-            diff = -diff  # R(n, theta) = R(-n, -theta)
-            valid = (all(self.stacked[:, 0] - self._rounding_error <= diff)
-                     and all(self.stacked[:, 1] + self._rounding_error >= diff))
-        return valid
+        n_x, n_y, n_z = map(np.asarray, (n_x, n_y, n_z))
+        super().__init__(frame, n_x, n_y, n_z)
+        self._n_x: np.ndarray = n_x
+        self._n_y: np.ndarray = n_y
+        self._n_z: np.ndarray = n_z
 
     def _projection(self, nominal: Transformation) -> np.ndarray:
         """4x1 axis-angle representation."""
-        projection = nominal.projection.axis_angles
+        projection = nominal.projection.axis_angles3
         return projection
 
     def _inv_projection(self, projected: np.ndarray) -> Transformation:
         """4x1 axis-angle representation -> placement."""
-        return Transformation.from_rotation(spatial.axis_angle2rot_mat(projected))
+        return Transformation.from_rotation(scipy_rotation.from_rotvec(projected).as_matrix())
+
+    @classmethod
+    def default(cls):
+        """
+        Default axis-angle tolerance, allows a deviation of at most 1/2 degree around each axis.
+
+        Note that, opposed to RotationAbsolute, this tolerance can lead to rotations larger than the half degree around
+        an axis, as long as neither of the individual rotation around x, y, z-axis exceeds the threshold.
+        """
+        return cls(*[[-(np.pi / 180) / 2, (np.pi / 180) / 2]] * 3)
 
     @property
     def _pose_projection_data(self) -> Dict[str, Union[Tuple[str], np.ndarray]]:
         return {
-            'toleranceProjection': ('N_x', 'N_y', 'N_z', 'Theta_R'),
+            'toleranceProjection': ('N_x', 'N_y', 'N_z'),
             'tolerance': self.stacked
         }
+
+    @property
+    def stacked(self) -> np.ndarray:
+        """Lower and upper bounds for axis angles."""
+        return np.vstack((self._n_x, self._n_y, self._n_z))
 
 
 class Abs6dPoseTolerance(ToleranceBase):
@@ -871,4 +882,4 @@ class VectorDistance(ToleranceBase):
         return hash((self.order, self.tolerance))
 
 
-DEFAULT_SPATIAL = Composed((CartesianXYZ.default(), RotationAxisAngle.default()))
+DEFAULT_SPATIAL = Composed((CartesianXYZ.default(), RotationAbsolute.default()))

@@ -167,7 +167,7 @@ class TestSolution(unittest.TestCase):
         # Set up a couple of realistic constraints
         constraint_joints = Constraints.JointAngles(self.robot.joint_limits)
         pos_tolerance = Tolerance.CartesianXYZ(*[[-.1, .1]] * 3)
-        rot_tolerance = Tolerance.RotationAxisAngle.default()
+        rot_tolerance = Tolerance.RotationAbsolute.default()
         base_tolerance = pos_tolerance + rot_tolerance
         constraint_base = Constraints.BasePlacement(ToleratedPose(WORLD_FRAME, base_tolerance))
         all_goals = Constraints.AllGoalsFulfilled()
@@ -431,9 +431,9 @@ class TestSolution(unittest.TestCase):
             robot.update_configuration(q1)
             viz = task.visualize(viz, robots=robot, center_view=False)  # Should have view centered on origin
             clear_visualizer(viz)
-            viz = task.visualize(viz, robots=robot, center_view=True)  # Should have view including more of the robot
+            viz = task.visualize(viz, robots=robot, center_view=True)  # Should have a view including more of the robot
             clear_visualizer(viz)
-            viz = task.visualize(viz, center_view=True)  # Should have view including base constraint, e.g. PTP_1
+            viz = task.visualize(viz, center_view=True)  # Should have a view including base constraint, e.g. PTP_1
             clear_visualizer(viz)
             robot.update_configuration(q2)
             self.assertIs(robot.data, viz.data)
