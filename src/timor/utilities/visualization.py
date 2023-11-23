@@ -18,7 +18,7 @@ from timor import ModuleAssembly
 from timor.utilities import logging, module_classification, spatial, transformation
 from timor.utilities.dtypes import timeout
 from timor.utilities.file_locations import map2path
-from timor.utilities.transformation import Transformation
+from timor.utilities.transformation import Transformation, TransformationConvertable
 
 DEFAULT_COLOR_MAP = {  # Type enumeration from module_classification - import not possibility (circular import)
     module_classification.ModuleType.BASE: np.array([165 / 255, 165 / 255, 165 / 255, 1.]),
@@ -190,6 +190,7 @@ def clear_visualizer(visualizer: MeshcatVisualizer):
     visualizer.viewer.window.send(meshcat.commands.Delete('visuals'))
     visualizer.viewer.window.send(meshcat.commands.Delete('collisions'))
     visualizer.viewer.window.send(meshcat.commands.Delete('meshcat'))
+    visualizer.viewer.window.send(meshcat.commands.Delete('<object>'))
     center_camera(visualizer, [1.5, 0, 0])
 
 
@@ -360,7 +361,7 @@ def save_visualizer_screenshot(viz: MeshcatVisualizer,
         img.save(str(filename))
 
 
-def place_billboard(viz: MeshcatVisualizer, text: str, name: str, placement: Transformation,
+def place_billboard(viz: MeshcatVisualizer, text: str, name: str, placement: TransformationConvertable,
                     text_color: str = 'black', background_color: str = 'transparent', scale: float = 1.,
                     base_width: int = 100, font_size: int = 32, super_sample: float = 4.):
     """
@@ -404,7 +405,7 @@ def place_billboard(viz: MeshcatVisualizer, text: str, name: str, placement: Tra
                                                  text_color=text_color,
                                                  background_color=background_color)
     viz.viewer[name].set_object(text_geom)
-    viz.viewer[name].set_transform(placement.homogeneous)
+    viz.viewer[name].set_transform(Transformation(placement).homogeneous)
 
 
 def plot_time_series(times: Sequence[float], data: Sequence[Tuple[np.ndarray, str]],
