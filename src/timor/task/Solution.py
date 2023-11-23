@@ -338,6 +338,10 @@ class SolutionBase(abc.ABC, JSONable_mixin):
         """State of solution contains json-able part and the associated task object."""
         return self.to_json_data(), {self.header.taskID: self.task}
 
+    def __repr__(self):
+        """Debug representation of a solution."""
+        return f"Solution to {self.task.id} ({super().__repr__()})"
+
     def __setstate__(self, state):
         """To recreate solution use the state Tuple including the solution json and associated task object."""
         cpy = self.__class__.from_json_data(*state)

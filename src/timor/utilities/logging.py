@@ -17,6 +17,7 @@ ERROR = root_logging.ERROR
 WARNING = root_logging.WARNING
 INFO = root_logging.INFO
 DEBUG = root_logging.DEBUG
+VERBOSE_DEBUG = 5
 NOTSET = root_logging.NOTSET
 
 
@@ -115,6 +116,13 @@ def debug(msg, *args, **kwargs):
     Log a message with severity 'DEBUG'.
     """
     getLogger().debug(msg, *args, **kwargs)
+
+
+def verbose_debug(msg, *args, **kwargs):
+    """
+    Log a message with severity 'VERBOSE_DEBUG', i.e., very low.
+    """
+    getLogger().log(VERBOSE_DEBUG, msg, *args, **kwargs)
 
 
 """
