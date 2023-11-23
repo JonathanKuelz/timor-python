@@ -297,7 +297,7 @@ class Task(JSONable_mixin):
                   show_obstacle: bool = True,
                   show_goals: bool = True,
                   show_constraints: bool = True,
-                  show_frames: bool = True,
+                  show_frames: bool = False,
                   show_names: bool = False,
                   center_view: bool = True
                   ) -> pin.visualize.MeshcatVisualizer:
@@ -390,6 +390,10 @@ class Task(JSONable_mixin):
     def __hash__(self):
         """Hash is given by the unique ID."""
         return hash(self.id)
+
+    def __repr__(self):
+        """Debug representation of a task."""
+        return f"Task {self.id} ({super().__repr__()})"
 
     def __setstate__(self, state):
         """Take object from parameter and use it to retrieve class state."""

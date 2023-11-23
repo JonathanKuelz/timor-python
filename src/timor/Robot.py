@@ -402,16 +402,16 @@ class RobotBase(abc.ABC):
 
             if success:
                 if outer_callback(q) is CallbackReturn.TRUE:
-                    logging.debug("IK successfully converged.")
+                    logging.verbose_debug("IK successfully converged.")
                     break
-                logging.debug("IK converged, but constraints are not satisfied. Restarting if possible.")
+                logging.verbose_debug("IK converged, but constraints are not satisfied. Restarting if possible.")
                 success = False
             elif outer_callback(q) is CallbackReturn.BREAK:
-                logging.debug("IK was interrupted by a callback.")
+                logging.verbose_debug("IK was interrupted by a callback.")
                 break
 
             if not allow_random_restart:
-                logging.debug("IK failed to converge and random restarts are disabled.")
+                logging.verbose_debug("IK failed to converge and random restarts are disabled.")
                 break
 
             q_new = self.random_configuration()
@@ -424,7 +424,7 @@ class RobotBase(abc.ABC):
                 raise RuntimeError("Running the inner IK did not reduce the number of iterations left. Danger of"
                                    "infinite recursion")
             max_iter = info.max_iter
-            logging.debug("Restarting IK with new initial configuration and {} iterations left".format(max_iter))
+            logging.verbose_debug(f"Restarting IK with new initial configuration and {max_iter} iterations left")
 
         if not success:
             logging.info("IK failed to converge.")
@@ -526,7 +526,7 @@ class RobotBase(abc.ABC):
         # sol.success gives information about successful termination, but we are not interested in that
         success = eef_pose.valid(self.fk(q_sol)) and callback(q_sol) is CallbackReturn.TRUE
 
-        logging.debug("Scipy IK ends with message: %s", sol.message)
+        logging.verbose_debug("Scipy IK ends with message: %s", sol.message)
         return q_sol, success
 
     def random_configuration(self, rng: Optional[np.random.Generator] = None) -> np.ndarray:
@@ -1015,7 +1015,7 @@ class PinRobot(RobotBase):
                     J_inv = inv(J)  # Analytical Jacobian "pseudo inverse" (or transpose)
                     q_dot = J_inv.dot(gain).dot(error_twist)
             except (np.linalg.LinAlgError, SystemError):
-                logging.debug(f"Jacobian ik break due to singularity after {i} iter for q={q}. Trying again.")
+                logging.verbose_debug(f"Jacobian ik break due to singularity after {i} iter for q={q}. Trying again.")
                 break
             q_dot = q_dot * info.joint_mask
             q = pin.integrate(self.model, q, q_dot)
@@ -1026,20 +1026,21 @@ class PinRobot(RobotBase):
             q[rot_joint_mask] = q[rot_joint_mask] % (2 * np.pi) - sign_preserve[rot_joint_mask]
 
             if np.any(np.logical_or(np.isnan(q), np.isinf(q))):
-                logging.debug(f"Jacobian ik break due to bad q: {q} after {i} iter. Trying again.")
+                logging.verbose_debug(f"Jacobian ik break due to bad q: {q} after {i} iter. Trying again.")
                 break
 
             cb_ret = callback(q)
             if cb_ret is CallbackReturn.BREAK:
-                logging.debug(f"Jacobian ik break due to callback after {i} iter for q={q}.")
+                logging.verbose_debug(f"Jacobian ik break due to callback after {i} iter for q={q}.")
                 break
 
             if cb_ret is CallbackReturn.FALSE:
-                logging.debug(f"Jacobian ik continues due to callback after {i} iter for q={q} returning false.")
+                logging.verbose_debug(
+                    f"Jacobian ik continues due to callback after {i} iter for q={q} returning false.")
                 continue
 
             if eef_pose.valid(self.fk(q)):
-                logging.debug(f"Jacobian ik terminated successfully after {i} iter for q={q}.")
+                logging.verbose_debug(f"Jacobian ik terminated successfully after {i} iter for q={q}.")
                 info.intermediate_result.q = q  # A new successful result is always considered the best result
                 success = True
                 break
@@ -1049,7 +1050,7 @@ class PinRobot(RobotBase):
                 info.intermediate_result.q = q
                 info.intermediate_result.cost = cost
         else:
-            logging.debug(f"Jacobian ik not successful due to reaching the maximum number of iterations {i}")
+            logging.verbose_debug(f"Jacobian ik not successful due to reaching the maximum number of iterations {i}")
 
         info.max_iter -= (i + 1)  # We start with an initial guess already
         return info.intermediate_result.q, success
