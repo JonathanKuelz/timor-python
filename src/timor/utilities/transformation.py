@@ -143,7 +143,7 @@ class Transformation(JSONable_mixin):
             new[:3, 3] = transformation.getTranslation()
             transformation = new
         elif isinstance(transformation, Frame):
-            transformation = transformation.in_world_coordinates()
+            transformation = transformation.in_world_coordinates().homogeneous
         try:
             transformation = np.asarray(transformation, dtype=float)
         except ValueError:  # Multiple transformations cannot be packed in one np array
