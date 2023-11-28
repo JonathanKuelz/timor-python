@@ -58,7 +58,9 @@ class ToleratedPose(JSONable_mixin):
         nominal = d['nominal']
         nominal_parent = d.get('nominalParent', 'world')
         frame_name = kwargs.get('frameName', None)
-        frames: FrameTree = kwargs['frames']
+        if 'frames' not in kwargs and nominal_parent != 'world':
+            raise ValueError("If the nominal parent is not 'world', a FrameTree must be provided.")
+        frames: FrameTree = kwargs.get('frames', FrameTree.empty())
         if kwargs.get('annonymousFrame', False):
             nominal = Frame("", nominal, parent=frames[nominal_parent])
         else:

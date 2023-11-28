@@ -223,6 +223,21 @@ class SerializationTests(unittest.TestCase):
         self.constraints = [goal_order, joint_constraints, base_placement, collision, eef_constraint_pose,
                             eef_constraint_v, eef_constraint_all, Constraints.AlwaysTrueConstraint()]
 
+    def test_transformation(self):
+        """Tests if all transformations can be serialized and deserialized"""
+        for _ in range(10):
+            t = Transformation.random()
+            self.assertEqual(t, Transformation.from_json_data(t.to_json_data()))
+            self.assertEqual(t, pickle.loads(pickle.dumps(t)))
+            self.assertEqual(t, deepcopy(t))
+
+    def test_tolerated_pose(self):
+        for _ in range(10):
+            t = ToleratedPose(Frame("test", Transformation.random(), WORLD_FRAME))
+            self.assertEqual(t, ToleratedPose.from_json_data(t.to_json_data()))
+            self.assertEqual(t, pickle.loads(pickle.dumps(t)))
+            self.assertEqual(t, deepcopy(t))
+
     def test_modules_db_serialized(self):
         """Tests if all modules dbs can be serialized and deserialized"""
         for db_name in ('IMPROV', 'PROMODULAR', 'modrob-gen2'):
@@ -391,7 +406,8 @@ class SerializationTests(unittest.TestCase):
             # Also ensure 1-time readable Iterators are parsed
             from_string = Constraints.ConstraintBase.from_json_string(constraint.to_json_string(),
                                                                       frames=FrameTree.empty())
-            for n in (new, from_string):
+            deep_copy = deepcopy(constraint)  # Deepcopy works without frames if all relative to world
+            for n in (new, from_string, deep_copy):
                 self.assertIs(type(n), type(constraint))
                 for key in constraint.__dict__:
                     if isinstance(constraint.__dict__[key], np.ndarray):
