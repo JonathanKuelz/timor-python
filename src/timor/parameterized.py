@@ -927,10 +927,10 @@ class ParameterizedOrthogonalJoint(ParameterizableModule):
     @property
     def l2(self) -> float:
         """The length of the distal body."""
-        return self._length1
+        return self._length2
 
-    @l1.setter
-    def l1(self, value: float):
+    @l2.setter
+    def l2(self, value: float):
         """Sets the length of the distal body."""
         self.resize((self.radius, self.l1, value))
 
