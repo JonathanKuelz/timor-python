@@ -85,6 +85,24 @@ class TestTrajectoryClasses(unittest.TestCase):
         self.assertEqual(traj_with_lazy_dq, traj_with_lazy_dq + empty)
         self.assertEqual(traj_with_lazy_dq, empty + traj_with_lazy_dq)
 
+    def test_stationary(self):
+        """Test stationary trajectory."""
+        q = np.random.random((4,))
+        t_length = 1.
+        dt = 0.07
+        traj = Trajectory.stationary(t_length, q=q)
+        self.assertEqual(len(traj), 2)
+        traj_tight = Trajectory.stationary(t_length, q=q, sample_time=dt)
+        self.assertGreater(len(traj_tight), len(traj))
+        for t in (traj, traj_tight):
+            self.assertEqual(t.t[0], 0.)
+            self.assertGreaterEqual(t.t[-1], t_length)
+            self.assertGreaterEqual(t_length + dt, t.t[-1])
+            for idx in range(len(t)):
+                np_test.assert_array_equal(t.q[idx], q)
+                np_test.assert_array_equal(t.dq[idx], np.zeros_like(q))
+                np_test.assert_array_equal(t.ddq[idx], np.zeros_like(q))
+
     def test_untimed(self):
         """Based on issue #23."""
         arr = np.random.rand(100, 1)
