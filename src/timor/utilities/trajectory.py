@@ -158,27 +158,38 @@ class Trajectory(JSONable_mixin):
         return cls(t=traj.t, q=traj.q, goal2time={})
 
     @classmethod
-    def stationary(cls, time: float, *, q: np.array = None, pose: ToleratedPose = None) -> Trajectory:
+    def stationary(cls, time: float, *, q: np.array = None, pose: ToleratedPose = None,
+                   sample_time: Optional[float] = None) -> Trajectory:
         """
         Create a trajectory that stays in place for time seconds.
 
-        :param time: Time period to stay at this configuration.
+        :param time: Time period to stay at this configuration. If sample time is given will be rounded up to next
+          multiple of sample time.
         :param q: Configuration to stay in (mutually exclusive with pose).
         :param pose: Tolerated pose to stay in (mutually exclusive with configuration).
+        :param sample_time: If given, the time at which to sample the stationary trajectory; otherwise only 0 and time
+          are sampled.
         :return: The stationary trajectory, composed of two configurations / pose and a zero velocity / acceleration
         """
+        if sample_time is None:
+            sample_time = time
+        samples = np.ceil(time / sample_time).astype(int) + 1
+        if samples * sample_time < time:  # Handle rounding
+            samples += 1
+        assert samples * sample_time >= time, "Stationary trajectory should be at least as long as time"
+
         if (pose is None) == (q is None):
             raise ValueError("Either q or pose required")
-        t = np.asarray([0, time])
+        t = np.arange(samples) * sample_time
         if q is not None:
             if q.ndim > 1:
                 raise ValueError("Stationary trajectory expects a single q")
-            q = np.tile(q, (2, 1))
+            q = np.tile(q, (samples, 1))
             dq = np.zeros_like(q)
             ddq = np.zeros_like(q)
             return cls(t=t, q=q, dq=dq, ddq=ddq, goal2time={})
         else:
-            return cls(t=t, pose=np.asarray((pose, pose)))
+            return cls(t=t, pose=np.tile(pose, (samples, 1)))
 
     @property
     def dq(self) -> np.ndarray:
