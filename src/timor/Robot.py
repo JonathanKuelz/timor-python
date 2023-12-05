@@ -23,6 +23,7 @@ from timor.utilities import logging, spatial
 from timor.utilities.callbacks import CallbackReturn, IKCallback, chain_callbacks
 from timor.utilities.configurations import IK_RANDOM_CANDIDATES
 from timor.utilities.dtypes import IKMeta, IntermediateIkResult, float2array
+from timor.utilities.frames import WORLD_FRAME
 from timor.utilities.tolerated_pose import ToleratedPose
 from timor.utilities.transformation import Transformation, TransformationLike
 
@@ -303,6 +304,7 @@ class RobotBase(abc.ABC):
            outer_constraints: Optional[Iterable['Constraints.RobotConstraint']] = None,  # noqa: F821
            q_init: Optional[np.ndarray] = None,
            task: Optional['Task.Task'] = None,  # noqa: F821
+           convergence_threshold: float = 1e-8,
            **kwargs) -> Tuple[np.ndarray, bool]:
         """
         Try to find the joint angles q that minimize the error between TCP pose and the desired eef_pose.
@@ -335,6 +337,8 @@ class RobotBase(abc.ABC):
             ignored. The constraints are internally converted to callbacks that return false if the constraint is hurt.
         :param task: If a task is provided, any of the constraints defined in the task will be considered outer
             constraints.
+        :param convergence_threshold: A threshold for convergence: When the cost function stops improving by more than
+            this threshold, the IK will terminate even without finding a solution.
         :param q_init: The joint configuration to start with. If not given, it is up to the downstream method to
             determine a suitable initial configuration.
         :param kwargs: Any keyword arguments that are specific to the inner loop method.
@@ -398,6 +402,8 @@ class RobotBase(abc.ABC):
                              q_init=q_init,
                              info=info,
                              callbacks=inner_callbacks,
+                             convergence_threshold=convergence_threshold,
+                             ik_cost_function=ik_cost_function,
                              **kwargs)  # Execute the inner loop
 
             if success:
@@ -424,7 +430,8 @@ class RobotBase(abc.ABC):
                 raise RuntimeError("Running the inner IK did not reduce the number of iterations left. Danger of"
                                    "infinite recursion")
             max_iter = info.max_iter
-            logging.verbose_debug(f"Restarting IK with new initial configuration and {max_iter} iterations left")
+            if max_iter > 0:
+                logging.verbose_debug(f"Restarting IK with new initial configuration and {max_iter} iterations left.")
 
         if not success:
             logging.info("IK failed to converge.")
@@ -438,6 +445,7 @@ class RobotBase(abc.ABC):
                  q_init: Optional[np.ndarray] = None,
                  callbacks: Iterable[IKCallback] = (),
                  ik_cost_function: Callable[[RobotBase, np.ndarray, TransformationLike], float] = default_ik_cost_function,  # noqa: E501
+                 convergence_threshold: float = 1e-8,
                  scipy_kwargs: Optional[Dict] = None
                  ) -> Tuple[np.ndarray, bool]:
         """
@@ -455,6 +463,8 @@ class RobotBase(abc.ABC):
         :param ik_cost_function: A custom cost function that takes a robot, its joint angles, and a
             TransformationLike and returns a scalar cost indicating the quality of the configuration in solving the ik
             problem. If not given, the default cost function is used (equal weighting of .5 meter / 180 degree error).
+        :param convergence_threshold: Threshold for termination. Optimization terminates when two consecutive iterates
+            are improving the cost by less than this.
         :param scipy_kwargs: Any keyword arguments that should be passed to the scipy minimize method. If not given, the
             'L-BFGS-B' method with defaults will be used.
         :return: A tuple of q_solution [np.ndarray], success [boolean]. If success is False, q_solution is the
@@ -515,6 +525,7 @@ class RobotBase(abc.ABC):
             q_masked,
             callback=scipy_callback,
             bounds=bounds,
+            tol=convergence_threshold,
             **scipy_kwargs
         )
         if sol.nit == 0:
@@ -946,8 +957,12 @@ class PinRobot(RobotBase):
                     callbacks: Iterable[IKCallback] = (),
                     damp: float = 1e-12,
                     ik_cost_function: Callable[[RobotBase, np.ndarray, TransformationLike], float] = default_ik_cost_function,  # noqa: E501
-                    gain: Union[float, np.ndarray] = .95,
+                    convergence_threshold: float = 1e-8,
+                    alpha_average: float = .5,
+                    error_term_mask: Optional[np.ndarray] = None,
+                    gain: Union[float, np.ndarray] = .5,
                     kind='damped_ls_inverse',
+                    tcp_or_world_frame: str = 'tcp',
                     ) -> Tuple[np.ndarray, bool]:
         """
         Implements numerics inverse kinematics solvers based on the jacobian.
@@ -961,6 +976,7 @@ class PinRobot(RobotBase):
 
         Reference: Robotics, Siciliano et al. [2009], Chapter 3.7
         Reference: https://gepettoweb.laas.fr/doc/stack-of-tasks/pinocchio/master/doxygen-html/md_doc_b-examples_i-inverse-kinematics.html  # noqa: E501
+        Reference: https://scaron.info/robotics/inverse-kinematics.html
 
         :param eef_pose: Desired end effector pose with tolerances.
         :param info: An IKMeta object that contains relevant meta information about the IK problem and can be adapted
@@ -970,16 +986,28 @@ class PinRobot(RobotBase):
         :param damp: Damping for the damped least squares pseudoinverse method
         :param ik_cost_function: While this cost function is not directly minimized, it is used to determine the
             quality of intermediate solutions and initial guesses if q_init is not provided.
-        :param gain: Gain Matrix K for closed "control" of q. Higher K leads to faster, but instable solutions. This is
-            only used for "transpose" or "pseudo_inverse" methods.
+        :param convergence_threshold: Threshold for termination. Optimization terminates when the exponentially decaying
+            average of the cost function improvements is below this threshold.
+        :param alpha_average: This factor controls the exponential decay of the running average computation, needed
+            for the "convergence_threshold" stopping criterion. It must be between 0 and 1, where alpha=1 means no
+            averaging at all and alpha close to 0 means averaging over many iterations. (0=average over all iterations)
+        :param error_term_mask: A (6,) boolean mask that determines which components of the error term are considered.
+            Depending on tcp_or_world_frame, the error term is either a [v, w] twist in the tcp frame or a
+            [x, y, z, alpha, beta, gamma] vector in the world, where alpha, beta, gamma are the axis angles of the
+            rotation. For example, masking the last three error terms [True, True, True, False, False, False] results in
+            a partial inverse kinematics problem that only considers the position of the tcp.
+        :param gain: Gain Matrix K determining the step size :math:`K J^{-q} e`.
         :param kind: One of "transpose", "pseudo_inverse", "damped_ls_inverse". The according variant of the Jacobian
             will be used to solve the ik problem. While the transpose is the fastest one to calculate, for complicated
             problems it is too inaccurate to converge (quickly) to a solution. Pseudo inverse and damped least squares
             pseudo-inverse are pretty similar, the latter one introduces a "punishment" for the norm of the joint
             velocities and is therefore more resistant against singularities.
+        :param tcp_or_world_frame: Determines in which frame the Jacobian and the error term are computed. While tcp
+            frame should be preferred for most applications, world frame allows for solving partial inverse kinematics
+            for under-determined problems. See "error_term_mask" for more details.
         :return: A tuple of q_solution [np.ndarray], success [boolean]. If success is False, q_solution is the
             configuration with minimal IK cost amongst all seen in between iterations of this method. The IK is
-            successfull if the tcp pose satisfies the tolerances of eef_pose and all callbacks return True.
+            successful if the tcp pose satisfies the tolerances of eef_pose and all callbacks return True.
         """
         # For revolute joints, we enforce the joint angles to be in the interval (-2pi, 2pi)
         rot_joint_mask = np.array([jnt.shortname() == 'JointModelRZ' for jnt in self.model.joints[1:]], dtype=bool)
@@ -987,10 +1015,16 @@ class PinRobot(RobotBase):
 
         callback = chain_callbacks(*callbacks)
 
+        if error_term_mask is None:
+            error_term_mask = np.ones((6,), dtype=bool)
+        if not 0 < alpha_average <= 1 and convergence_threshold < np.inf:
+            raise ValueError("alpha_average must be in (0, 1]")
+
+        if tcp_or_world_frame not in ['tcp', 'world']:
+            raise ValueError("tcp_or_world_frame must be either 'tcp' or 'world'")
+
         # We solve the IK for the last joint instead of the TCP to save computation time
-        joint_idx_pin = self.model.frames[self.tcp].parent
         desired = pin.SE3(eef_pose.nominal.in_world_coordinates().homogeneous)
-        joint_desired = desired.act(self.model.frames[self.tcp].placement.inverse())
 
         def inv(J: np.ndarray):
             if kind == 'transpose':
@@ -1000,30 +1034,53 @@ class PinRobot(RobotBase):
             else:
                 raise ValueError("Unknown argument, kind={}".format(kind))
 
+        joint_mask = info.joint_mask.copy()
         success = False
+        mean_improvement = 0
+        previous_cost = ik_cost_function(self, q_init, eef_pose.nominal.in_world_coordinates())
         q = q_init
         self.update_configuration(q, frames=True, geometry=True)
+        i = 0
         for i in range(info.max_iter):
-            joint_current = self.data.oMi[joint_idx_pin]
-            diff = joint_current.actInv(joint_desired)
-            error_twist = pin.log(diff).vector
-            J = pin.computeJointJacobian(self.model, self.data, q, joint_idx_pin)
+            current = self.data.oMf[self.tcp]
+            if tcp_or_world_frame == 'tcp':
+                diff = current.actInv(desired)
+                error = pin.log(diff).vector  # twist
+                J = pin.computeFrameJacobian(self.model, self.data, q, self.tcp, pin.ReferenceFrame.LOCAL)
+                J = pin.Jlog6(diff.inverse()) @ J  # Transform the jacobian to the joint frame
+            else:
+                current = Transformation(current)
+                diff_world = WORLD_FRAME.rotate_to_this_frame(current.inv @ Transformation(desired), current)
+                error = np.concatenate([diff_world.translation, diff_world.projection.axis_angles3])
+                J = pin.computeFrameJacobian(self.model, self.data, q, self.tcp,
+                                             pin.ReferenceFrame.LOCAL_WORLD_ALIGNED)
+
+            J = J[:, joint_mask]  # Only consider the joints we want to or can move
             try:
                 if kind == 'damped_ls_inverse':
-                    q_dot = np.linalg.lstsq(J, error_twist, rcond=damp)[0]  # Damped least squares
+                    _q_dot = np.linalg.lstsq(J[error_term_mask], np.dot(gain, error[error_term_mask]), rcond=damp)[0]
                 else:
-                    J_inv = inv(J)  # Analytical Jacobian "pseudo inverse" (or transpose)
-                    q_dot = J_inv.dot(gain).dot(error_twist)
+                    J_inv = inv(J[error_term_mask])  # Analytical Jacobian "pseudo inverse" (or transpose)
+                    _q_dot = J_inv.dot(gain).dot(error[error_term_mask])
             except (np.linalg.LinAlgError, SystemError):
                 logging.verbose_debug(f"Jacobian ik break due to singularity after {i} iter for q={q}. Trying again.")
                 break
-            q_dot = q_dot * info.joint_mask
+            q_dot = np.zeros((self.dof,), float)
+            q_dot[joint_mask] = _q_dot
+            # For large angles, the linear approximation of revolute movements is not valid anymore
+            q_dot[rot_joint_mask] = np.clip(q_dot[rot_joint_mask], -np.pi / 4, np.pi / 4)
             q = pin.integrate(self.model, q, q_dot)
 
             # Keep joint angles (for revolute joints) in interval (-2pi, 2pi) while preserving q sign
             sign_preserve = np.ones_like(q) * 2 * np.pi
             sign_preserve[q >= 0] = 0
             q[rot_joint_mask] = q[rot_joint_mask] % (2 * np.pi) - sign_preserve[rot_joint_mask]
+
+            if not self.q_in_joint_limits(q):
+                # We hinder the joint from moving any further and try to optimize for the others only
+                keep_moving = np.logical_and(self.joint_limits[0, :] <= q, q <= self.joint_limits[1, :])
+                joint_mask = np.logical_and(joint_mask, keep_moving)
+                q = np.clip(q, self.joint_limits[0, :], self.joint_limits[1, :])
 
             if np.any(np.logical_or(np.isnan(q), np.isinf(q))):
                 logging.verbose_debug(f"Jacobian ik break due to bad q: {q} after {i} iter. Trying again.")
@@ -1046,6 +1103,16 @@ class PinRobot(RobotBase):
                 break
 
             cost = ik_cost_function(self, q, eef_pose.nominal.in_world_coordinates())
+            improvement = previous_cost - cost
+            mean_improvement = (alpha_average * improvement) + (1 - alpha_average) * mean_improvement
+            previous_cost = cost
+            if mean_improvement < convergence_threshold:
+                logging.debug(f"Jacobian ik break due to stagnating improvements after {i} iter for q={q}.")
+                break
+            if improvement < convergence_threshold:
+                # Last resort: Allow movements of joints that have earlier been blocked due to reaching their limit
+                joint_mask = info.joint_mask.copy()
+
             if cost < info.intermediate_result.cost:
                 info.intermediate_result.q = q
                 info.intermediate_result.cost = cost

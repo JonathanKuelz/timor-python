@@ -218,9 +218,9 @@ class TestConstraints(unittest.TestCase):
                   # q_mid - all with random translation in 0, 0.2 and rotation about drill axis
                   *(Transformation.from_translation((self.rng.random() * 0.2, 0., 0.)) @
                     start_pose @ spatial.rotZ(self.rng.random()) for _ in range(N_middle)),
-                  Transformation.from_translation((.11, 0., 0.)) @ start_pose @ spatial.rotX(0.2),  # q_mid_not_ok
-                  Transformation.from_translation((.11, 0., 0.)) @ start_pose @ spatial.rotY(-0.2),  # q_mid_not_ok
-                  Transformation.from_translation((.22, 0., 0.)) @ start_pose  # q_end_to_far
+                  Transformation.from_translation((.11, 0., 0.)) @ start_pose @ spatial.rotX(0.05),  # q_mid_not_ok
+                  Transformation.from_translation((.11, 0., 0.)) @ start_pose @ spatial.rotY(-0.05),  # q_mid_not_ok
+                  Transformation.from_translation((.21, 0., 0.)) @ start_pose  # q_end_to_far
                   ):
             q, success = self.robot.ik(ToleratedPose(T, ik_tolerance))
             self.assertTrue(success, f"ik for {str(T)} failed")
