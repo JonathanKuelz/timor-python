@@ -10,7 +10,7 @@ from timor.Robot import PinRobot, RobotBase
 from timor.task import Constraints, Tolerance
 from timor.utilities import logging, prebuilt_robots, spatial
 from timor.utilities.file_locations import robots
-from timor.utilities.frames import Frame, WORLD_FRAME
+from timor.utilities.frames import Frame, NOMINAL_FRAME, WORLD_FRAME
 from timor.utilities.tolerated_pose import ToleratedPose
 from timor.utilities.transformation import Transformation
 
@@ -134,6 +134,63 @@ class PinocchioRobotSetup(unittest.TestCase):
 
             # reset
             robot.set_base_placement(Transformation.neutral())
+
+    def test_jacobian_ik_masked(self):
+        robot = PinRobot.from_urdf(self.urdf, self.package_dir, rng=self.rng)
+        # Create some goals that are not reachable and then try to optimize for certain error terms only:
+        N = 20
+        fails = 0
+
+        def cost_rot(_r: RobotBase, _q: np.ndarray, _g: Transformation):
+            """A custom cost function to optimize for rotation only"""
+            return _r.fk(_q, 'tcp').distance(_g).rotation_angle
+
+        def cost_trans(_r: RobotBase, _q: np.ndarray, _g: Transformation):
+            """A custom cost function to optimize for translation only"""
+            return _r.fk(_q, 'tcp').distance(_g).translation_euclidean
+
+        def get_trans_z_cost(f: str):
+            def cost_trans_z(_r: RobotBase, _q: np.ndarray, _g: Transformation):
+                """A custom cost function to optimize for translation in z-direction only"""
+                if f == 'tcp':
+                    ref = NOMINAL_FRAME
+                else:
+                    ref = WORLD_FRAME
+                error = _g.inv @ _r.fk(_q)
+                return np.abs(ref.rotate_to_this_frame(error, _g).translation[2])
+            return cost_trans_z
+
+        trans_mask = np.array([True, True, True, False, False, False])
+        rot_mask = np.array([False, False, False, True, True, True])
+        z_mask = np.array([False, False, True, False, False, False])
+
+        def make_distance_matrix(q_s, costs, _g):
+            """Compute distance matrix for a set of joint configurations and a cost function"""
+            return np.asarray([[c(robot, q, _g.nominal.in_world_coordinates()) for q in q_s] for c in costs])
+
+        for _ in range(N):
+            for frame in ('tcp', 'world'):
+                goal = ToleratedPose(Transformation.random(self.rng) @
+                                     Transformation.from_translation(self.rng.random((3,)) * 100))
+                q_init = robot.random_configuration(self.rng)
+                kwargs = {'eef_pose': goal, 'ik_method': 'jacobian', 'max_iter': 50, 'allow_random_restart': True,
+                          'tcp_or_world_frame': frame, 'q_init': q_init}
+                q_rot, s1 = robot.ik(ik_cost_function=cost_rot, error_term_mask=rot_mask, **kwargs)
+                q_trans, s2 = robot.ik(ik_cost_function=cost_trans, error_term_mask=trans_mask, **kwargs)
+                q_trans_z, s3 = robot.ik(ik_cost_function=get_trans_z_cost(frame), error_term_mask=z_mask, **kwargs)
+
+                # If the goal was reachable, the error masking could be without effect
+                self.assertFalse(s1 or s2 or s3)
+
+                mat = make_distance_matrix([q_rot, q_trans, q_trans_z, q_init],
+                                           [cost_rot, cost_trans, get_trans_z_cost(frame)], goal)
+
+                self.assertEqual(np.argmin(mat[0, :]), 0)
+                fails += np.min(mat[1, :]) != mat[1, 1]  # numeric IK is not super precise, fails _can_ happen
+                # Minimizing the z-error in tcp frame is actually not trivial, but we can test for the world frame
+                if frame == 'world':
+                    self.assertLess(mat[2, 2], mat[2, 3])
+            self.assertLess(fails, int(0.1 * N), msg=f"Failed to optimize for position only {fails} times")
 
     def test_robot_fk(self):
         robot = PinRobot.from_urdf(self.urdf, self.package_dir)
