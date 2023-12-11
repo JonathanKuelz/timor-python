@@ -644,7 +644,7 @@ def default_filters(t: Task.Task) -> Tuple[AssemblyFilter, ...]:
     """
     assembly_length = AssemblyModuleLengthFilter()
     create_robot = RobotCreationFilter()
-    ik_simple = InverseKinematicsSolvable(ignore_self_collision=True, max_iter=150)
+    ik_simple = InverseKinematicsSolvable(ignore_self_collisions=True, max_iter=150)
     ik_complex = InverseKinematicsSolvable(task=t, max_iter=1500)
     return assembly_length, create_robot, ik_simple, ik_complex
 
