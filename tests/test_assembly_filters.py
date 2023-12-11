@@ -36,6 +36,13 @@ class TestFilterRobotsForTasks(unittest.TestCase):
         self.task_files = test_data["task_files"]
         self.asset_dir = test_data["asset_dir"]
 
+    def test_default_filters(self):
+        """Test that the default filters are not empty."""
+        filters = AssemblyFilter.default_filters(Task.Task(Task.TaskHeader("tmp"), goals=()))
+        self.assertGreater(len(filters), 0)
+        for f in filters:
+            self.assertIsInstance(f, AssemblyFilter.AssemblyFilter)
+
     def test_ik_filter(self):
         test_filter = AssemblyFilter.InverseKinematicsSolvable()
         modrob_solved = 0
