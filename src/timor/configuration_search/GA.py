@@ -18,7 +18,7 @@ from timor import ModuleAssembly, ModulesDB, Task
 from timor.task import Goals
 from timor.utilities import logging, module_classification
 from timor.utilities.configurations import TIMOR_CONFIG
-from timor.utilities.dtypes import LimitedSizeMap, randomly
+from timor.utilities.dtypes import Lexicographic, LimitedSizeMap, randomly
 import timor.utilities.errors as err
 from timor.utilities.file_locations import map2path
 from timor.utilities.visualization import MeshcatVisualizer, clear_visualizer, color_visualization, \
@@ -85,10 +85,12 @@ class GA:
                                   'num_parents_mating': 5,
                                   'keep_parents': 4,
                                   'keep_elitism': 5,
+                                  'selection_pressure': 2.0,  # It's used by rank_based_selection which is within [1, 2]
                                   }
 
     def __init__(self,
                  db: Union[str, ModulesDB],
+                 custom_hp: Optional[Dict[str, any]] = None,
                  mutation_weights: Optional[Dict[str, float]] = None,
                  rng: Optional[np.random.Generator] = None):
         """
@@ -100,6 +102,9 @@ class GA:
         :param db: Either the name of a ModulesDB or a ModulesDB instance that will be used for the GA. The operators
             for the genetic optimization expect each module to have exactly two connectors -- if the DB contains any
             modules with more or less connectors, this method will raise an error.
+
+        :param custom_hp: A dictionary of custom hyperparameters that will be used instead of the default ones.
+            For more hyperparameters see reference: https://pygad.readthedocs.io/en/latest/pygad.html#pygad-ga-class.
         :param mutation_weights: Maps a module ID or the `EMPTY` ID to a weight that determines how likely it is to be
             chosen as a replacement during mutation. If None, all modules have the same weight.
         :param rng: A numpy random number generator. If None, a new one will be created.
@@ -156,6 +161,8 @@ class GA:
         if 'OPTIMIZERS.GA' in TIMOR_CONFIG.sections():
             for option in TIMOR_CONFIG.options('OPTIMIZERS.GA'):
                 self.hp[option] = TIMOR_CONFIG.get('OPTIMIZERS.GA', option)
+        if custom_hp is not None:
+            self.hp.update(custom_hp)
         logging.debug(f"Class default Hyperparameters: {json.dumps(self.hp)}")
 
         if mutation_weights is None:
@@ -166,6 +173,9 @@ class GA:
         self.mutation_weights: Dict[str, float] = mutation_weights
 
         self._last_ga_instance: Optional[pygad.GA] = None
+
+        # Select the parent selection function based on the selection type.
+        self.sp = self.hp['selection_pressure']
 
     def check_individual(self, individual: np.ndarray) -> bool:
         """
@@ -300,6 +310,7 @@ class GA:
                  wandb_run=None,
                  progress_unit: ProgressUnit = ProgressUnit.GENERATIONS,
                  steps_at_start: int = 0,
+                 selection_type: str = 'sss',
                  **ga_kwargs
                  ) -> pygad.GA:
         """
@@ -323,6 +334,9 @@ class GA:
         :param progress_unit: The metric to be used for tracking performance metrics, e.g. for logging or wandb.
         :param steps_at_start: The value of the progress unit at the first generation. This is useful if you want
             to continue a run that was interrupted or if multiple runs should be tracked "as one".
+        :param selection_type: The type of parent selection to be used. The options defined in pyGAD include 'sss',
+            'rws', 'sus', 'rank', 'tournament', 'random'. Notice that use a customized rank-based selection function can
+            be beneficial for diversity in the population and avoiding premature convergence to suboptimal solutions.
         :param ga_kwargs: Additional keyword arguments to be passed to the pygad.GA class that do not qualify as
             hyperparameters (so anything that should not be logged as a hyperparameter, e.g., callbacks).
         """
@@ -331,6 +345,7 @@ class GA:
             hp = {}
         run_hp = deepcopy(self.hp)
         run_hp.update(hp)
+        self.sp = run_hp.pop('selection_pressure')
 
         ga_kwargs.setdefault('save_best_solutions', True)
         ga_kwargs.setdefault('save_solutions', False)
@@ -351,6 +366,34 @@ class GA:
             gene_space.append([self.id2num[_id] for _id in self.joint_ids + self.link_ids])
         gene_space.append([self.id2num[_id] for _id in self.eef_ids])
 
+        def ensure_callback_return_type(fitness_func):
+            """
+            A decorator function that checks and validates the return type of the provided fitness function.
+
+            This wrapper is designed to ensure that the return type of the fitness function is compatible with the
+            GA framework. It works by intercepting calls to the fitness function. On the first call, it executes the
+            fitness function and checks the type of its return value. If the return type is Lexicographic and this type
+            is not already in the list of supported types by pygad.GA, it adds Lexicographic to this list. The process
+            is done only once, as indicated by the has_checked flag. On subsequent calls, the wrapper directly returns
+            the fitness function's result without performing the type check again.
+
+            :param fitness_func: The fitness function to be wrapped.
+            :return: The wrapper function which adds compatibility for Lexicographic type if necessary.
+            """
+            has_checked = False
+
+            def wrapper(_ga, individual, individual_idx):
+                nonlocal has_checked
+                result = fitness_func(_ga, individual, individual_idx)
+                if not has_checked:
+                    if isinstance(result, Lexicographic):
+                        if Lexicographic not in pygad.GA.supported_int_float_types:
+                            pygad.GA.supported_int_float_types.append(Lexicographic)
+                    has_checked = True
+                return result
+            return wrapper
+
+        @ensure_callback_return_type
         def fitness(_ga: pygad.GA, individual: List[int], individual_idx: int) -> float:
             """Fitness function for the genetic algorithm."""
             individual = tuple(individual)
@@ -434,6 +477,9 @@ class GA:
 
         on_generation = self._chain_callbacks(ga_kwargs.pop('on_generation', None), on_generation_cbs)
 
+        if selection_type == 'rank':
+            selection_type = self.rank_based_selection
+
         ga_instance = pygad.GA(
             fitness_func=fitness,
             gene_space=gene_space,
@@ -441,6 +487,7 @@ class GA:
             initial_population=initial_population,
             crossover_type=self.single_valid_crossover,
             mutation_type=self.mutation,
+            parent_selection_type=selection_type,
             on_generation=on_generation,
             **run_hp,
             **ga_kwargs
@@ -492,6 +539,7 @@ class GA:
         """
         offsprings = []
         split_positions = np.array(range(offspring_size[1]))
+        parents = parents.astype(np.int64)
 
         for p1, p2, s in randomly(itertools.product(parents, parents, split_positions), rng=self.rng):
             child = np.concatenate((p1[:s], p2[s:]))
@@ -507,6 +555,37 @@ class GA:
 
         offsprings = np.array(offsprings)
         return offsprings
+
+    def rank_based_selection(self, fitness: np.ndarray, num_parents: int, ga_instance: pygad.GA) \
+            -> Tuple[np.ndarray, np.ndarray]:
+        """
+        Selects the parents using a rank-based selection process.
+
+        :source: https://en.wikipedia.org/wiki/Selection_(genetic_algorithm). The original paper for linear ranking:
+            - Baker, James E. (1985), Grefenstette, John J. (ed.), "Adaptive Selection Methods for Genetic Algorithms",
+            Conf. Proc. of the 1st Int. Conf. on Genetic Algorithms and Their Applications (ICGA),
+            Hillsdale, New. Jersey: L. Erlbaum Associates, pp. 101–111, ISBN 0-8058-0426-9
+            - Baker, James E. (1987), Grefenstette, John J. (ed.), "Reducing Bias and Inefficiency in the Selection
+            Algorithm", Conf. Proc. of the 2nd Int. Conf. on Genetic Algorithms and Their Applications (ICGA),
+            Hillsdale, New. Jersey: L. Erlbaum Associates, pp. 14–21, ISBN 0-8058-0158-8
+        :param fitness: A list of fitness values of the current population. Its shape is 1D array with length equal to
+        the number of individuals, while each element is a 'Lexicographic' object encompassing multiple values.
+        :param num_parents: The number of parents to select.
+        :param ga_instance: An instance of the pygad.GA class.
+        :return: 1. The selected parents as a numpy array. Its shape is (the number of selected parents, num_genes).
+        Note that the number of selected parents is equal to num_parents. 2. The indices of the selected parents inside
+        the population. It is a 1D list with length equal to the number of selected parents.
+        """
+        assert all(isinstance(f, Lexicographic) for f in fitness), "All fitness values must be Lexicographic instances."
+
+        n = len(fitness)
+        fitness_ranks = np.argsort(np.argsort(fitness)) + 1
+
+        selection_prob = [(1 / n) * (self.sp - ((2 * self.sp - 2) * (rank - 1) / (n - 1))) for rank in fitness_ranks]
+        selected_parents_indices = np.random.choice(range(n), size=num_parents, replace=False, p=selection_prob)
+
+        parents = np.array([ga_instance.population[idx, :].copy() for idx in selected_parents_indices])
+        return parents, selected_parents_indices
 
     @staticmethod
     def _chain_callbacks(original_callback: Optional[Callable[[pygad.GA], any]] = None,

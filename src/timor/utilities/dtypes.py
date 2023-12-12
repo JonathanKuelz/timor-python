@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from abc import abstractmethod
 from collections import OrderedDict
 from collections.abc import MutableMapping
 from contextlib import contextmanager
@@ -9,8 +10,9 @@ import random
 import re
 import signal
 from threading import Lock
-from typing import (Any, Callable, Collection, Dict, Generator, Generic, Iterable, List, Optional, Sequence, Tuple,
-                    Type, TypeVar, Union, get_type_hints)
+from typing import (Any, Callable, Collection, Dict, Generator, Generic, Iterable, List, Optional, Protocol, Sequence,
+                    Tuple,
+                    Type, TypeVar, Union, get_type_hints, runtime_checkable)
 from hppfcl import hppfcl
 import numpy as np
 import pinocchio as pin
@@ -134,6 +136,119 @@ class Lazy(Generic[T]):
         lazy_variable = cls(ret)
         lazy_variable.value = variable
         return lazy_variable
+
+
+@runtime_checkable
+class Comparable(Protocol):
+    """
+    A protocol for comparable objects that support < and ==
+
+    :source: https://stackoverflow.com/questions/68372599/how-to-type-hint-supportsordering-in-a-function-parameter
+    """
+
+    @abstractmethod
+    def __lt__(self: SupportsOrdering, other: SupportsOrdering) -> bool:
+        """less than"""
+        pass
+
+    @abstractmethod
+    def __le__(self: SupportsOrdering, other: SupportsOrdering) -> bool:
+        """less than or equal to"""
+        pass
+
+    @abstractmethod
+    def __eq__(self: SupportsOrdering, other: object) -> bool:
+        """equal to"""
+        pass
+
+
+SupportsOrdering = TypeVar("SupportsOrdering", bound=Comparable)
+
+
+class Lexicographic:
+    """A class for comparing tuples lexicographically."""
+
+    length_exception = ValueError("Lexicographic objects must have the same length to compare them.")
+
+    def __init__(self, *args: Comparable):
+        """
+        Create a new Lexicographic object.
+
+        In a lexicographic comparison, the elements are compared one by one, starting from the first. The values of a
+        lexicographic function can themselves be lexicographic values.
+        """
+        self.values: Tuple[Comparable] = tuple(args)
+
+    def __lt__(self, other):
+        """
+        Return True if self < other, False otherwise.
+        """
+        if not isinstance(other, Lexicographic):
+            return NotImplemented
+
+        if len(self.values) != len(other.values):
+            raise self.length_exception
+
+        for a, b in zip(self.values, other.values):
+            if a < b:
+                return True
+            elif a > b:
+                return False
+        return False
+
+    def __eq__(self, other):
+        """Return True if self == other, False otherwise."""
+        if not isinstance(other, Lexicographic):
+            return NotImplemented
+
+        if len(self.values) != len(other.values):
+            raise self.length_exception
+
+        return self.values == other.values
+
+    def __le__(self, other):
+        """Return True if self <= other, False otherwise."""
+        return self < other or self == other
+
+
+class DictLexicographic:
+    """A dictionary-based version of Lexicographic values."""
+
+    def __init__(self, values: Dict[str, Comparable]):
+        """
+        Initialize the DictLexicographic with a dictionary of values.
+
+        The comparison order is not set here but is provided in the comparison methods.
+        """
+        self.values = values
+
+    def less_than(self, other: DictLexicographic, order: Collection[str]) -> bool:
+        """Compare two dictionaries lexicographically based on a specific key order."""
+        for key in order:
+            if key not in self.values or key not in other.values:
+                raise KeyError(f"Key '{key}' not found in both dictionaries")
+            if self.values[key] < other.values[key]:
+                return True
+            elif self.values[key] > other.values[key]:
+                return False
+        return False
+
+    def equal_to(self, other: DictLexicographic, order: Collection[str]) -> bool:
+        """Check if two dictionaries are equal lexicographically based on a specific key order."""
+        for key in order:
+            if key not in self.values or key not in other.values:
+                raise KeyError(f"Key '{key}' not found in both dictionaries")
+            if self.values[key] != other.values[key]:
+                return False
+        return True
+
+    def ordered(self, order: Collection[str]) -> Lexicographic:
+        """Cast the dictionary to a Lexicographic object based on a specific key order."""
+        values = [self.values[key] for key in order if key in self.values]
+        if len(values) != len(order):
+            missing_keys = set(order) - self.values.keys()
+            raise KeyError(f"Missing keys for ordered casting: {missing_keys}")
+        return Lexicographic(tuple(values))
 
 
 class LimitedSizeMap(MutableMapping):
