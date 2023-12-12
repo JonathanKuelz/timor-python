@@ -1,12 +1,14 @@
 from dataclasses import dataclass
 import datetime
+import itertools
 import random
 import time
 import unittest
 
 import numpy as np
 
-from timor.utilities.dtypes import EternalDict, LimitedSizeMap, SingletonMeta, SingleSet, TypedHeader, timeout
+from timor.utilities.dtypes import (Comparable, DictLexicographic, EternalDict, Lexicographic, LimitedSizeMap,
+                                    SingletonMeta, SingleSet, TypedHeader, timeout)
 import timor.utilities.errors as err
 
 
@@ -32,6 +34,57 @@ class CustomTypeUnitTests(unittest.TestCase):
             d_3 = d_1.update(d_2)
         with self.assertRaises(TypeError):
             del d[2]
+
+    def test_LexicographicValues(self):
+        self.assertIsInstance(1, Comparable)
+        self.assertIsInstance(1.0, Comparable)
+        self.assertIsInstance((1, 2, 3), Comparable)
+        self.assertIsInstance({'key': 'value'}, Comparable)
+
+        x = Lexicographic(1, 2, 3)
+        y = Lexicographic(1, 2, 4)
+        z = Lexicographic(5, 1, 1)
+
+        self.assertIsInstance(x, Comparable)
+        self.assertIsInstance(y, Comparable)
+        self.assertIsInstance(z, Comparable)
+
+        for smaller, larger in itertools.combinations_with_replacement((x, y, z), 2):
+            if smaller == larger:
+                self.assertEqual(smaller, larger)
+                self.assertLessEqual(smaller, larger)
+                self.assertGreaterEqual(smaller, larger)
+            else:
+                self.assertLess(smaller, larger)
+                self.assertGreater(larger, smaller)
+                self.assertNotEqual(smaller, larger)
+
+        a = Lexicographic(1, 2, 3, 4, 5)
+        with self.assertRaises(ValueError):
+            _ = x < a
+
+        nest_1 = Lexicographic(x, y, z)
+        nest_2 = Lexicographic(x, z, y)
+        self.assertLess(nest_1, nest_2)
+        self.assertEqual(nest_1, nest_1)
+
+        with self.assertRaises(TypeError):
+            _ = x < nest_1
+
+        BMW = DictLexicographic({'speed': 220, 'safety_score': 0.9, 'CO2_score': 2})
+        Tesla = DictLexicographic({'speed': 250, 'safety_score': 0.4, 'CO2_score': 5})
+        Tank = DictLexicographic({'speed': 10, 'safety_score': 1, 'CO2_score': 1})
+
+        be_fast = ('speed', 'safety_score', 'CO2_score')
+        be_safe = ('safety_score', 'speed', 'CO2_score')
+        be_green = ('CO2_score', 'speed', 'safety_score')
+
+        self.assertTrue(BMW.less_than(Tesla, be_fast))
+        self.assertTrue(Tesla.less_than(BMW, be_safe))
+        self.assertTrue(Tank.less_than(BMW, be_green))
+        for ordering in (be_fast, be_safe, be_green):
+            for car in (BMW, Tesla, Tank):
+                self.assertTrue(car.equal_to(car, ordering))
 
     def test_LimitedSizeMap(self):
         with self.assertRaises(ValueError):

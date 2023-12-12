@@ -1,3 +1,4 @@
+from typing import Union
 import unittest
 
 import numpy as np
@@ -8,6 +9,7 @@ from timor.configuration_search.AssemblyFilter import default_filters
 from timor.task import Task
 from timor.configuration_search.GA import GA
 from timor.utilities import file_locations
+from timor.utilities.dtypes import Lexicographic
 
 
 class TestGAProperties(unittest.TestCase):
@@ -31,9 +33,42 @@ class TestGAProperties(unittest.TestCase):
         self.rng = np.random.default_rng(651321)
 
     def _fitness_func(self, assembly: ModuleAssembly, ga_instance: pygad.GA, solution_idx: int) -> float:
-        """Fitness function for the genetic algorithm which is fast du evaluate."""
+        """Fitness function for the genetic algorithm which is fast to evaluate."""
         self.fitness_func_calls += 1
         return assembly.mass
+
+    def test_lexicographic_fitness(self):
+        """Test if the lexicographic fitness function works as expected."""
+
+        def lexi_fitness_func(assembly: ModuleAssembly, ga_instance: pygad.GA, solution_idx: int) -> Lexicographic:
+            """
+            Fitness function that considers the number of modules first, then the mass
+
+            That means: The more modules an assembly has, the better it is. If two assemblies have the same number of
+            modules, the one with the lower mass is better.
+            """
+            mass = assembly.mass
+            num_modules = len(assembly.internal_module_ids)
+            return Lexicographic(num_modules, -mass)
+
+        ga = GA(self.db)
+        ga_ins = ga.optimize(lexi_fitness_func, hp=self.hp)
+        for i in range(len(ga_ins.best_solutions) - 1):
+            self.assertLessEqual(ga_ins.best_solutions_fitness[i], ga_ins.best_solutions_fitness[i + 1])
+
+        max_sanity_checks = 100
+        cached_assemblies = ga.fitness_cache
+        assemblies = sorted(cached_assemblies, key=lambda x: cached_assemblies[x])
+        better = None
+        for i in range(len(assemblies) - 1):
+            if better is None:
+                worse = ModuleAssembly.from_serial_modules(self.db, assemblies[i])
+            else:
+                worse = better
+            better = ModuleAssembly.from_serial_modules(self.db, assemblies[i + 1])
+            self.assertTrue(len(worse.internal_module_ids) <= len(better.internal_module_ids))
+            if len(worse.internal_module_ids) == len(better.internal_module_ids):
+                self.assertLessEqual(better.mass, worse.mass)
 
     def test_ga_setup(self):
         """Test that setting up a GA instance works as expected."""
@@ -150,6 +185,41 @@ class TestGAProperties(unittest.TestCase):
         for genome in ga._get_initial_population(population_size=(5, 5), module_weights=choose_empty):
             self.assertTrue(ga.check_individual(genome))
             self.assertTrue(ga.id2num['EMPTY'] in genome)
+
+    def test_selection(self):
+        """Test custom selection methods"""
+        def lexico_fitness_func(assembly: ModuleAssembly, ga_instance: pygad.GA, solution_idx: int) -> Lexicographic:
+            """Just a dummy function"""
+            return Lexicographic(1, 1)
+
+        def lexico_to_scalar(lexi_object: Union[Lexicographic, np.ndarray]):
+            """Converts a lexicographic object to a scalar"""
+            return np.array([obj.values[0] for obj in lexi_object])
+
+        ga = GA(self.db)
+        ga_instance = ga.optimize(lexico_fitness_func, hp={'num_generations': 1}, selection_type='sss')
+        lexicographic_fitness = np.array([Lexicographic(self.rng.integers(0, 10),
+                                                        self.rng.random()) for _ in range(20)])
+
+        # Test if the rank based selection with sp=2.0 performs worse than the steady state selection
+        _, rank_based_selected_idx_sp_2 = ga.rank_based_selection(lexicographic_fitness, 5, ga_instance)
+        _, steady_state_selected_idx = ga_instance.steady_state_selection(lexicographic_fitness, 5)
+        rank_based_fitness_sp_2 = lexicographic_fitness[rank_based_selected_idx_sp_2]
+        steady_state_fitness = lexicographic_fitness[steady_state_selected_idx]
+        self.assertLessEqual(np.mean(lexico_to_scalar(rank_based_fitness_sp_2)),
+                             np.mean(lexico_to_scalar(steady_state_fitness)))
+
+        # Test if the rank based selection with sp=1.0 performs better than sp=2.0
+        ga.sp = 1.0
+        _, rank_based_selected_idx_sp_1 = ga.rank_based_selection(lexicographic_fitness, 5, ga_instance)
+        rank_based_fitness_sp_1 = lexicographic_fitness[rank_based_selected_idx_sp_1]
+        self.assertGreaterEqual(np.mean(lexico_to_scalar(rank_based_fitness_sp_1)),
+                                np.mean(lexico_to_scalar(rank_based_fitness_sp_2)))
+
+        # Test if the steady state selection returns the best individuals
+        expected_top_fitness = sorted(lexicographic_fitness, reverse=True)[:5]
+        actual_selected_fitness = [lexicographic_fitness[idx] for idx in steady_state_selected_idx]
+        self.assertTrue(all(selected in expected_top_fitness for selected in actual_selected_fitness))
 
 
 if __name__ == '__main__':
