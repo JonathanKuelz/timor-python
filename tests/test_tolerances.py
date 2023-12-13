@@ -171,12 +171,13 @@ class TestTolerances(unittest.TestCase):
 
     def test_tolerance_types(self):
         # Get all classes defined in the Tolerance namespace
-
         available_tolerances = [ret[1] for ret in inspect.getmembers(Tolerance, inspect.isclass)]
         for tol_class in available_tolerances:
             if not type(tol_class) is abc.ABCMeta or inspect.isabstract(tol_class):
                 continue
             if tol_class is Tolerance.Composed:
+                continue
+            if not issubclass(tol_class, Tolerance.ToleranceBase):
                 continue
 
             # Make sure all default methods are running properly
