@@ -20,6 +20,7 @@ from timor.utilities import logging
 from timor.utilities.jsonable import JSONable_mixin
 from timor.utilities.spatial import rotX
 from timor.utilities.transformation import Transformation, TransformationLike
+from timor.Volume import BoxVolume, CylinderVolume, SphereVolume, Volume
 
 
 class HppfclEnumMeta(EnumMeta):
@@ -175,6 +176,16 @@ class Geometry(abc.ABC, JSONable_mixin):
         :return: An instance of the according Obstacle class, based on the kind of collision object handed over.
         """
 
+    @property
+    @abc.abstractmethod
+    def enclosing_volume(self) -> Volume:
+        """
+        Obtain a spatial volume for the geometrical representation .
+
+        The volume returned serves as a concrete and computationally tangible representation that can be used for
+        various geometric operations, comparisons, or visualizations.
+        """
+
     @classmethod
     def from_pin_geometry(cls, geo: pin.GeometryObject) -> Geometry:
         """
@@ -238,9 +249,9 @@ class Geometry(abc.ABC, JSONable_mixin):
         """Returns a visual representation that can be used by meshcats 'set_object' and the according transform"""
 
     @property
-    @abc.abstractmethod
-    def volume(self) -> float:
-        """Returns the volume of the geometry"""
+    def measure_volume(self) -> float:
+        """Returns the actual scalar volume."""
+        return self.enclosing_volume.vol
 
     @abc.abstractmethod
     def _make_collision_geometry(self) -> hppfcl.CollisionGeometry:
@@ -269,6 +280,13 @@ class Box(Geometry):
 
     parameter_names: Tuple[str, str, str] = ('x', 'y', 'z')
     type: GeometryType = GeometryType.BOX
+
+    @property
+    def enclosing_volume(self) -> BoxVolume:
+        """Returns a box volume instance."""
+        return BoxVolume(limits=np.array(((-self.x / 2, self.x / 2),
+                                          (-self.y / 2, self.y / 2),
+                                          (-self.z / 2, self.z / 2))))
 
     @classmethod
     def from_hppfcl(cls, fcl: hppfcl.CollisionObject) -> Geometry:
@@ -303,11 +321,6 @@ class Box(Geometry):
         return meshcat.geometry.Box([self.x, self.y, self.z]), self.placement
 
     @property
-    def volume(self) -> float:
-        """Returns the volume of the box"""
-        return self.x * self.y * self.z
-
-    @property
     def x(self) -> float:
         """Keep access to these attributes private"""
         return self._x
@@ -328,6 +341,11 @@ class Cylinder(Geometry):
 
     parameter_names: Tuple[str, str] = ('r', 'z')
     type: GeometryType = GeometryType.CYLINDER
+
+    @property
+    def enclosing_volume(self) -> CylinderVolume:
+        """Returns a cylinder volume instance."""
+        return CylinderVolume(limits=np.array(((0, self.r), (-np.pi, np.pi), (-self.z / 2, self.z / 2))))
 
     @classmethod
     def from_hppfcl(cls, fcl: hppfcl.CollisionObject) -> Geometry:
@@ -370,11 +388,6 @@ class Cylinder(Geometry):
         return meshcat.geometry.Cylinder(height=self.z, radius=self.r), self.placement @ rotX(np.pi / 2)
 
     @property
-    def volume(self) -> float:
-        """Returns the volume of the cylinder"""
-        return np.pi * self.r ** 2 * self.z
-
-    @property
     def r(self) -> float:
         """Keep access to these attributes private"""
         return self._r
@@ -390,6 +403,11 @@ class Sphere(Geometry):
 
     parameter_names: Tuple[str] = ('r',)
     type: GeometryType = GeometryType.SPHERE
+
+    @property
+    def enclosing_volume(self) -> SphereVolume:
+        """Returns a sphere volume instance."""
+        return SphereVolume(limits=np.array(((0, self.r), (0, np.pi), (-np.pi, np.pi))))
 
     @classmethod
     def from_hppfcl(cls, fcl: hppfcl.CollisionObject) -> Geometry:
@@ -422,11 +440,6 @@ class Sphere(Geometry):
         return meshcat.geometry.Sphere(self.r), self.placement
 
     @property
-    def volume(self) -> float:
-        """Returns the volume of the sphere"""
-        return 4 / 3 * np.pi * self.r ** 3
-
-    @property
     def r(self) -> float:
         """Keep access to these attributes private"""
         return self._r
@@ -439,6 +452,21 @@ class Mesh(Geometry):
     _filepath: Path
     _scale: Union[float, np.ndarray]
     _colors: Optional[np.ndarray] = None
+
+    @property
+    def enclosing_volume(self):
+        """
+        Direct volume extraction from a mesh is not supported here.
+
+        Meshes represent geometries using a set of triangles, and while they provide a surface-level representation
+        of a shape, they do not inherently describe its inner volume and often require the mesh to be closed and
+        manifold. Moreover, certain ambiguities in mesh structures, like non-manifold edges and self-intersections,
+        can complicate volume extraction.
+
+        Given these complexities and inaccuracies, this property raises an exception to indicate that volume extraction
+        from a mesh, in this context, is not supported.
+        """
+        return AttributeError("Direct volume extraction from a mesh is not supported here.")
 
     @classmethod
     def from_hppfcl(cls, fcl: hppfcl.CollisionObject) -> Geometry:
@@ -540,7 +568,7 @@ class Mesh(Geometry):
         return geom
 
     @property
-    def volume(self) -> float:
+    def measure_volume(self) -> float:
         """
         Returns the volume of the mesh.
 
@@ -605,6 +633,11 @@ class ComposedGeometry(Geometry):
             g.composing_geometries for g in geometries if isinstance(g, ComposedGeometry)))
         self.collision_geometry = None
 
+    @property
+    def enclosing_volume(self):
+        """For now, composed geometries do not have a volume."""
+        raise AttributeError("Composed geometries are currently not supported by Volume.")
+
     @classmethod
     def from_hppfcl(cls, fcl: hppfcl.CollisionObject) -> Geometry:
         """hppfcl does not know the concept of composed geometries."""
@@ -654,9 +687,9 @@ class ComposedGeometry(Geometry):
         raise NotImplementedError("ComposedGeometries cannot be visualized.")
 
     @property
-    def volume(self) -> float:
-        """The volume of a composed geometry is the sum of the volumes of the composing geometries."""
-        return sum(g.volume for g in self.composing_geometries)
+    def measure_volume(self) -> float:
+        """The scalar volume of a composed geometry is the sum of the volumes of the composing geometries."""
+        return sum(g.measure_volume for g in self.composing_geometries)
 
     def __eq__(self, other):
         """Equality is defined as having the same composing geometries."""
@@ -685,6 +718,11 @@ class EmptyGeometry(Geometry):
             logging.warning("EmptyGeometry does not use parameters, but they were given.")
         parameters = dict()
         super().__init__(parameters, pose, hppfcl_representation)
+
+    @property
+    def enclosing_volume(self):
+        """No need to calculate volume for empty geometry."""
+        return None
 
     @classmethod
     def from_hppfcl(cls, fcl: hppfcl.CollisionObject) -> Geometry:
@@ -722,7 +760,7 @@ class EmptyGeometry(Geometry):
         raise NotImplementedError()
 
     @property
-    def volume(self) -> float:
+    def measure_volume(self) -> float:
         """No Geometry, no volume."""
         return 0.0
 

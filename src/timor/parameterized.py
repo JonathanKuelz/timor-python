@@ -93,7 +93,7 @@ class ParameterizableBody(BodyBase, abc.ABC):
     @property
     def mass(self) -> float:
         """The mass needs to be dynamically calculated, depending on the geometry expansion."""
-        return self.mass_density * self.collision.volume
+        return self.mass_density * self.collision.measure_volume
 
     @property
     def parameters(self) -> Tuple[float, ...]:

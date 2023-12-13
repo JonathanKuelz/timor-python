@@ -226,6 +226,10 @@ class WorldFrameType(Frame, metaclass=SingletonMeta):
 
     def rotate_to_this_frame(self, t: Transformation, old_basis: Union[Frame, Transformation]) -> Transformation:
         """For the world frame, this method only needs to 'neutralize' the old_basis rotation"""
+        if old_basis is self:
+            return t
+        elif isinstance(old_basis, Frame):
+            old_basis = old_basis.absolute
         other_orientation = Transformation.from_rotation(old_basis.rotation)
         return other_orientation @ t @ other_orientation.inv
 
