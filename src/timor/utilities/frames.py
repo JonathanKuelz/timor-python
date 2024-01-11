@@ -181,11 +181,11 @@ class NominalFrameType(Frame, metaclass=SingletonMeta):
 
     def to_json_data(self):
         """The nominal frame cannot be serialized, it is used by tolerances on-the-fly only."""
-        return AttributeError("A nominal frame cannot be serialized to JSON.")
+        raise AttributeError("A nominal frame cannot be serialized to JSON.")
 
     def visualize(self, viz: MeshcatVisualizer, name_space: str = None, *args, **kwargs):
         """A nominal frame doesn't have a fixed placement and can't be visualized."""
-        return AttributeError("A nominal frame doesn't have a fixed placement and can't be visualized.")
+        raise AttributeError("A nominal frame doesn't have a fixed placement and can't be visualized.")
 
     def __eq__(self, other):
         """Singleton equality means same instance."""
