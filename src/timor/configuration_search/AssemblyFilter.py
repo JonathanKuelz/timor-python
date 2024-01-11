@@ -550,6 +550,10 @@ class InverseKinematicsSolvable(GoalByGoalFilter):
                 results.collision_free_goal[goal.id] = True
         return valid
 
+    def __repr__(self):
+        """Debug string to identify the filter incl IK kwargs"""
+        return f"{self.__class__.__name__}({self.kwargs})"
+
 
 class StaticTorquesValid(GoalByGoalFilter):
     """
