@@ -106,7 +106,10 @@ class ToleratedPose(JSONable_mixin):
 
         For detailed kwargs refer to Transformation::visualize
         """
-        self.nominal.visualize(viz, name, scale, **kwargs)
+        if isinstance(self.nominal, Frame):
+            self.nominal.in_world_coordinates().visualize(viz, name, scale, **kwargs)
+        else:
+            self.nominal.visualize(viz, name, scale, **kwargs)
         self.tolerance.visualize(viz, self.nominal.in_world_coordinates().homogeneous, name=name + '_tol')
 
     def __set_tolerance(self, value: Tolerance.ToleranceBase):
