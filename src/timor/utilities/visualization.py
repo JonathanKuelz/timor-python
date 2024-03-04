@@ -318,7 +318,8 @@ def save_visualizer_screenshot(viz: MeshcatVisualizer,
                                overwrite: bool = False,
                                timeout_seconds: int = 1,
                                camera_transform: Optional[Transformation] = None,
-                               open_at_timeout: bool = False
+                               open_at_timeout: bool = False,
+                               crop_to_content: bool = False
                                ):
     """
     Takes a screenshot of the current visualizer viewer and saves it to a png file.
@@ -334,6 +335,8 @@ def save_visualizer_screenshot(viz: MeshcatVisualizer,
     :param camera_transform: If provided, this will be the '/Cameras/default' setting used to take the screenshot.
     :param open_at_timeout: If True, the viewer will be opened if the timeout is reached. If so, this method will be
         called again, trying to take the screenshot a second time
+    :param crop_to_content: If true, crops the image to the bounding box of the content. This only affects the image
+        if the background is transparent (a filled background counts as content).
     """
     filename = map2path(filename)
     if not filename.suffix == '.png':
@@ -355,9 +358,12 @@ def save_visualizer_screenshot(viz: MeshcatVisualizer,
 
     if not success and open_at_timeout:
         viz.viewer.open()
-        save_visualizer_screenshot(viz, filename, overwrite, timeout_seconds, camera_transform, False)
+        save_visualizer_screenshot(viz, filename, overwrite, timeout_seconds, camera_transform, False,
+                                   crop_to_content=crop_to_content)
 
     if success:
+        if crop_to_content:
+            img = img.crop(img.getbbox())
         img.save(str(filename))
 
 
