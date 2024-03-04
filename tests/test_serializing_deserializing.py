@@ -233,10 +233,18 @@ class SerializationTests(unittest.TestCase):
 
     def test_tolerated_pose(self):
         for _ in range(10):
-            t = ToleratedPose(Frame("test", Transformation.random(), WORLD_FRAME))
-            self.assertEqual(t, ToleratedPose.from_json_data(t.to_json_data()))
-            self.assertEqual(t, pickle.loads(pickle.dumps(t)))
-            self.assertEqual(t, deepcopy(t))
+            t1 = ToleratedPose(Frame("test", Transformation.random(), WORLD_FRAME))
+            t2 = ToleratedPose(Frame("test2", Transformation.random(), t1.nominal))
+            self.assertEqual(t1, ToleratedPose.from_json_data(t1.to_json_data()))
+            self.assertEqual(t1, pickle.loads(pickle.dumps(t1)))
+            self.assertEqual(t1, deepcopy(t1))
+            with self.assertRaises(ValueError):
+                ToleratedPose.from_json_data(t2.to_json_data())
+            with self.assertRaises(ValueError):
+                ToleratedPose.from_json_data(t2.to_json_data(), frames=FrameTree.empty())
+            tree = FrameTree({"test": {"parent": t1.nominal.parent.ID,
+                                       "transformation": t1.nominal.in_world_coordinates()}})
+            self.assertEqual(t2, ToleratedPose.from_json_data(t2.to_json_data(), frames=tree))
 
     def test_modules_db_serialized(self):
         """Tests if all modules dbs can be serialized and deserialized"""
