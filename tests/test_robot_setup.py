@@ -138,7 +138,7 @@ class PinocchioRobotSetup(unittest.TestCase):
     def test_jacobian_ik_masked(self):
         robot = PinRobot.from_urdf(self.urdf, self.package_dir, rng=self.rng)
         # Create some goals that are not reachable and then try to optimize for certain error terms only:
-        N = 20
+        N = 50
         fails = 0
 
         def cost_rot(_r: RobotBase, _q: np.ndarray, _g: Transformation):
@@ -190,7 +190,7 @@ class PinocchioRobotSetup(unittest.TestCase):
                 # Minimizing the z-error in tcp frame is actually not trivial, but we can test for the world frame
                 if frame == 'world':
                     self.assertLess(mat[2, 2], mat[2, 3])
-            self.assertLess(fails, int(0.1 * N), msg=f"Failed to optimize for position only {fails} times")
+            self.assertLess(fails, int(0.1 * (N * 2)), msg=f"Failed to optimize for position only {fails} times")
 
     def test_robot_fk(self):
         robot = PinRobot.from_urdf(self.urdf, self.package_dir)
