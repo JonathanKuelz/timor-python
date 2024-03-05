@@ -816,7 +816,7 @@ class PinRobot(RobotBase):
         if q is None:
             q = self.configuration
 
-        J = pin.computeJointJacobian(self.model, self.data, q, self.model.frames[self.tcp].parent)
+        J = pin.computeFrameJacobian(self.model, self.data, q, self.tcp)
         return np.sqrt(np.linalg.det(J @ J.T))
 
     def motor_inertias(self, ddq: np.ndarray) -> np.ndarray:

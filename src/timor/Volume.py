@@ -1,7 +1,7 @@
 import abc
 import itertools
 import math
-from typing import Sequence, Union
+from typing import Optional, Sequence, Union
 
 import numpy as np
 
@@ -37,22 +37,30 @@ class Volume(abc.ABC):
 
     @property
     @abc.abstractmethod
-    def sample_uniform(self) -> np.ndarray:
-        """
-        Uniformly sample a point inside the volume.
-
-        :return: A point as a (3,) np array
-        """
-
-    @property
-    @abc.abstractmethod
     def vol(self) -> float:
         """Calculate the actual volume of the sampling space"""
 
     @abc.abstractmethod
     def _projection(self, point: np.ndarray) -> np.ndarray:
         """Maps a point to the projection space of the limits"""
-        pass
+
+    @property
+    @abc.abstractmethod
+    def is_convex(self) -> bool:
+        """
+        Determines whether the volume is convex.
+
+        This should be implemented by subclasses based on their specific geometric properties.
+        """
+
+    @abc.abstractmethod
+    def sample_uniform(self, rng: Optional[np.random.Generator] = None) -> np.ndarray:
+        """
+        Uniformly sample a point inside the volume.
+
+        :param rng: Random number generator
+        :return: A point as a (3,) np array
+        """
 
     def contains(self, r_point: Union[Sequence[float], Transformation]) -> bool:
         """Check whether a given point (3,) locates within the volume"""
@@ -64,8 +72,9 @@ class Volume(abc.ABC):
         # transform the point from local based system to global based system
         transformed_point = (spatial.inv_homogeneous(self._offset.homogeneous) @ np.insert(r_point, 3, 1))[:3]
         diff = self._projection(transformed_point)
-        return ((diff >= self._limits[:, 0] - self._rounding_error).all()
-                and (diff <= self._limits[:, 1] + self._rounding_error).all())
+        result = ((diff >= self._limits[:, 0] - self._rounding_error).all()
+                  and (diff <= self._limits[:, 1] + self._rounding_error).all())
+        return bool(result)
 
     def discretize(self, grid_size: Sequence[int]) -> np.ndarray:
         """
@@ -95,16 +104,15 @@ class Volume(abc.ABC):
 
 class SphereVolume(Volume):
     """
-    A spherical volume is an expansion in the three-dimensional euclidean space forming a sphere.
+    A spherical volume is an expansion in the three-dimensional euclidean space forming a fully/partially filled sphere.
     """
 
     def __init__(self, limits: np.ndarray, offset: TransformationLike = Transformation.neutral()):
         r"""
         The basic building block of a spherical volume.
 
-        :param limits: Defined by :math:`(r, \theta, \phi)` with shape (3,2),
-                       where, :math:`\theta` is in the range of :math:`(0, \pi).`
-                       :math:`\phi` is in the range of :math:`(-\pi, \pi).`
+        :param limits: Defined by :math:(r, \theta, \phi)` with shape (3,2) according to ISO 80000-2:2019 representation
+            where, :math:`\theta` is in the range of :math:`(0, \pi).` :math:`\phi` is in :math:`(-\pi, \pi).`
         :param offset: Transformation offset of the volume, inherited from super class
         """
         super().__init__(limits, offset)
@@ -132,6 +140,18 @@ class SphereVolume(Volume):
         """The polar limits"""
         return self._limits[2]
 
+    def is_convex(self) -> bool:
+        """Check whether the sphere volume is convex."""
+        requirement_r = self.lim_r[0] == 0
+        requirement_phi = self.lim_phi[1] - self.lim_phi[0] <= np.pi or self.lim_phi[1] - self.lim_phi[0] == 2 * np.pi
+        case1 = (self.lim_theta == np.array([0, np.pi])).all()
+        case2 = self.lim_theta[0] == 0 and self.lim_theta[1] <= np.pi / 2
+        case3 = self.lim_theta[1] == np.pi and self.lim_theta[0] >= np.pi / 2
+        if requirement_r and requirement_phi and (case1 or case2 or case3):
+            return True
+        else:
+            return False
+
     @property
     def vol(self) -> float:
         """The actual volume of the partial sampling space"""
@@ -151,24 +171,28 @@ class SphereVolume(Volume):
         max_hyperrectangle_sphere = np.ones((3,)) * self._limits[0, 1]
         return np.array((min_hyperrectangle_sphere, max_hyperrectangle_sphere)).T
 
-    def sample_uniform(self) -> np.ndarray:
+    def sample_uniform(self, rng: Optional[np.random.Generator] = None) -> np.ndarray:
         """
         Sample points within the partial sphere which are defined by [r, theta, phi] uniformly.
 
+        :param rng: Random number generator
         :source: stats.stackexchange.com/questions/8021
         :return: A point which is sampled uniformly inside the volume
         """
+        if rng is None:
+            rng = np.random.default_rng()
+
         # r³ is uniformly distributed for a point inside the ball.
         # The cubic root of a Uniform Variable has the same distribution.
-        r = np.random.uniform(self.lim_r[0] ** 3, self.lim_r[1] ** 3) ** (1 / 3)
+        r = rng.uniform(self.lim_r[0] ** 3, self.lim_r[1] ** 3) ** (1 / 3)
 
         # The probability that a point lies in a spherical cone is defined by (1-cos(theta))/2.
         # Minus the arc-cosine of a Uniform Variable has the same distribution.
-        cos_theta = np.random.uniform(-1 + 2 * (np.pi - self.lim_theta[1]) / np.pi, 1 - 2 * self.lim_theta[0] / np.pi)
+        cos_theta = rng.uniform(-1 + 2 * (np.pi - self.lim_theta[1]) / np.pi, 1 - 2 * self.lim_theta[0] / np.pi)
         theta = np.arccos(cos_theta)
 
         # phi is uniformly distributed in (-np.pi, np.pi)
-        phi = np.random.uniform(self.lim_phi[0], self.lim_phi[1])
+        phi = rng.uniform(self.lim_phi[0], self.lim_phi[1])
 
         # transform points from spherical to cartesian coordinate system
         sample_init = spatial.spherical2cartesian(np.array((r, theta, phi)))
@@ -181,7 +205,7 @@ class SphereVolume(Volume):
 
 class CylinderVolume(Volume):
     """
-    A cylindrical volume is an expansion in the three-dimensional euclidean space forming a cylinder.
+    A cylindrical volume is an expansion in the three-dimensional euclidean space forming a solid cylinder.
     """
 
     def __init__(self, limits: np.ndarray, offset: TransformationLike = Transformation.neutral()):
@@ -217,6 +241,13 @@ class CylinderVolume(Volume):
         """The height limits"""
         return self._limits[2]
 
+    def is_convex(self) -> bool:
+        """Check whether the cylinder volume is convex."""
+        if self.lim_r[0] != 0 or np.pi < self.lim_phi[1] - self.lim_phi[0] < 2 * np.pi:
+            return False
+        else:
+            return True
+
     @property
     def vol(self) -> float:
         """The actual volume of the partial sampling space"""
@@ -232,21 +263,25 @@ class CylinderVolume(Volume):
         max_hyperrectangle_cylinder = np.array((self._limits[0, 1], self._limits[0, 1], self._limits[2, 1]))
         return np.array((min_hyperrectangle_cylinder, max_hyperrectangle_cylinder)).T
 
-    def sample_uniform(self) -> np.ndarray:
+    def sample_uniform(self, rng: Optional[np.random.Generator] = None) -> np.ndarray:
         """
         Sample points within the partial cylinder which are defined by [r, theta, height] uniformly.
 
+        :param rng: Random number generator
         :return: A point which is sampled uniformly inside the volume
         """
+        if rng is None:
+            rng = np.random.default_rng()
+
         # r² is uniformly distributed for a point inside the circle.
         # The square root of a Uniform Variable has the same distribution.
-        r = np.random.uniform(self.lim_r[0] ** 2, self.lim_r[1] ** 2) ** (1 / 2)
+        r = rng.uniform(self.lim_r[0] ** 2, self.lim_r[1] ** 2) ** (1 / 2)
 
         # phi is uniformly distributed.
-        phi = np.random.uniform(self.lim_phi[0], self.lim_phi[1])
+        phi = rng.uniform(self.lim_phi[0], self.lim_phi[1])
 
         # z is uniformly distributed along the height.
-        z = np.random.uniform(self.lim_z[0], self.lim_z[1])
+        z = rng.uniform(self.lim_z[0], self.lim_z[1])
 
         # transform points from cylindrical to cartesian coordinate system
         sample_init = spatial.cylindrical2cartesian(np.array((r, phi, z)))
@@ -259,7 +294,7 @@ class CylinderVolume(Volume):
 
 class BoxVolume(Volume):
     """
-    A box volume is an expansion in the three-dimensional euclidean space forming a box.
+    A box volume is an expansion in the three-dimensional euclidean space forming a solid box.
     """
 
     def __init__(self, limits: np.ndarray, offset: TransformationLike = Transformation.neutral()):
@@ -286,6 +321,10 @@ class BoxVolume(Volume):
         """Exposes the limits in z-direction"""
         return self._limits[2]
 
+    def is_convex(self) -> bool:
+        """A fully filled box is always convex."""
+        return True
+
     @property
     def vol(self) -> float:
         """The actual volume of the partial sampling space"""
@@ -300,13 +339,17 @@ class BoxVolume(Volume):
         max_hyperrectangle_box = np.array((self._limits[0, 1], self._limits[1, 1], self._limits[2, 1]))
         return np.array((min_hyperrectangle_box, max_hyperrectangle_box)).T
 
-    def sample_uniform(self) -> np.ndarray:
+    def sample_uniform(self, rng: Optional[np.random.Generator] = None) -> np.ndarray:
         """
         Sample points within the partial box which are defined by [x, y, z] uniformly.
 
+        :param rng: Random number generator
         :return: A point which is sampled uniformly inside the volume
         """
-        sample_init = np.random.uniform(self._limits[:, 0], self._limits[:, 1], size=3)
+        if rng is None:
+            rng = np.random.default_rng()
+
+        sample_init = rng.uniform(self._limits[:, 0], self._limits[:, 1], size=3)
         return self._offset.rotation @ sample_init + self._offset.translation
 
     def _projection(self, point: np.ndarray) -> np.ndarray:

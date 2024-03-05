@@ -632,7 +632,7 @@ def assert_filters_compatible(filters: Iterable[Type[AssemblyFilter]]) -> None:
         requirements_given.extend(filter_class.provides)
 
 
-def default_filters(t: Task.Task) -> Tuple[AssemblyFilter, ...]:
+def default_filters(task: Task.Task) -> Tuple[AssemblyFilter, ...]:
     """
     Default filters for assembly planning.
 
@@ -644,12 +644,12 @@ def default_filters(t: Task.Task) -> Tuple[AssemblyFilter, ...]:
     - InverseKinematicsSolvable: Ensures the goals can be reached with a valid inverse kinematics solution
     without collisions and within static torque limits.
 
-    :param t: The task to be evaluated.
+    :param task: The task to be evaluated.
     """
     assembly_length = AssemblyModuleLengthFilter()
     create_robot = RobotCreationFilter()
     ik_simple = InverseKinematicsSolvable(ignore_self_collisions=True, max_iter=150)
-    ik_complex = InverseKinematicsSolvable(task=t, max_iter=1500)
+    ik_complex = InverseKinematicsSolvable(task=task, max_iter=1500)
     return assembly_length, create_robot, ik_simple, ik_complex
 
 

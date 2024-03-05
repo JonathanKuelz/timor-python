@@ -55,16 +55,18 @@ class TestBodiesAndGeometries(unittest.TestCase):
                               'scale': 0.001})
 
         # Volumes
-        self.assertEqual(box.volume, 1)
-        self.assertAlmostEqual(cylinder.volume, 5 * np.pi * 1 ** 2)
-        self.assertAlmostEqual(sphere.volume, 4 / 3 * np.pi * 1 ** 3)
-        self.assertGreater(mesh.volume, 0)  # Just check that it makes sense
+        self.assertEqual(box.measure_volume, 1)
+        self.assertAlmostEqual(cylinder.measure_volume, 5 * np.pi * 1 ** 2)
+        self.assertAlmostEqual(sphere.measure_volume, 4 / 3 * np.pi * 1 ** 3)
+        self.assertGreater(mesh.measure_volume, 0)  # Just check that it makes sense
 
         composed = Geometry.ComposedGeometry([box, cylinder, sphere, mesh])
         empty = Geometry.EmptyGeometry()
-        self.assertEqual(composed.volume, box.volume + cylinder.volume + sphere.volume + mesh.volume)
+        self.assertEqual(composed.measure_volume,
+                         box.measure_volume + cylinder.measure_volume + sphere.measure_volume + mesh.measure_volume)
         composed._composing_geometries.append(empty)
-        self.assertEqual(composed.volume, box.volume + cylinder.volume + sphere.volume + mesh.volume)
+        self.assertEqual(composed.measure_volume,
+                         box.measure_volume + cylinder.measure_volume + sphere.measure_volume + mesh.measure_volume)
 
         another_composed = Geometry.ComposedGeometry([mesh, sphere, box, cylinder])
         self.assertEqual(composed, another_composed)
@@ -75,7 +77,7 @@ class TestBodiesAndGeometries(unittest.TestCase):
         # Deepcopy
         for g in (box, cylinder, sphere, mesh):
             g_new = deepcopy(g)
-            self.assertEqual(g.volume, g_new.volume)
+            self.assertEqual(g.measure_volume, g_new.measure_volume)
             self.assertDictEqual(g.parameters, g_new.parameters)
 
     def test_parameterizable_body(self):

@@ -87,7 +87,7 @@ class ToleratedPose(JSONable_mixin):
         frame_data = self.nominal.to_json_data()
         # Repackage for nominal pose
         if 'parent' in frame_data:
-            frame_data['nominalParent'] = self.nominal.pop('parent')
+            frame_data['nominalParent'] = frame_data.pop('parent')
         frame_data['nominal'] = frame_data.pop('transformation')
         return {**frame_data, **self.tolerance.to_projection()}
 

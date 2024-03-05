@@ -4,7 +4,7 @@ import abc
 import itertools
 import logging
 import re
-from typing import Collection, Dict, List, Optional, Set, Tuple, Union
+from typing import Collection, Dict, List, Optional, Set, Tuple, Type, Union
 import uuid
 from warnings import warn
 
@@ -14,6 +14,7 @@ from pinocchio.visualize import MeshcatVisualizer
 from scipy.spatial.transform import Rotation as scipy_rotation
 
 from timor import Volume as TimorVolume
+from timor.Volume import BoxVolume, CylinderVolume, SphereVolume
 from timor.utilities import spatial
 from timor.utilities.frames import Frame, NOMINAL_FRAME, WORLD_FRAME
 from timor.utilities.transformation import Transformation, TransformationLike
@@ -316,6 +317,8 @@ class Spatial(ToleranceBase, abc.ABC):
     _max_possible: np.ndarray  # Tolerance lower and upper boundaries
     _rounding_error: float = 1e-12  # Valid rounding error for numerical stability
 
+    CorrespondingVolumeType: Type[TimorVolume] = None
+
     def __init__(self, frame: Frame = NOMINAL_FRAME, *args):
         """Sanity checks"""
         if not all(tol.shape == (2,) for tol in args):
@@ -328,6 +331,19 @@ class Spatial(ToleranceBase, abc.ABC):
             raise ValueError("Your upper bounds seem to be larger than the maximum possible.")
 
         self._frame = frame
+
+    def enclosing_volume(self, limits: np.ndarray, offset: Transformation = Transformation.neutral()) -> TimorVolume:
+        """
+        Returns an internal representation of a volume object, described by limits and offsets.
+
+        :param limits: The limits of the volume, as a 3x2 array. For each row, the first column represents
+                       the lower limit, and the second column represents the upper limit.
+        :param offset: An optional transformation that is applied to the volume to adjust its position and orientation.
+        :return: An internal representation of the volume.
+        """
+        if self.CorrespondingVolumeType is None:
+            raise AttributeError("There is no corresponding volume for tolerances of type {self.class}")
+        return self.CorrespondingVolumeType(limits=self.stacked, offset=offset)
 
     def to_projection(self) -> Dict[str, Tuple[Union[str, np.ndarray], ...]]:
         """
@@ -441,9 +457,18 @@ class Cartesian(Spatial, abc.ABC):
         """The tolerances stacked in a 3x2 array"""
         return np.vstack([self._a, self._b, self._c])
 
+    def valid(self, desired: TransformationLike, real: TransformationLike) -> bool:
+        """For cartesian tolerance, we can check if the tolerance is within the enclosing Volume"""
+        desired, real = map(Transformation, (desired, real))
+        return (self.enclosing_volume(self.stacked,
+                                      self._frame.rotate_to_this_frame(Transformation.neutral(), WORLD_FRAME))
+                .contains(self._frame.rotate_to_this_frame(desired.inv @ real, desired)))
+
 
 class CartesianXYZ(Cartesian):
     """Axis-aligned cartesian tolerance."""
+
+    CorrespondingVolumeType = BoxVolume
 
     def __init__(self,
                  x: Union[List[float], Tuple[float, float], np.ndarray],
@@ -511,6 +536,8 @@ class CartesianCylindrical(Cartesian):
         [[0, np.inf], [-np.pi, np.pi], [-np.inf, np.inf]]
     )
 
+    CorrespondingVolumeType = CylinderVolume
+
     def __init__(self,
                  r: Union[List[float], Tuple[float, float], np.ndarray],
                  phi_cyl: Union[List[float], Tuple[float, float], np.ndarray] = (-np.pi, np.pi),
@@ -542,6 +569,10 @@ class CartesianCylindrical(Cartesian):
                 return self._add_same(self.__class__(r=(0, np.inf), z=other.stacked[2, :], frame=self._frame))
 
         return super().__add__(other)
+
+    def enclosing_volume(self, limits: np.ndarray, offset: Transformation = Transformation.neutral()) -> CylinderVolume:
+        """Returns a cylinder volume object."""
+        return CylinderVolume(limits=self.stacked, offset=offset)
 
     @classmethod
     def default(cls):
@@ -587,6 +618,8 @@ class CartesianSpheric(Cartesian):
     _max_possible = np.array(
         [[0, np.inf], [0, np.pi], [-np.pi, np.pi]]
     )
+
+    CorrespondingVolumeType = SphereVolume
 
     def __init__(self,
                  r: Union[List[float], Tuple[float, float], np.ndarray],
@@ -703,6 +736,15 @@ class RotationAbsolute(Rotation):
             'toleranceProjection': ('Theta_R',),
             'tolerance': self.stacked
         }
+
+    def enclosing_volume(self, limits: np.ndarray, offset: Transformation = Transformation.neutral()) -> TimorVolume:
+        """
+        It does not make sense to obtain a spatial volume from a rotation representation from here.
+
+        The rotation tolerance does not actually represent a volume in the spatial sense, but rather a range of possible
+        rotations. Hence, we cannot obtain a typical volume defined in the representation through a direct conversion.
+        """
+        raise AttributeError("Cannot obtain a spatial volume from a rotation representation.")
 
     @property
     def stacked(self) -> np.ndarray:
