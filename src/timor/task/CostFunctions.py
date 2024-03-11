@@ -80,6 +80,8 @@ class CostFunctionBase(abc.ABC):
         :param descriptor: Abbreviation for the cost function. Format <name> or <name_weight>
         :return: instance of the cost function
         """
+        if descriptor == "" or descriptor is None:
+            return ComposedCost.empty()
         references = descriptor.split(',')
         costs = list()
         for ref in references:

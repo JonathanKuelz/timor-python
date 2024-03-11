@@ -102,7 +102,6 @@ class GA:
         :param db: Either the name of a ModulesDB or a ModulesDB instance that will be used for the GA. The operators
             for the genetic optimization expect each module to have exactly two connectors -- if the DB contains any
             modules with more or less connectors, this method will raise an error.
-
         :param custom_hp: A dictionary of custom hyperparameters that will be used instead of the default ones.
             For more hyperparameters see reference: https://pygad.readthedocs.io/en/latest/pygad.html#pygad-ga-class.
         :param mutation_weights: Maps a module ID or the `EMPTY` ID to a weight that determines how likely it is to be
@@ -259,7 +258,7 @@ class GA:
                         _, suc_goal = assembly.robot.ik(pose, task=task, max_iter=1000)
                         suc = suc and suc_goal
                     if suc:
-                        place_billboard(viz, text='🗸', name=goal.id, placement=poses[0].nominal,
+                        place_billboard(viz, text='🗸', name=goal.id, placement=poses[0].nominal.in_world_coordinates(),
                                         text_color='green', background_color='transparent', scale=.3)
 
             if save_at is not None:
@@ -301,7 +300,7 @@ class GA:
         return offspring
 
     def optimize(self,
-                 fitness_function: Callable[[ModuleAssembly, pygad.GA, int], float],
+                 fitness_function: Callable[[ModuleAssembly, pygad.GA, int], Union[float, Lexicographic]],
                  hp: Optional[dict] = None,
                  progress_bar: bool = True,
                  debug_logging_frequency: Optional[int] = 10,
