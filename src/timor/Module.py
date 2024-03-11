@@ -313,6 +313,8 @@ class AtomicModule(ModuleBase):
         viz_colors = set()
         for body in d['bodies']:
             viz_colors.update(set(v['parameters'].pop('color', 'grey') for v in body.get('visual', [])))
+        if len(viz_colors) == 0:
+            viz_colors.add('grey')
         if len(viz_colors) != 1:
             raise ValueError('All bodies must have the same color')
         module = cls.from_json_data(d, package_dir)
@@ -496,6 +498,7 @@ class ModulesDB(SingleSet, JSONable_mixin):
           confusion.
         """
         new_db = super().filter(func)
+        new_db._model_generation_kwargs = self._model_generation_kwargs
         return new_db
 
     @classmethod

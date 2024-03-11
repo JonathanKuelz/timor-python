@@ -117,6 +117,8 @@ class Connector(JSONable_mixin):
         :return: True if connection is possible. False else.
         """
         size = self.size == other.size
+        if isinstance(size, np.bool_):
+            size = size.item()
         if not isinstance(size, bool):  # Which is the case when size is an array
             size = all(size)
         return self.type == other.type and size and self.gender.connects(other.gender)
