@@ -421,7 +421,7 @@ class GA:
 
         on_generation_cbs: List[Callable[[pygad.GA], any]] = []
         if progress_bar:
-            progress_bar = tqdm(total=hp['num_generations'] + 1 + steps_at_start, desc='Generations')
+            progress_bar = tqdm(total=run_hp['num_generations'] + 1 + steps_at_start, desc='Generations')
             progress_bar.update(steps_at_start)
 
             def progress_callback(_: pygad.GA) -> bool:
