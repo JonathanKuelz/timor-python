@@ -652,6 +652,7 @@ class ParameterizedOrthogonalLink(ParameterizableModule):
                  mass_density: float = 1.,
                  limits: Sequence[Sequence[float]] = ((0, float('inf')), (0, float('inf')), (0, float('inf'))),
                  connector_arguments: Optional[Dict[str, any]] = None,
+                 alpha_rot_x: float = np.pi / 2
                  ):
         """
         Creates a parameterized module with one, L-shaped link.
@@ -665,9 +666,11 @@ class ParameterizedOrthogonalLink(ParameterizableModule):
         :param mass_density: The mass density of the link's material (kg/m^3) -- assumed to be uniform
         :param limits: Optional lower and upper bounds on the link's lengths and radius (r, l1, l2)
         :param connector_arguments: Mapping from keyword to 2-tuples of values for gender, size, type.
+        :param alpha_rot_x: The rotation angle around the x-axis for the second cylinder
         """
         self._length1, self._length2 = lengths
         self._radius: float = radius
+        self._x_rotation: float = alpha_rot_x
         limits = np.asarray(limits)
         if connector_arguments is None:
             connector_arguments = dict()
@@ -752,7 +755,7 @@ class ParameterizedOrthogonalLink(ParameterizableModule):
         """Makes sure the connectors are always placed on the bottom/top and centered in the link."""
         connectors = {con.own_id: con for con in self.link.connectors}
         connectors['proximal'].body2connector = Transformation.from_translation((0., 0., 0)) @ spatial.rotX(np.pi)
-        distal = Transformation.from_translation([0, 0, self.l1]) @ spatial.rotX(-np.pi / 2) @ \
+        distal = Transformation.from_translation([0, 0, self.l1]) @ spatial.rotX(self._x_rotation) @ \
             Transformation.from_translation([0, 0, self.l2])
         connectors['distal'].body2connector = distal
         self.link.connector_placements_valid = True
@@ -765,7 +768,7 @@ class ParameterizedOrthogonalLink(ParameterizableModule):
         geometry is placed accordingly in the second cylinder.
         """
         p1 = Transformation.from_translation([0, 0, self.l1 / 2])
-        p2 = Transformation.from_translation([0, 0, self.l1]) @ spatial.rotX(-np.pi / 2) @ \
+        p2 = Transformation.from_translation([0, 0, self.l1]) @ spatial.rotX(self._x_rotation) @ \
             Transformation.from_translation([0, 0, self.l2 / 2])
         self.link.geometry_placements = (p1, p2)
 
@@ -894,6 +897,7 @@ class ParameterizedOrthogonalJoint(ParameterizableJointModule):
                  joint_type: TimorJointType = TimorJointType.revolute,
                  joint_parameters: Dict[str, any] = None,
                  connector_arguments: Optional[Dict[str, any]] = None,
+                 alpha_rot_x: float = np.pi / 2
                  ):
         r"""
         Creates a parameterized module with two cylinders being orthogonal to each other.
@@ -911,11 +915,13 @@ class ParameterizedOrthogonalJoint(ParameterizableJointModule):
         :param joint_type: The type of joint to use :math:`\in` (revolute, prismatic)
         :param joint_parameters: Additional arguments for timor.Joint such as limits or gear ratio
         :param connector_arguments: Mapping from keyword to 2-tuples of values
+        :param alpha_rot_x: The rotation angle around the x-axis for the second cylinder
         """
         if joint_parameters is None:
             joint_parameters = dict()
         self._length1, self._length2 = lengths
         self._radius: float = radius
+        self._x_rotation: float = alpha_rot_x
 
         if connector_arguments is None:
             connector_arguments = dict()
@@ -1002,4 +1008,4 @@ class ParameterizedOrthogonalJoint(ParameterizableJointModule):
         """Makes sure the joint is always placed in the middle of the module."""
         self.joint.parent2joint = Transformation.from_translation((0., 0., self.l1 / 2.))
         self.joint.joint2child = Transformation.from_translation((0., 0., self.l2 / 2.)).multiply_from_left(
-            spatial.rotX(-np.pi / 2))
+            spatial.rotX(self._x_rotation))
