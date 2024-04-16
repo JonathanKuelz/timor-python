@@ -192,7 +192,7 @@ class PinocchioRobotSetup(unittest.TestCase):
                     self.assertLess(mat[2, 2], mat[2, 3])
             self.assertLess(fails, int(0.1 * (N * 2)), msg=f"Failed to optimize for position only {fails} times")
 
-    def test_ik_rng(self, n_iter = 100, seed=10):
+    def test_ik_rng(self, n_iter=100, seed=10):
         robot = PinRobot.from_urdf(self.urdf, self.package_dir, rng=self.rng)
         for _ in range(n_iter):
             goal = ToleratedPose(robot.fk(robot.random_configuration()))
@@ -202,7 +202,6 @@ class PinocchioRobotSetup(unittest.TestCase):
                 robot._rng = np.random.default_rng(seed)
                 q_new = robot.ik(goal, ik_method='jacobian')[0]
                 np_test.assert_allclose(q_ik, q_new)
-
 
     def test_robot_fk(self):
         robot = PinRobot.from_urdf(self.urdf, self.package_dir)
