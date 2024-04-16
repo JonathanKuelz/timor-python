@@ -514,6 +514,49 @@ class ParameterizableModule(ModuleBase, abc.ABC):
         self.__dict__.update(state)
 
 
+class ParameterizableJointModule(ParameterizableModule, abc.ABC):
+    """Abstract base class for parameterizable modules that contain joints."""
+
+    def __init__(self,
+                 header: ModuleHeader,
+                 bodies: Iterable[BodyBase],
+                 parameters: Tuple[float, ...],
+                 joint_parameters: Dict[str, any],
+                 joint_type: TimorJointType = TimorJointType.revolute,
+                 ):
+        r"""
+        This mainly checks that joint parameters are valid.
+
+        :param joint_parameters: Additional arguments for timor.Joint such as limits or gear ratio
+        :param joint_type: The type of joint to use :math:`\in` (revolute, prismatic)
+        """
+        if joint_parameters is None:
+            joint_parameters = dict()
+        if 'parent2joint' in joint_parameters or 'joint2child' in joint_parameters:
+            raise ValueError("The joint parameters 'parent2joint' and 'joint2child' are overridden for parameterized "
+                             "modules.")
+        self._joint_parameters = joint_parameters  # store for copy later on
+        super().__init__(header=header, bodies=bodies, joints=(self.joint,), parameters=parameters)
+
+    @abc.abstractmethod
+    def _update_joint_placement(self):
+        """Makes sure the joint is always placed in the middle of the module."""
+        pass
+
+    def __getstate__(self):
+        """A custom getstate allows pickling of the module even though there are circular references."""
+        state = self.__dict__.copy()
+        state['joint'] = self.joint.to_json_data()
+        del state['_joints']
+        return state
+
+    def __setstate__(self, newstate):
+        """The setstate method ensures pickling works with the custom getstate."""
+        newstate['joint'] = Joint.from_json_data(newstate['joint'], {b._id: b for b in newstate['_bodies']})
+        newstate['_joints'] = JointSet({newstate['joint']})
+        self.__dict__ = newstate
+
+
 class ParameterizedCylinderLink(ParameterizableModule):
     """This is a module in cylinder shape with connectors at both ends that can be used to construct a robot."""
 
@@ -727,7 +770,7 @@ class ParameterizedOrthogonalLink(ParameterizableModule):
         self.link.geometry_placements = (p1, p2)
 
 
-class ParameterizedStraightJoint(ParameterizableModule):
+class ParameterizedStraightJoint(ParameterizableJointModule):
     """This is a module in cylinder shape with connectors at both ends and a joint in the middle."""
 
     def __init__(self,
@@ -757,8 +800,6 @@ class ParameterizedStraightJoint(ParameterizableModule):
         """
         if joint_parameters is None:
             joint_parameters = dict()
-        self.__joint_parameters = joint_parameters  # store for copy later on
-
         self._length: float = length
         self._radius: float = radius
 
@@ -780,7 +821,8 @@ class ParameterizedStraightJoint(ParameterizableModule):
         self.distal_link: ParameterizableCylinderBody = distal_link
         self.joint = Joint(joint_id=f'{header.ID}_joint', joint_type=joint_type, parent_body=proximal_link,
                            child_body=distal_link, **joint_parameters)
-        super().__init__(header, bodies=(proximal_link, distal_link), joints=(self.joint,), parameters=(radius, length))
+        super().__init__(header, bodies=(proximal_link, distal_link), parameters=(radius, length),
+                         joint_parameters=joint_parameters, joint_type=joint_type)
 
     @property
     def parameters(self) -> Tuple[float, float]:
@@ -823,7 +865,7 @@ class ParameterizedStraightJoint(ParameterizableModule):
         """Returns the arguments to use when copying this module."""
         return (self.length, self.radius, self.proximal_link.mass_density,
                 (self.proximal_link.parameter_limits[0], self.proximal_link.parameter_limits[1] * 2),
-                self.joint.type, self.__joint_parameters, self.__connector_arguments)
+                self.joint.type, self._joint_parameters, self.__connector_arguments)
 
     def _update_connector_placements(self):
         """Makes sure the connectors are always placed on the bottom/top and centered in the link."""
@@ -839,21 +881,8 @@ class ParameterizedStraightJoint(ParameterizableModule):
         self.joint.parent2joint = Transformation.from_translation((0., 0., self._length / 4.))
         self.joint.joint2child = Transformation.from_translation((0., 0., self._length / 4.))
 
-    def __getstate__(self):
-        """A custom getstate allows pickling of the module even though there are circular references."""
-        state = self.__dict__.copy()
-        state['joint'] = self.joint.to_json_data()
-        del state['_joints']
-        return state
 
-    def __setstate__(self, newstate):
-        """The setstate method ensures pickling works with the custom getstate."""
-        newstate['joint'] = Joint.from_json_data(newstate['joint'], {b._id: b for b in newstate['_bodies']})
-        newstate['_joints'] = JointSet({newstate['joint']})
-        self.__dict__ = newstate
-
-
-class ParameterizedOrthogonalJoint(ParameterizableModule):
+class ParameterizedOrthogonalJoint(ParameterizableJointModule):
     """This is a module in L-shape with connectors at both ends and a joint in the 'elbow'."""
 
     def __init__(self,
@@ -885,8 +914,6 @@ class ParameterizedOrthogonalJoint(ParameterizableModule):
         """
         if joint_parameters is None:
             joint_parameters = dict()
-        self.__joint_parameters = joint_parameters  # store for copy later on
-
         self._length1, self._length2 = lengths
         self._radius: float = radius
 
@@ -906,8 +933,8 @@ class ParameterizedOrthogonalJoint(ParameterizableModule):
         self.distal_link: ParameterizableCylinderBody = distal_link
         self.joint = Joint(joint_id=f'{header.ID}_joint', joint_type=joint_type, parent_body=proximal_link,
                            child_body=distal_link, **joint_parameters)
-        super().__init__(header, bodies=(proximal_link, distal_link), joints=(self.joint,),
-                         parameters=(radius, self.l1, self.l2))
+        super().__init__(header, bodies=(proximal_link, distal_link), parameters=(radius, self.l1, self.l2),
+                         joint_parameters=joint_parameters, joint_type=joint_type)
 
     @property
     def parameters(self) -> Tuple[float, float, float]:
@@ -960,7 +987,7 @@ class ParameterizedOrthogonalJoint(ParameterizableModule):
         """Returns the arguments to use when copying this module."""
         return ((self.l1, self.l2), self.radius, self.proximal_link.mass_density,
                 np.concatenate((self.proximal_link.parameter_limits, self.distal_link.parameter_limits[1:, :])),
-                self.joint.type, self.__joint_parameters, self.__connector_arguments)
+                self.joint.type, self._joint_parameters, self.__connector_arguments)
 
     def _update_connector_placements(self):
         """Makes sure the connectors are always placed on the bottom/top and centered in the link."""
@@ -976,16 +1003,3 @@ class ParameterizedOrthogonalJoint(ParameterizableModule):
         self.joint.parent2joint = Transformation.from_translation((0., 0., self.l1 / 2.))
         self.joint.joint2child = Transformation.from_translation((0., 0., self.l2 / 2.)).multiply_from_left(
             spatial.rotX(-np.pi / 2))
-
-    def __getstate__(self):
-        """A custom getstate allows pickling of the module even though there are circular references."""
-        state = self.__dict__.copy()
-        state['joint'] = self.joint.to_json_data()
-        del state['_joints']
-        return state
-
-    def __setstate__(self, newstate):
-        """The setstate method ensures pickling works with the custom getstate."""
-        newstate['joint'] = Joint.from_json_data(newstate['joint'], {b._id: b for b in newstate['_bodies']})
-        newstate['_joints'] = JointSet({newstate['joint']})
-        self.__dict__ = newstate
