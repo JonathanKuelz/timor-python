@@ -210,6 +210,10 @@ class Lexicographic:
         """Return True if self <= other, False otherwise."""
         return self < other or self == other
 
+    def __str__(self):
+        """Return a string representation of the Lexicographic object."""
+        return f"Lexicographic {self.values}"
+
 
 class DictLexicographic:
     """A dictionary-based version of Lexicographic values."""

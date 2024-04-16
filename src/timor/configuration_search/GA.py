@@ -520,7 +520,7 @@ class GA:
                 ga_instance.best_solutions_fitness[ga_instance.best_solution_generation]
             ))
             best = ga_instance.best_solutions[ga_instance.best_solution_generation]
-            logging.info("Best solution: {}".format('-'.join(self._map_genes_to_id(best))))
+            logging.info(f"Best solution: {self._map_genes_to_id(best)}")
         logging.info("Total optimization time: {:.2f} seconds.".format(time.time() - t0))
         self._last_ga_instance = ga_instance
         return ga_instance
