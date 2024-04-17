@@ -1088,7 +1088,6 @@ class DHJoint(ParameterizableJointModule):
             parameters=(radius, self._d, radius, self._a),
             parameter_limits=(limits[0], limits[3], limits[1], limits[3]),
             mass_density=mass_density,
-            connectors=connectors,
             in_module=self
         )
         proxy_link: Body = Body(body_id=f'{header.ID}_proxy', collision=EmptyGeometry())
@@ -1099,6 +1098,11 @@ class DHJoint(ParameterizableJointModule):
         else:
             self.proximal_link: BodyBase = real_link
             self.distal_link: BodyBase = proxy_link
+
+        self.proximal_link.connectors = ConnectorSet({connectors[0]})
+        connectors[0].parent = self.proximal_link
+        self.distal_link.connectors = ConnectorSet({connectors[1]})
+        connectors[1].parent = self.distal_link
 
         self.joint = Joint(joint_id=f'{header.ID}_joint', joint_type=joint_type, parent_body=self.proximal_link,
                            child_body=self.distal_link, **joint_parameters)
