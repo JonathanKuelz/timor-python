@@ -834,7 +834,7 @@ class PinRobot(RobotBase):
         :return: np. array of either dim 4x4 (kind tcp) or numJointsx4x4 (kind joints) or numFramesx4x4 (kind full)
         """
         if configuration is not None:
-            self.update_configuration(configuration)
+            self.update_configuration(configuration, frames=True)
 
         if kind == 'joints':
             # Assuming no one wants to have the "fixed universe joint" represented by the base

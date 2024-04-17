@@ -897,7 +897,8 @@ class ParameterizedOrthogonalJoint(ParameterizableJointModule):
                  joint_type: TimorJointType = TimorJointType.revolute,
                  joint_parameters: Dict[str, any] = None,
                  connector_arguments: Optional[Dict[str, any]] = None,
-                 alpha_rot_x: float = np.pi / 2
+                 alpha_rot_x: float = np.pi / 2,
+                 convention_alpha: str = 'DH'
                  ):
         r"""
         Creates a parameterized module with two cylinders being orthogonal to each other.
@@ -915,13 +916,20 @@ class ParameterizedOrthogonalJoint(ParameterizableJointModule):
         :param joint_type: The type of joint to use :math:`\in` (revolute, prismatic)
         :param joint_parameters: Additional arguments for timor.Joint such as limits or gear ratio
         :param connector_arguments: Mapping from keyword to 2-tuples of values
-        :param alpha_rot_x: The rotation angle around the x-axis for the second cylinder
+        :param alpha_rot_x: The rotation angle around the x-axis for the second cylinder.
+        :param convention_alpha: Either DH (apply x-rotation AFTER joint rotation) or MDH (apply x-rotation BEFORE)
         """
         if joint_parameters is None:
             joint_parameters = dict()
         self._length1, self._length2 = lengths
         self._radius: float = radius
         self._x_rotation: float = alpha_rot_x
+        if convention_alpha == 'DH':
+            self._x_rot_before: bool = False
+        elif convention_alpha == 'MDH':
+            self._x_rot_before: bool = True
+        else:
+            raise ValueError(f"Unknown convention {convention_alpha}")
 
         if connector_arguments is None:
             connector_arguments = dict()
@@ -1006,6 +1014,10 @@ class ParameterizedOrthogonalJoint(ParameterizableJointModule):
 
     def _update_joint_placement(self):
         """Makes sure the joint is always placed in the middle of the module."""
-        self.joint.parent2joint = Transformation.from_translation((0., 0., self.l1 / 2.))
-        self.joint.joint2child = Transformation.from_translation((0., 0., self.l2 / 2.)).multiply_from_left(
-            spatial.rotX(self._x_rotation))
+        rot_x = spatial.rotX(self._x_rotation)
+        if self._x_rot_before:
+            self.joint.parent2joint = Transformation.from_translation((0., 0., self.l1 / 2.)) @ rot_x
+            self.joint.joint2child = Transformation.from_translation((0., 0., self.l2 / 2.))
+        else:
+            self.joint.parent2joint = Transformation.from_translation((0., 0., self.l1 / 2.))
+            self.joint.joint2child = Transformation.from_translation((0., 0., self.l2 / 2.)).multiply_from_left(rot_x)
