@@ -9,7 +9,8 @@ import numpy as np
 import pinocchio as pin
 
 from timor.Bodies import Body, BodyBase, Connector, ConnectorSet, Gender
-from timor.Geometry import Box, ComposedGeometry, Cylinder, Geometry, GeometryType, Sphere, _geometry_type2class
+from timor.Geometry import Box, ComposedGeometry, Cylinder, EmptyGeometry, Geometry, GeometryType, Sphere, \
+    _geometry_type2class
 from timor.Joints import Joint, JointSet, TimorJointType
 from timor.Module import AtomicModule, ModuleBase, ModuleHeader
 from timor.utilities import logging, spatial
@@ -369,12 +370,15 @@ class ParameterizableMultiBody(ParameterizableBody):
         """Returns the collision geometry of the body."""
         references: List[Union[Type[Box], Type[Cylinder], Type[Sphere]]] = list()
         params: List[Dict[str, float]] = list()
-        for gt in self.composing_geometry_types:
+        is_empty = np.ones((len(self.composing_geometry_types,)), dtype=bool)
+        for i, gt in enumerate(self.composing_geometry_types):
             references.append(_geometry_type2class(gt))
             num_params = sum(len(d) for d in params)
             class_parameters = self.parameters[num_params:num_params + self.get_num_parameters(gt)]
+            is_empty[i] = np.prod(class_parameters) == 0
             params.append({name: param for name, param in zip(references[-1].parameter_names, class_parameters)})
-        composing = (class_ref(params[i], self._origin_transformation[i]) for i, class_ref in enumerate(references))
+        composing = (class_ref(params[i], self._origin_transformation[i]) for i, class_ref in enumerate(references)
+                     if not is_empty[i])
         return ComposedGeometry(composing)
 
     @property
@@ -1021,3 +1025,164 @@ class ParameterizedOrthogonalJoint(ParameterizableJointModule):
         else:
             self.joint.parent2joint = Transformation.from_translation((0., 0., self.l1 / 2.))
             self.joint.joint2child = Transformation.from_translation((0., 0., self.l2 / 2.)).multiply_from_left(rot_x)
+
+
+class DHJoint(ParameterizableJointModule):
+    """A parameterizable module that represents one joint as defined by DH / MDH parameters."""
+
+    def __init__(self,
+                 header: ModuleHeader,
+                 convention_parameters: Sequence[float, float, float] = (1., 1., np.pi / 2),
+                 convention: str = 'DH',
+                 radius: float = 1.,
+                 mass_density: float = 1.,
+                 limits: Sequence[Sequence[float]] = ((0, float('inf')), (0, float('inf')), (-2 * np.pi, 2 * np.pi),
+                                                      (0, float('inf'))),
+                 joint_type: TimorJointType = TimorJointType.revolute,
+                 joint_parameters: Dict[str, any] = None,
+                 connector_arguments: Optional[Dict[str, any]] = None,
+                 ):
+        r"""
+        Creates a parameterized module defined by DH/MDH parameters. The joint is before or after the composed bodies.
+
+        For this module, we assume that there are two bodies: one actual body that, up to the parameters, has an
+        I or L-shape, and one "proxy" body with an empty geometry. These two are connected by a joint. Their order is
+        defined by the convention that can either be DH (the joint is "before" the real body" or MDH (the joint is at
+        "the end" of the body).
+
+        :param header: The module header for the generated module
+        :param convention_parameters: Parameters in order (d, a, alpha)
+        :param convention: Either DH (Denavit-Hartenberg) or MDH (modified, after Craig)
+        :param radius: The radius of the cylinder bodies
+        :param mass_density: The mass density of the bodies' material (kg/m^3) -- assumed to be uniform
+        :param limits: Optional lower and upper bounds on the radius and parameters (r, d, a, alpha)
+        :param joint_type: The type of joint to use -- currently, needs to be revolute.
+        :param joint_parameters: Additional arguments for timor.Joint such as limits or gear ratio
+        :param connector_arguments: Mapping from keyword to 2-tuples of values
+        """
+        if joint_parameters is None:
+            joint_parameters = dict()
+        if joint_type is not TimorJointType.revolute:
+            raise ValueError("Currently, only revolute joints are supported")
+        self._d, self._a, self._alpha = convention_parameters
+        self._radius: float = radius
+        if convention == 'DH':
+            self.is_dh: bool = True
+        elif convention == 'MDH':
+            self.is_dh: bool = False
+        else:
+            raise ValueError(f"Unknown convention {convention}")
+
+        if connector_arguments is None:
+            connector_arguments = dict()
+
+        connectors = self._generate_connectors(**connector_arguments)
+        self.__connector_arguments = connector_arguments  # store for later use
+        self.__parameter_limits = limits
+        if isinstance(header, dict):
+            header = ModuleHeader(**header)
+
+        real_link: ParameterizableMultiBody = ParameterizableMultiBody(
+            body_id=f'{header.ID}_link',
+            geometry_types=(GeometryType.CYLINDER, GeometryType.CYLINDER),
+            parameters=(radius, self._d, radius, self._a),
+            parameter_limits=(limits[0], limits[3], limits[1], limits[3]),
+            mass_density=mass_density,
+            connectors=connectors,
+            in_module=self
+        )
+        proxy_link: Body = Body(body_id=f'{header.ID}_proxy', collision=EmptyGeometry())
+
+        if self.is_dh:
+            self.proximal_link: BodyBase = proxy_link
+            self.distal_link: BodyBase = real_link
+        else:
+            self.proximal_link: BodyBase = real_link
+            self.distal_link: BodyBase = proxy_link
+
+        self.joint = Joint(joint_id=f'{header.ID}_joint', joint_type=joint_type, parent_body=self.proximal_link,
+                           child_body=self.distal_link, **joint_parameters)
+
+        super().__init__(header, bodies=(self.proximal_link, self.distal_link), joint_type=joint_type,
+                         parameters=(self._radius, self._d, self._a, self._alpha), joint_parameters=joint_parameters)
+
+    @property
+    def parameters(self) -> Tuple[float, float, float, float]:
+        """Returns the defining parameters (radius, d, a, alpha)"""
+        return self._radius, self._d, self._a, self._alpha
+
+    def dh_transformation(self, theta: float = 0) -> Transformation:
+        """Computes the DH transformation of this single joint."""
+        rot_x = Transformation(spatial.rotX(self._alpha))
+        rot_z = Transformation(spatial.rotZ(theta))
+        trans_x = Transformation.from_translation((self._a, 0., 0.))
+        trans_z = Transformation.from_translation((0., 0., self._d))
+        if self.is_dh:
+            return rot_z @ trans_z @ trans_x @ rot_x
+        else:
+            return rot_x @ trans_x @ trans_z @ rot_z
+
+    def resize(self, parameters: Union[Tuple[float, float, float], Tuple[float, float, float, float]]) -> None:
+        """
+        The interface to change the link's length or radius and adapt the connector placements accordingly.
+
+        :param parameters: A tuple of (radius, d, a, alpha) or (d, a, alpha)
+        """
+        if len(parameters) == 3:
+            self._d, self._a, self._alpha = parameters
+        else:
+            self._radius, self._d, self._a, self._alpha = parameters
+
+        if self.is_dh:
+            self.distal_link.parameters = (self._radius, self._d, self._radius, self._a)
+        else:
+            self.proximal_link.parameters = (self._radius, self._d, self._radius, self._a)
+        self._update_geometry_placements()
+        self._update_connector_placements()
+        self._update_joint_placement()
+
+    def _get_copy_args(self) -> Tuple:
+        """Returns the arguments to use when copying this module."""
+        mass_density = self.distal_link.mass_density if self.is_dh else self.proximal_link.mass_density
+        convention = 'DH' if self.is_dh else 'MDH'
+        return ((self._d, self._a, self._alpha), convention, self._radius, mass_density, self.__parameter_limits,
+                self.joint.type, self._joint_parameters, self.__connector_arguments)
+
+    def _update_connector_placements(self):
+        """This updates the connector attached to the actual link"""
+        connectors = {con.own_id: con for con in self.proximal_link.connectors | self.distal_link.connectors}
+        mirror_x = Transformation(spatial.rotX(np.pi))
+        if self.is_dh:
+            connectors['proximal'].body2connector = mirror_x
+            connectors['distal'].body2connector = self.dh_transformation()
+        else:
+            connectors['proximal'].body2connector = mirror_x
+            connectors['distal'].body2connector = Transformation.neutral()
+        self.proximal_link.connector_placements_valid = True
+        self.distal_link.connector_placements_valid = True
+
+    def _update_joint_placement(self):
+        """For this module, we assume body coordinate frames to be at the 'beginning' of the body"""
+        if self.is_dh:
+            self.joint.parent2joint = Transformation.neutral()
+            self.joint.joint2child = Transformation.neutral()
+        else:
+            self.joint.parent2joint = self.dh_transformation(theta=0.)
+            self.joint.joint2child = Transformation.neutral()
+
+    def _update_geometry_placements(self):
+        """
+        Makes sure the two cylinders composing this joint are placed correctly relative to each other.
+
+        The body frames are aligned with "beginning" of the geometry here.
+        """
+        p1 = Transformation.from_translation((0, 0, self._d / 2))
+        p2 = Transformation.from_translation((0, 0, self._d)) @ Transformation.from_translation((self._a / 2, 0, 0))
+
+        # Turn p2, so the z-Axis is moved on the positive x-axis, which is the axis of material extension
+        p2 = p2 @ Transformation(spatial.rotY(-np.pi / 2))
+
+        if self.is_dh:
+            self.distal_link.geometry_placements = (p1, p2)
+        else:
+            self.proximal_link.geometry_placements = (p1, p2)
