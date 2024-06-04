@@ -1084,9 +1084,9 @@ class DHJoint(ParameterizableJointModule):
 
         real_link: ParameterizableMultiBody = ParameterizableMultiBody(
             body_id=f'{header.ID}_link',
-            geometry_types=(GeometryType.CYLINDER, GeometryType.CYLINDER),
-            parameters=(radius, self._d, radius, self._a),
-            parameter_limits=(limits[0], limits[3], limits[1], limits[3]),
+            geometry_types=(GeometryType.CYLINDER, GeometryType.CYLINDER, GeometryType.SPHERE, GeometryType.SPHERE),
+            parameters=(radius, self._d, radius, self._a, radius, radius),
+            parameter_limits=(limits[0], limits[3], limits[1], limits[3], limits[0], limits[0]),
             mass_density=mass_density,
             in_module=self
         )
@@ -1138,9 +1138,9 @@ class DHJoint(ParameterizableJointModule):
             self._radius, self._d, self._a, self._alpha = parameters
 
         if self.is_dh:
-            self.distal_link.parameters = (self._radius, self._d, self._radius, self._a)
+            self.distal_link.parameters = (self._radius, self._d, self._radius, self._a, self._radius, self._radius)
         else:
-            self.proximal_link.parameters = (self._radius, self._d, self._radius, self._a)
+            self.proximal_link.parameters = (self._radius, self._d, self._radius, self._a, self._radius, self._radius)
         self._update_geometry_placements()
         self._update_connector_placements()
         self._update_joint_placement()
@@ -1182,11 +1182,13 @@ class DHJoint(ParameterizableJointModule):
         """
         p1 = Transformation.from_translation((0, 0, self._d / 2))
         p2 = Transformation.from_translation((0, 0, self._d)) @ Transformation.from_translation((self._a / 2, 0, 0))
+        p_sleeve = Transformation.from_translation((0, 0, self._d))
+        p_end = p2 @ Transformation.from_translation((self._a / 2, 0, 0))
 
         # Turn p2, so the z-Axis is moved on the positive x-axis, which is the axis of material extension
         p2 = p2 @ Transformation(spatial.rotY(-np.pi / 2))
 
         if self.is_dh:
-            self.distal_link.geometry_placements = (p1, p2)
+            self.distal_link.geometry_placements = (p1, p2, p_sleeve, p_end)
         else:
-            self.proximal_link.geometry_placements = (p1, p2)
+            self.proximal_link.geometry_placements = (p1, p2, p_sleeve, p_end)
