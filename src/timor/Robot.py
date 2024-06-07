@@ -39,9 +39,9 @@ def default_ik_cost_function(robot: RobotBase, q: np.ndarray, goal: Transformati
     :param goal: The goal transformation
     """
     current = robot.fk(q, kind='tcp')
-    delta = current.distance(goal)
-    translation_error = delta.translation_euclidean
-    rotation_error = delta.rotation_angle
+    delta = current.homogeneous @ goal.homogeneous  # This + next 2 lines about ~20% of runtime of GA
+    translation_error = np.linalg.norm(delta[:3, 3])
+    rotation_error = np.arccos((np.trace(delta[:3, :3]) - 1) / 2)
     translation_weight = 1.
     rotation_weight = .5 / np.pi  # .5 meter displacement ~ 180 degree orientation error
     return (translation_weight * translation_error + rotation_weight * rotation_error) / \

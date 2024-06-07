@@ -6,7 +6,7 @@ import numpy.testing as np_test
 import pinocchio as pin
 
 from timor.Module import ModuleAssembly, ModulesDB
-from timor.Robot import PinRobot, RobotBase
+from timor.Robot import PinRobot, RobotBase, default_ik_cost_function
 from timor.task import Constraints, Tolerance
 from timor.utilities import logging, prebuilt_robots, spatial
 from timor.utilities.file_locations import robots
@@ -333,6 +333,15 @@ class PinocchioRobotSetup(unittest.TestCase):
             logging.warning('IK test failed {} times for scipy, {} times for jacobian.'.format(
                 error_count['scipy'], error_count['jacobian']
             ))
+
+    def test_default_ik_cost_function(self):
+        """Small test case for performance of default_ik_cost_function."""
+        robot = PinRobot.from_urdf(self.urdf, self.package_dir)
+        for _ in range(1000):
+            T = robot.fk(robot.random_configuration(), 'tcp')
+            q = robot.random_configuration()
+            cost = default_ik_cost_function(robot, q, T)
+            self.assertGreaterEqual(cost, 0)
 
     def test_robot_move_base(self):
         """Creates two robots, one with the base moved to another origin and then checks whether
