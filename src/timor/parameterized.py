@@ -11,7 +11,7 @@ import pinocchio as pin
 from timor.Bodies import Body, BodyBase, Connector, ConnectorSet, Gender
 from timor.Geometry import Box, ComposedGeometry, Cylinder, EmptyGeometry, Geometry, GeometryType, Sphere, \
     _geometry_type2class
-from timor.Joints import Joint, JointSet, TimorJointType
+from timor.Joints import Joint, TimorJointType
 from timor.Module import AtomicModule, ModuleBase, ModuleHeader
 from timor.utilities import logging, spatial
 from timor.utilities.transformation import Transformation
@@ -526,39 +526,27 @@ class ParameterizableJointModule(ParameterizableModule, abc.ABC):
                  bodies: Iterable[BodyBase],
                  parameters: Tuple[float, ...],
                  joint_parameters: Dict[str, any],
-                 joint_type: TimorJointType = TimorJointType.revolute,
+                 joints: Iterable[Joint],
                  ):
         r"""
         This mainly checks that joint parameters are valid.
 
-        :param joint_parameters: Additional arguments for timor.Joint such as limits or gear ratio
-        :param joint_type: The type of joint to use :math:`\in` (revolute, prismatic)
+        :param joints: The joints of this module
+        :param joint_parameters: Additional arguments for timor.Joint such as limits or gear ratio; applied to all
+            joints within the module.
         """
         if joint_parameters is None:
             joint_parameters = dict()
         if 'parent2joint' in joint_parameters or 'joint2child' in joint_parameters:
             raise ValueError("The joint parameters 'parent2joint' and 'joint2child' are overridden for parameterized "
                              "modules.")
-        self._joint_parameters = joint_parameters  # store for copy later on
-        super().__init__(header=header, bodies=bodies, joints=(self.joint,), parameters=parameters)
+        self._joint_parameters = joint_parameters  # store for reference later on
+        super().__init__(header=header, bodies=bodies, joints=tuple(joints), parameters=parameters)
 
     @abc.abstractmethod
     def _update_joint_placement(self):
         """Makes sure the joint is always placed in the middle of the module."""
         pass
-
-    def __getstate__(self):
-        """A custom getstate allows pickling of the module even though there are circular references."""
-        state = self.__dict__.copy()
-        state['joint'] = self.joint.to_json_data()
-        del state['_joints']
-        return state
-
-    def __setstate__(self, newstate):
-        """The setstate method ensures pickling works with the custom getstate."""
-        newstate['joint'] = Joint.from_json_data(newstate['joint'], {b._id: b for b in newstate['_bodies']})
-        newstate['_joints'] = JointSet({newstate['joint']})
-        self.__dict__ = newstate
 
 
 class ParameterizedCylinderLink(ParameterizableModule):
@@ -802,7 +790,8 @@ class ParameterizedStraightJoint(ParameterizableJointModule):
         :param mass_density: The mass density of the bodies' material (kg/m^3) -- assumed to be uniform
         :param limits: Optional lower and upper bounds on the link's length and radius
         :param joint_type: The type of joint to use :math:`\in` (revolute, prismatic)
-        :param joint_parameters: Additional arguments for timor.Joint such as limits or gear ratio
+        :param joint_parameters: Additional arguments for timor.Joint such as limits or gear ratio; applied to all
+            joints within the module.
         :param connector_arguments: Mapping from keyword to 2-tuples of values
         """
         if joint_parameters is None:
@@ -829,7 +818,7 @@ class ParameterizedStraightJoint(ParameterizableJointModule):
         self.joint = Joint(joint_id=f'{header.ID}_joint', joint_type=joint_type, parent_body=proximal_link,
                            child_body=distal_link, **joint_parameters)
         super().__init__(header, bodies=(proximal_link, distal_link), parameters=(radius, length),
-                         joint_parameters=joint_parameters, joint_type=joint_type)
+                         joint_parameters=joint_parameters, joints=(self.joint,))
 
     @property
     def parameters(self) -> Tuple[float, float]:
@@ -918,7 +907,8 @@ class ParameterizedOrthogonalJoint(ParameterizableJointModule):
         :param mass_density: The mass density of the bodies' material (kg/m^3) -- assumed to be uniform
         :param limits: Optional lower and upper bounds on the link's length and radius (r, l1, l2)
         :param joint_type: The type of joint to use :math:`\in` (revolute, prismatic)
-        :param joint_parameters: Additional arguments for timor.Joint such as limits or gear ratio
+        :param joint_parameters: Additional arguments for timor.Joint such as limits or gear ratio; applied to all
+            joints within the module.
         :param connector_arguments: Mapping from keyword to 2-tuples of values
         :param alpha_rot_x: The rotation angle around the x-axis for the second cylinder.
         :param convention_alpha: Either DH (apply x-rotation AFTER joint rotation) or MDH (apply x-rotation BEFORE)
@@ -952,7 +942,7 @@ class ParameterizedOrthogonalJoint(ParameterizableJointModule):
         self.joint = Joint(joint_id=f'{header.ID}_joint', joint_type=joint_type, parent_body=proximal_link,
                            child_body=distal_link, **joint_parameters)
         super().__init__(header, bodies=(proximal_link, distal_link), parameters=(radius, self.l1, self.l2),
-                         joint_parameters=joint_parameters, joint_type=joint_type)
+                         joint_parameters=joint_parameters, joints=(self.joint,))
 
     @property
     def parameters(self) -> Tuple[float, float, float]:
@@ -1005,7 +995,8 @@ class ParameterizedOrthogonalJoint(ParameterizableJointModule):
         """Returns the arguments to use when copying this module."""
         return ((self.l1, self.l2), self.radius, self.proximal_link.mass_density,
                 np.concatenate((self.proximal_link.parameter_limits, self.distal_link.parameter_limits[1:, :])),
-                self.joint.type, self._joint_parameters, self.__connector_arguments)
+                self.joint.type, self._joint_parameters, self.__connector_arguments,
+                self._x_rotation, 'DH' if self._x_rot_before else 'MDH')
 
     def _update_connector_placements(self):
         """Makes sure the connectors are always placed on the bottom/top and centered in the link."""
@@ -1036,8 +1027,8 @@ class DHJoint(ParameterizableJointModule):
                  convention: str = 'DH',
                  radius: float = 1.,
                  mass_density: float = 1.,
-                 limits: Sequence[Sequence[float]] = ((0, float('inf')), (0, float('inf')), (-2 * np.pi, 2 * np.pi),
-                                                      (0, float('inf'))),
+                 limits: Sequence[Sequence[float]] = ((0, float('inf')), (0, float('inf')),
+                                                      (0, float('inf')), (-2 * np.pi, 2 * np.pi)),
                  joint_type: TimorJointType = TimorJointType.revolute,
                  joint_parameters: Dict[str, any] = None,
                  connector_arguments: Optional[Dict[str, any]] = None,
@@ -1047,8 +1038,8 @@ class DHJoint(ParameterizableJointModule):
 
         For this module, we assume that there are two bodies: one actual body that, up to the parameters, has an
         I or L-shape, and one "proxy" body with an empty geometry. These two are connected by a joint. Their order is
-        defined by the convention that can either be DH (the joint is "before" the real body" or MDH (the joint is at
-        "the end" of the body).
+        defined by the convention that can either be DH (the joint is "before the real body" or MDH (the joint is "at
+        the end of the body").
 
         :param header: The module header for the generated module
         :param convention_parameters: Parameters in order (d, a, alpha)
@@ -1057,7 +1048,8 @@ class DHJoint(ParameterizableJointModule):
         :param mass_density: The mass density of the bodies' material (kg/m^3) -- assumed to be uniform
         :param limits: Optional lower and upper bounds on the radius and parameters (r, d, a, alpha)
         :param joint_type: The type of joint to use -- currently, needs to be revolute.
-        :param joint_parameters: Additional arguments for timor.Joint such as limits or gear ratio
+        :param joint_parameters: Additional arguments for timor.Joint such as limits or gear ratio; applied to all
+            joints within the module.
         :param connector_arguments: Mapping from keyword to 2-tuples of values
         """
         if joint_parameters is None:
@@ -1086,7 +1078,7 @@ class DHJoint(ParameterizableJointModule):
             body_id=f'{header.ID}_link',
             geometry_types=(GeometryType.CYLINDER, GeometryType.CYLINDER, GeometryType.SPHERE, GeometryType.SPHERE),
             parameters=(radius, self._d, radius, self._a, radius, radius),
-            parameter_limits=(limits[0], limits[3], limits[1], limits[3], limits[0], limits[0]),
+            parameter_limits=(limits[0], limits[1], limits[0], limits[2], limits[0], limits[0]),
             mass_density=mass_density,
             in_module=self
         )
@@ -1107,13 +1099,53 @@ class DHJoint(ParameterizableJointModule):
         self.joint = Joint(joint_id=f'{header.ID}_joint', joint_type=joint_type, parent_body=self.proximal_link,
                            child_body=self.distal_link, **joint_parameters)
 
-        super().__init__(header, bodies=(self.proximal_link, self.distal_link), joint_type=joint_type,
+        super().__init__(header, bodies=(self.proximal_link, self.distal_link), joints=(self.joint,),
                          parameters=(self._radius, self._d, self._a, self._alpha), joint_parameters=joint_parameters)
 
     @property
     def parameters(self) -> Tuple[float, float, float, float]:
         """Returns the defining parameters (radius, d, a, alpha)"""
         return self._radius, self._d, self._a, self._alpha
+
+    @property
+    def radius(self) -> float:
+        """The radius of the cylinders."""
+        return self._radius
+
+    @radius.setter
+    def radius(self, value: float):
+        """Sets the radius of the cylinders."""
+        self.resize((value, self.d, self.a, self.alpha))
+
+    @property
+    def a(self) -> float:
+        """The a parameter of the DH/MDH convention."""
+        return self._a
+
+    @a.setter
+    def a(self, value: float):
+        """Sets the a parameter of the DH/MDH convention."""
+        self.resize((self.radius, self.d, value, self.alpha))
+
+    @property
+    def d(self) -> float:
+        """The d parameter of the DH/MDH convention."""
+        return self._d
+
+    @d.setter
+    def d(self, value: float):
+        """Sets the d parameter of the DH/MDH convention."""
+        self.resize((self.radius, value, self.a, self.alpha))
+
+    @property
+    def alpha(self) -> float:
+        """The alpha parameter of the DH/MDH convention."""
+        return self._alpha
+
+    @alpha.setter
+    def alpha(self, value: float):
+        """Sets the alpha parameter of the DH/MDH convention."""
+        self.resize((self.radius, self.d, self.a, value))
 
     def dh_transformation(self, theta: float = 0) -> Transformation:
         """Computes the DH transformation of this single joint."""
