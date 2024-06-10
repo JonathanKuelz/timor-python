@@ -3,8 +3,19 @@
 # Date: 04.03.22
 import numpy as np
 
-from timor import Module, ModuleAssembly
+from timor import AtomicModule, Body, Connector, Module, ModuleAssembly
+from timor.utilities.spatial import rotX
+from timor.Geometry import EmptyGeometry
 from timor.Robot import PinRobot
+
+
+EMPTY_BASE = AtomicModule({'ID': 'B', 'name': 'base_empty'},
+                          bodies=[Body('base_body', collision=EmptyGeometry(),
+                                       connectors={
+                                           Connector('world', body2connector=rotX(np.pi), gender='f',
+                                                     connector_type='base'),
+                                           Connector('base_distal', gender='m')})],
+                          )
 
 
 def random_assembly(n_joints: int, module_db: Module.ModulesDB) -> Module.ModuleAssembly:

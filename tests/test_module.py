@@ -9,12 +9,14 @@ import pinocchio as pin
 from timor import Bodies, Body, Geometry, Joint, Transformation
 from timor import AtomicModule, ModuleHeader, ModulesDB
 from timor.Joints import TimorJointType
-from timor.parameterized import ParameterizedCylinderLink, ParameterizedOrthogonalJoint, ParameterizedOrthogonalLink, \
+from timor.parameterized import DHJoint, ParameterizedCylinderLink, ParameterizedOrthogonalJoint, \
+    ParameterizedOrthogonalLink, \
     ParameterizedStraightJoint
 from timor.utilities import spatial
 import timor.utilities.errors as err
 from timor.utilities.module_classification import ModuleClassificationError, ModuleType, get_module_type, \
     divide_db_in_types
+from timor.utilities.visualization import clear_visualizer
 
 
 class TestModule(unittest.TestCase):
@@ -346,6 +348,30 @@ class TestModule(unittest.TestCase):
             orthogonal.freeze()
         orthogonal.resize((1, 2, 3))
         self.assertIsInstance(orthogonal.proximal_link.freeze(), Body)
+
+    def test_parameterizable_dh_module(self, visual_inspection: bool = False):
+        """Checks that the DH module works as expected."""
+        header = ModuleHeader('J', 'DH Module')
+        param_sets = [
+            (.25, .5, 0),
+            (.25, 0., np.pi / 2),
+            (0., .25, np.pi / 2),
+            (.25, 0., 0),
+            (0., 0., np.pi / 2),
+            (0., 0., 0),
+            (.25, .5, -np.pi / 2),
+        ]
+        viz = None
+        for convention in ('DH', 'MDH'):
+            for params in param_sets:
+                module = DHJoint(header, params, convention, radius=.1)
+                cp = module.copy('cpy')
+                for theta in np.linspace(-np.pi, np.pi, 10):
+                    self.assertEqual(module.dh_transformation(theta), cp.dh_transformation(theta))
+
+                if visual_inspection:
+                    viz = module.debug_visualization(viz)
+                    clear_visualizer(viz)
 
 
 if __name__ == '__main__':
