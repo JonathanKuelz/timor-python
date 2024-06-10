@@ -1363,7 +1363,9 @@ class PinRobot(RobotBase):
         if coordinate_systems not in (None, 'joints', 'full', 'tcp'):
             raise ValueError("Invalid Value for coordinate system argument: {}".format(coordinate_systems))
 
+        change_appearance = False  # Only change appearance if a new visualizer is created
         if visualizer is None:
+            change_appearance = True
             visualizer = pin.visualize.MeshcatVisualizer(
                 self.model, self.collision, self.visual,
                 copy_models=False,
@@ -1398,6 +1400,10 @@ class PinRobot(RobotBase):
 
         if not update_collision_visuals:
             logging.debug("Collisions toggle in meshcat interface will show collision meshes only at origin.")
+
+        if change_appearance:
+            from timor.utilities.visualization import adapt_appearance  # avoids circular import
+            adapt_appearance(visualizer)
 
         return visualizer
 

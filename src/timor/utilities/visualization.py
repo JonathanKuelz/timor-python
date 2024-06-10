@@ -27,6 +27,17 @@ DEFAULT_COLOR_MAP = {  # Type enumeration from module_classification - import no
     module_classification.ModuleType.END_EFFECTOR: np.array([250 / 255, 182 / 255, 1 / 255, 1.]),
 }
 
+DEFAULT_APPEARANCE = (
+    ('/Background', "visible", False),
+    ('/Lights/SpotLight', "visible", True),
+    ('/Lights/SpotLight/<object>', "intensity", .2),
+    ('/Lights/PointLightPositiveX', "visible", False),
+    ('/Axes', "visible", False),
+    ('/Grid', "visible", False),
+)
+
+DEFAULT_COLOR = [127 / 255, 127 / 255, 127 / 255, 1.]
+
 
 class MeshcatVisualizerWithAnimation(MeshcatVisualizer):
     """
@@ -75,9 +86,40 @@ class MeshcatVisualizerWithAnimation(MeshcatVisualizer):
             frame[visual_name].set_transform(T)
 
 
+def animation(robot: 'Robot.PinRobot', q: np.ndarray, dt: float,  # pragma: no cover # noqa: F821
+              visualizer: Union[pin.visualize.MeshcatVisualizer, MeshcatVisualizerWithAnimation] = None,
+              appearance: Tuple[str, str, float] = DEFAULT_APPEARANCE
+              ) -> MeshcatVisualizerWithAnimation:
+    """
+    Creates an animation of a robot movement.
+
+    :param robot: The robot to animate
+    :param q: The joint angles to animate
+    :param dt: The time step between frames
+    :param visualizer: If given, the movie will be generated in the existing visualizer
+    :param appearance: Looks of the visualizer window.
+    """
+    if q.shape[1] != robot.dof:
+        raise ValueError("The provided configurations must be of shape time steps x dof")
+
+    robot.update_configuration(q[0, :])
+    viz = MeshcatVisualizerWithAnimation.from_MeshcatVisualizer(robot.visualize(visualizer))
+    adapt_appearance(viz, appearance)
+    anim = meshcat.animation.Animation(default_framerate=1 / dt)
+    for i in range(0, q.shape[0]):
+        with anim.at_frame(viz.viewer, i) as frame:
+            robot.update_configuration(q[i, :])
+            viz.create_animation_frame(pin.VISUAL, frame)
+
+    viz.viewer.set_animation(anim)
+    return viz
+
+
 def color_visualization(viz: MeshcatVisualizer,
                         assembly: ModuleAssembly,
-                        color_map: Dict[Union[str, int, module_classification.ModuleType], np.ndarray] = None):
+                        color_map: Dict[Union[str, int, module_classification.ModuleType], np.ndarray] = None,
+                        appearance: Tuple[str, str, float] = DEFAULT_APPEARANCE
+                        ):
     """
     Adds colors to a visualized robot in viz, depending on module types.
 
@@ -88,6 +130,7 @@ def color_visualization(viz: MeshcatVisualizer,
     :param color_map: A dictionary mapping module integer enumerated module types OR module IDs to colors. If color_map
       maps module IDs to colors, this method first tries to interpret them as custom module IDs matching the internal
       representation in the assembly. If this fails, it will interpret them as original module IDs.
+    :param appearance: Looks of the visualizer window; an example is given by DEFAULT_APPEARANCE
     """
     # We can't perform a proper equality check but at least we can perform some necessary conditions
     if not (tuple(viz.model.names) == tuple(assembly.robot.model.names)
@@ -95,6 +138,9 @@ def color_visualization(viz: MeshcatVisualizer,
             == set(g.name for g in assembly.robot.visual.geometryObjects)):
         raise ValueError("The provided visualizer and assembly do not match."
                          "Make sure to call viz = assembly.robot.visualize() first.")
+
+    adapt_appearance(viz, appearance)
+
     if color_map is None:
         color_map = DEFAULT_COLOR_MAP
     if all(isinstance(k, str) for k in color_map.keys()):
@@ -128,32 +174,6 @@ def color_visualization(viz: MeshcatVisualizer,
             viz.viewer[viz.viewerVisualGroupName + '/' + go.name].set_property(u'color', viz_cmap[stem].tolist())
         else:
             logging.warning(f"Could not find color for robot geometry {go.name}.")
-
-
-def animation(robot: 'Robot.PinRobot', q: np.ndarray, dt: float,  # pragma: no cover # noqa: F821
-              visualizer: Union[pin.visualize.MeshcatVisualizer, MeshcatVisualizerWithAnimation] = None
-              ) -> MeshcatVisualizerWithAnimation:
-    """
-    Creates an animation of a robot movement.
-
-    :param robot: The robot to animate
-    :param q: The joint angles to animate
-    :param dt: The time step between frames
-    :param visualizer: If given, the movie will be generated in the existing visualizer
-    """
-    if q.shape[1] != robot.dof:
-        raise ValueError("The provided configurations must be of shape time steps x dof")
-
-    robot.update_configuration(q[0, :])
-    viz = MeshcatVisualizerWithAnimation.from_MeshcatVisualizer(robot.visualize(visualizer))
-    anim = meshcat.animation.Animation(default_framerate=1 / dt)
-    for i in range(0, q.shape[0]):
-        with anim.at_frame(viz.viewer, i) as frame:
-            robot.update_configuration(q[i, :])
-            viz.create_animation_frame(pin.VISUAL, frame)
-
-    viz.viewer.set_animation(anim)
-    return viz
 
 
 def center_camera(viz: MeshcatVisualizer,
@@ -365,6 +385,12 @@ def save_visualizer_screenshot(viz: MeshcatVisualizer,
         if crop_to_content:
             img = img.crop(img.getbbox())
         img.save(str(filename))
+
+
+def adapt_appearance(viz: MeshcatVisualizer, settings: Tuple[str, str, float] = DEFAULT_APPEARANCE):
+    """Applies the given appearance to the visualizer window."""
+    for key, prop, value in settings:
+        viz.viewer[key].set_property(prop, value)
 
 
 def place_billboard(viz: MeshcatVisualizer, text: str, name: str, placement: TransformationConvertable,
