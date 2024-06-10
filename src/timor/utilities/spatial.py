@@ -218,7 +218,7 @@ def mat2euler(R: np.ndarray, seq: str = 'xyz') -> np.ndarray:
 
 def random_rotation(rng: Optional[np.random.Generator] = None) -> np.ndarray:
     """Returns a random 3x3 rotation matrix."""
-    if rng is not None:
+    if rng is None:
         rng = np.random.default_rng()
     return Rotation.random(random_state=rng).as_matrix()
 
