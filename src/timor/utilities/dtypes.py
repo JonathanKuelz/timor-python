@@ -14,6 +14,8 @@ from typing import (Any, Callable, Collection, Dict, Generator, Generic, Iterabl
                     Tuple,
                     Type, TypeVar, Union, get_type_hints, runtime_checkable)
 from hppfcl import hppfcl
+import matplotlib
+from matplotlib import pyplot as plt
 import numpy as np
 import pinocchio as pin
 
@@ -67,6 +69,9 @@ class IKMeta:
     intermediate_result: Optional[IntermediateIkResult] = None
     joint_mask: Optional[Union[bool, Sequence[bool]]] = None  # Optionally mask joints for IK
     task: Optional['Task.Task'] = None  # A task with obstacles to avoid  # noqa: F821
+    _restarts: int = 0
+    debug: bool = False
+    _steps: List[List[np.ndarray]] = field(default_factory=lambda: [[]])  # List of steps taken during each retry
 
     def __post_init__(self):
         """
@@ -78,6 +83,76 @@ class IKMeta:
             self.joint_mask = np.ones(self.dof, dtype=bool)
         else:
             self.joint_mask = np.asarray(self.joint_mask, dtype=bool)
+
+    def add_step(self, q):
+        """Add a step to the list of steps"""
+        if self.debug:
+            self._steps[-1].append(q)
+
+    def inc_restarts(self):
+        """Increment the number of restarts"""
+        self._restarts += 1
+        if self.debug:
+            self._steps.append([])
+
+    @property
+    def restarts(self):
+        """Return the number of restarts"""
+        return self._restarts
+
+    def plot(self):
+        """Plot the tested IK candidates over steps + velocity + velocity norm."""
+        matplotlib.use('TkAgg')  # or can use 'TkAgg', whatever you have/prefer
+        fig, (ax1, ax2, ax3) = plt.subplots(3, 1, sharex=True)
+        ax1.set_title("IK Optimization Steps (restarts in red)")
+        start = 0
+        for restart, steps in enumerate(self._steps):
+            end = start + len(steps)
+            if len(steps) > 1:
+                ax1.plot(range(start, end), steps)
+            if len(steps) == 1:
+                ax1.scatter([start for _ in range(len(steps[0]))], steps)
+            ax1.axvline(x=end, color='r', label='reset')
+            start = end
+        ax1.set_ylabel("Joint Angle")
+        ax1.legend([f"$q_{i}$" for i in range(self.dof)])  # TODO Make scatter and plot same color
+        # Maybe: https://stackoverflow.com/a/70721229/11889810
+        start = 0
+        for restart, steps in enumerate(self._steps):
+            end = start + len(steps)
+            ax2.plot(range(start, end - 1), np.diff(np.asarray(steps), axis=0))
+            ax2.axvline(x=end, color='r', label='reset')
+            start = end
+        ax2.set_ylabel("Joint Velocity")
+        ax2.legend([f"$\\dot{{q}}_{i}$" for i in range(self.dof)])
+        # Plot norm of joint velocities
+        start = 0
+        for restart, steps in enumerate(self._steps):
+            end = start + len(steps)
+            if len(steps) > 1:
+                ax3.plot(range(start, end - 1), np.linalg.norm(np.diff(np.asarray(steps), axis=0), axis=1))
+            ax3.axvline(x=end, color='r', label='reset')  # TODO Label vertical lines
+            start = end
+        ax3.set_xlabel("Step")
+        ax3.set_ylabel("Norm of Joint Velocity")
+        ax3.set_yscale("log")
+        fig.show()
+
+    def visualize(self, assembly, viz):
+        """
+        Visualize the steps taken during the IK optimization.
+
+        :param assembly: The assembly to visualize the end-effector position with
+        :param viz: The visualizer to use
+        """
+        from timor.utilities.trajectory import Trajectory
+        if not self.debug:
+            raise ValueError("Debug mode must be enabled to visualize the steps taken during IK optimization")
+        for restart, qs in enumerate(self._steps):
+            t = Trajectory(q=np.asarray(qs))
+            t.visualize(viz=viz, assembly=assembly, name_prefix=f"IK_Steps_{restart}")
+            if restart > 0:
+                viz.viewer[f'traj_IK_Steps_{restart}_position'].set_property(u'visible', False)
 
 
 class Lazy(Generic[T]):
