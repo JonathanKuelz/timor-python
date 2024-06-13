@@ -222,7 +222,9 @@ class TestConstraints(unittest.TestCase):
                   Transformation.from_translation((.11, 0., 0.)) @ start_pose @ spatial.rotY(-0.05),  # q_mid_not_ok
                   Transformation.from_translation((.21, 0., 0.)) @ start_pose  # q_end_to_far
                   ):
-            q, success = self.robot.ik(ToleratedPose(T, ik_tolerance))
+            q, success, info = self.robot.ik(ToleratedPose(T, ik_tolerance), debug=True)
+            info.plot()
+            info.visualize(ModuleAssembly.from_monolithic_robot(self.robot), self.robot.visualize())
             self.assertTrue(success, f"ik for {str(T)} failed")
             qs.append(q)
         drill_eef_constraint = Constraints.EndEffector(pose=ToleratedPose(

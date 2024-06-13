@@ -6,6 +6,7 @@ from collections.abc import MutableMapping
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass, field, fields
 import datetime
+import itertools
 import random
 import re
 import signal
@@ -14,7 +15,6 @@ from typing import (Any, Callable, Collection, Dict, Generator, Generic, Iterabl
                     Tuple,
                     Type, TypeVar, Union, get_type_hints, runtime_checkable)
 from hppfcl import hppfcl
-import matplotlib
 from matplotlib import pyplot as plt
 import numpy as np
 import pinocchio as pin
@@ -102,20 +102,29 @@ class IKMeta:
 
     def plot(self):
         """Plot the tested IK candidates over steps + velocity + velocity norm."""
-        matplotlib.use('TkAgg')  # or can use 'TkAgg', whatever you have/prefer
         fig, (ax1, ax2, ax3) = plt.subplots(3, 1, sharex=True)
+        ax_restart = ax1.twiny()
+        colors = list(c['color'] for c in itertools.islice(plt.rcParams['axes.prop_cycle'](), self.dof))
         ax1.set_title("IK Optimization Steps (restarts in red)")
         start = 0
+        restart_to_iter = {}
         for restart, steps in enumerate(self._steps):
             end = start + len(steps)
-            if len(steps) > 1:
-                ax1.plot(range(start, end), steps)
-            if len(steps) == 1:
-                ax1.scatter([start for _ in range(len(steps[0]))], steps)
-            ax1.axvline(x=end, color='r', label='reset')
+            steps_np = np.asarray(steps)
+            restart_to_iter[restart] = start
+            for d, c in zip(range(self.dof), colors):
+                if len(steps) > 1:
+                    ax1.plot(range(start, end), steps_np[:, d], color=c)
+                if len(steps) == 1:
+                    ax1.scatter(start, steps_np[0, d], color=c, alpha=0.5)
             start = end
         ax1.set_ylabel("Joint Angle")
         ax1.legend([f"$q_{i}$" for i in range(self.dof)])  # TODO Make scatter and plot same color
+        ax_restart.set_xlim(ax1.get_xlim())
+        with plt.rc_context({'xtick.color': 'red'}):
+            ax_restart.set_xticks(tuple(restart_to_iter.values()))
+        ax_restart.set_xlabel("Reset")
+        ax_restart.set_xticklabels(tuple(restart_to_iter.keys()))
         # Maybe: https://stackoverflow.com/a/70721229/11889810
         start = 0
         for restart, steps in enumerate(self._steps):
@@ -131,7 +140,7 @@ class IKMeta:
             end = start + len(steps)
             if len(steps) > 1:
                 ax3.plot(range(start, end - 1), np.linalg.norm(np.diff(np.asarray(steps), axis=0), axis=1))
-            ax3.axvline(x=end, color='r', label='reset')  # TODO Label vertical lines
+            ax3.axvline(x=end, color='r', label='reset')
             start = end
         ax3.set_xlabel("Step")
         ax3.set_ylabel("Norm of Joint Velocity")
