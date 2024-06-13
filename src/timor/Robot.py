@@ -942,14 +942,15 @@ class PinRobot(RobotBase):
         drift = pin.rnea(self.model, self.data, np.atleast_1d(q), np.atleast_1d(dq), np.atleast_1d(ddq), f_ext_vec)
         return drift + motor_inertia * self.motor_inertias(ddq) + friction * self.friction(dq)
 
-    def ik(self, eef_pose: ToleratedPose, *, ik_method: Optional[str] = None, **kwargs) -> Tuple[np.ndarray, bool]:
+    def ik(self, eef_pose: ToleratedPose, *, ik_method: Optional[str] = None,
+           **kwargs) -> Union[Tuple[np.ndarray, bool], Tuple[np.ndarray, bool, IKMeta]]:
         """
         Interface for inverse kinematics solver.
 
         :param eef_pose: The desired 4x4 placement of the end effector
         :param ik_method: The method to use for the inner loop. Defaults to jacobian for robots with >=6 dof and scipy
             for robots with <6 dof.
-        :return: A tuple of (q_solution, success [boolean])
+        :return: A tuple of (q_solution, success [boolean], IKMeta object if debug is set)
         """
         if ik_method is None:
             if self.dof < 6:
