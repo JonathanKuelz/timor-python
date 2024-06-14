@@ -427,6 +427,7 @@ class Trajectory(JSONable_mixin):
     def ik_trajectory(self, assembly: ModuleAssembly,
                       tolerance: Union[Tolerance.Spatial, Iterable[Tolerance.Spatial]] = Tolerance.DEFAULT_SPATIAL,
                       retries: int = 10,
+                      allow_random_restarts: bool = False,
                       **ik_kwargs) -> Trajectory:
         """
         Calculate an inverse kinematic trajectory for this end-effector trajectory.
@@ -434,6 +435,8 @@ class Trajectory(JSONable_mixin):
         :param assembly: The assembly to calculate the IKs with.
         :param tolerance: The tolerance for the end-effector poses (global or per step).
         :param retries: How many times to retry the IK calculation.
+        :param allow_random_restarts: Whether to allow random restarts for the IK solver _within_ trajectory;
+          may lead to unexpected jumps!
         :param ik_kwargs: Additional keyword arguments to pass to the IK solver.
         :return: The joint trajectory that follows the end-effector trajectory.
         :raises ValueError: If no valid IK trajectory could be found.
@@ -453,6 +456,7 @@ class Trajectory(JSONable_mixin):
             for p, t in zip(self.pose, tolerance):
                 q, v = assembly.robot.ik(ToleratedPose(Transformation(p), t),
                                          q_init=qs[-1] if len(qs) > 0 else None,
+                                         allow_random_restart=allow_random_restarts,
                                          **ik_kwargs)
                 if v:
                     qs.append(q)
