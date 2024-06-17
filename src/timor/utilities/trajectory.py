@@ -11,7 +11,7 @@ import numpy as np
 from pinocchio.visualize import MeshcatVisualizer
 from roboticstoolbox import mstraj
 
-from timor import ModuleAssembly
+from timor.Robot import RobotConvertible, robot_from_convertible
 from timor.utilities import logging
 from timor.utilities.dtypes import Lazy
 from timor.utilities.errors import TimeNotFoundError
@@ -331,7 +331,7 @@ class Trajectory(JSONable_mixin):
                   scale: float = .33,
                   num_markers: Optional[int] = 2,
                   line_color: Optional[np.ndarray] = None,
-                  assembly: Optional[ModuleAssembly] = None) -> None:
+                  robot: Optional[RobotConvertible] = None) -> None:
         """
         Visualize trajectory and add num_markers triads to show orientation.
 
@@ -341,7 +341,7 @@ class Trajectory(JSONable_mixin):
         :param num_markers: how many orientation markers to show.
         :param line_color: An optional color (3x1 vector) for each line-segment (total len(self)-1 x 3); default red;
           if single color vector given is broadcasted to all line segments.
-        :param assembly: An assembly to evaluate a joint space trajectory on; plots the end-effector movement
+        :param robot: A robot to evaluate a joint space trajectory on; plots the end-effector movement
         """
         if self.has_poses:
             if name_prefix is None:
@@ -356,10 +356,11 @@ class Trajectory(JSONable_mixin):
                                         zip(self.pose[:-1], self.pose[1:]) for p in ps], dtype=np.float32).T
 
         elif self.has_q:
-            if assembly is None:
+            if robot is None:
                 raise ValueError("Can only visualize joint trajectory with an assembly.")
+            robot = robot_from_convertible(robot)
 
-            line_points = np.asarray([assembly.robot.fk(q).translation for q in self.q])
+            line_points = np.asarray([robot.fk(q).translation for q in self.q])
             line_segments = np.empty((2 * (line_points.shape[0] - 1), line_points.shape[1]), dtype=line_points.dtype)
             line_segments[0::2, :] = line_points[:-1, :]
             line_segments[1::2, :] = line_points[1:, :]
@@ -412,19 +413,20 @@ class Trajectory(JSONable_mixin):
 
         return ret
 
-    def fk_trajectory(self, assembly: ModuleAssembly) -> Trajectory:
+    def fk_trajectory(self, robot: RobotConvertible) -> Trajectory:
         """
         Calculate a forward kinematic trajectory for this joint trajectory.
 
         I.e., execute this trajectory defining a joint space movement on the provided assembly and create a new
         trajectory of the end-effector movement and its poses over time
 
-        :param assembly: The assembly to calculate the FKs with.
+        :param robot: The robot to calculate the FKs with.
         :return: The end-effector trajectory that follows the joint trajectory.
         """
         if not self.has_q:
             raise ValueError("Joint trajectory needs q")
-        return Trajectory(pose=np.asarray([assembly.robot.fk(q) for q in self.q]),
+        robot = robot_from_convertible(robot)
+        return Trajectory(pose=np.asarray([robot.fk(q) for q in self.q]),
                           t=self.t, goal2time=self.goal2time)
 
     def __add__(self, other) -> Trajectory:
@@ -541,7 +543,7 @@ class Trajectory(JSONable_mixin):
 
 def greedy_ik_trajectory(
         trajectory: Trajectory,
-        assembly: ModuleAssembly,
+        robot: RobotConvertible,
         tolerance: Optional[Union["Tolerance.Spatial", Iterable["Tolerance.Spatial"]]] = None,  # noqa: F821
         retries: int = 10,
         **ik_kwargs) -> Trajectory:
@@ -552,7 +554,7 @@ def greedy_ik_trajectory(
     it. On failure retries with another random initial IK guess.
 
     :param trajectory: The end-effector trajectory to calculate the IKs for.
-    :param assembly: The assembly to calculate the IKs with.
+    :param robot: The robot to calculate the IKs with.
     :param tolerance: The tolerance for the end-effector poses (global or per step).
     :param retries: How many times to retry the IK calculation.
     :param ik_kwargs: Additional keyword arguments to pass to the IK solver; allow_random_restart will only affect
@@ -575,15 +577,16 @@ def greedy_ik_trajectory(
             raise ValueError("Need as many tolerances as steps in the trajectory or a single global one.")
     q_init = ik_kwargs.pop("q_init", None)
     allow_first_step_random_restart = ik_kwargs.pop("allow_random_restart", True)
+    robot = robot_from_convertible(robot)
 
     best_qs = []
     for _ in range(retries):
         qs = []
         for step, (p, t) in enumerate(zip(trajectory.pose, tolerance)):
-            q, v = assembly.robot.ik(ToleratedPose(Transformation(p), t),
-                                     q_init=qs[-1] if len(qs) > 0 else q_init,
-                                     allow_random_restart=(step == 0) and allow_first_step_random_restart,
-                                     **ik_kwargs)
+            q, v = robot.ik(ToleratedPose(Transformation(p), t),
+                            q_init=qs[-1] if len(qs) > 0 else q_init,
+                            allow_random_restart=(step == 0) and allow_first_step_random_restart,
+                            **ik_kwargs)
             if v:
                 qs.append(q)
             else:
