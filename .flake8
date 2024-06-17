@@ -12,5 +12,7 @@ per-file-ignores=
 	src/timor/Joints.py:F821
 	src/timor/__init__.py:F401,F403
 	tests/*:F841
-exclude=user_study/
+exclude=
+    user_study/
+    src/timor/utilities/rtb_trajectory.py
 max-line-length=120

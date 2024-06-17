@@ -8,13 +8,13 @@ import matplotlib.pyplot as plt
 import meshcat
 import numpy as np
 from pinocchio.visualize import MeshcatVisualizer
-from roboticstoolbox import mstraj
 
 from timor import ModuleAssembly
 from timor.utilities import logging
 from timor.utilities.dtypes import Lazy
 from timor.utilities.errors import TimeNotFoundError
 from timor.utilities.jsonable import JSONable_mixin
+from timor.utilities.rtb_trajectory import mstraj
 from timor.utilities.tolerated_pose import ToleratedPose
 
 
