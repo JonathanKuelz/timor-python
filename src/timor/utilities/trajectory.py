@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import itertools
 import string
 from typing import Dict, Iterable, Optional, Union
 
@@ -10,7 +11,7 @@ import numpy as np
 from pinocchio.visualize import MeshcatVisualizer
 from roboticstoolbox import mstraj
 
-from timor import ModuleAssembly
+from timor.Robot import RobotConvertible, robot_from_convertible
 from timor.utilities import logging
 from timor.utilities.dtypes import Lazy
 from timor.utilities.errors import TimeNotFoundError
@@ -191,6 +192,21 @@ class Trajectory(JSONable_mixin):
         else:
             return cls(t=t, pose=np.tile(pose, (samples, 1)))
 
+    @classmethod
+    def pose_interpolation(cls, T_start: "Transformation", T_end: "Transformation",  # noqa: F821
+                           steps: int) -> Trajectory:
+        """
+        Create a trajectory that interpolates between two poses.
+
+        :param T_start: The start pose.
+        :param T_end: The end pose.
+        :param steps: The number of steps to interpolate.
+        :return: The interpolated trajectory.
+        """
+        return cls(pose=np.fromiter(
+            (T_start.interpolate(T_end, a).homogeneous for a in np.linspace(0, 1, steps)),
+            dtype=np.dtype((T_start.homogeneous.dtype, (4, 4)))))
+
     @property
     def dq(self) -> np.ndarray:
         """The joint velocities."""
@@ -315,7 +331,7 @@ class Trajectory(JSONable_mixin):
                   scale: float = .33,
                   num_markers: Optional[int] = 2,
                   line_color: Optional[np.ndarray] = None,
-                  assembly: Optional[ModuleAssembly] = None) -> None:
+                  robot: Optional[RobotConvertible] = None) -> None:
         """
         Visualize trajectory and add num_markers triads to show orientation.
 
@@ -323,8 +339,9 @@ class Trajectory(JSONable_mixin):
         :param name_prefix: Name of the visualized trajectory.
         :param scale: size of the orientation markers.
         :param num_markers: how many orientation markers to show.
-        :param line_color: An optional color (3x1 vector) for each pose (total len(self) x 3); default white
-        :param assembly: An assembly to evaluate a joint space trajectory on; plots the end-effector movement
+        :param line_color: An optional color (3x1 vector) for each line-segment (total len(self)-1 x 3); default red;
+          if single color vector given is broadcasted to all line segments.
+        :param robot: A robot to evaluate a joint space trajectory on; plots the end-effector movement
         """
         if self.has_poses:
             if name_prefix is None:
@@ -339,10 +356,11 @@ class Trajectory(JSONable_mixin):
                                         zip(self.pose[:-1], self.pose[1:]) for p in ps], dtype=np.float32).T
 
         elif self.has_q:
-            if assembly is None:
+            if robot is None:
                 raise ValueError("Can only visualize joint trajectory with an assembly.")
+            robot = robot_from_convertible(robot)
 
-            line_points = np.asarray([assembly.robot.fk(q).translation for q in self.q])
+            line_points = np.asarray([robot.fk(q).translation for q in self.q])
             line_segments = np.empty((2 * (line_points.shape[0] - 1), line_points.shape[1]), dtype=line_points.dtype)
             line_segments[0::2, :] = line_points[:-1, :]
             line_segments[1::2, :] = line_points[1:, :]
@@ -352,7 +370,9 @@ class Trajectory(JSONable_mixin):
             raise NotImplementedError("Cannot visualize trajectory without q or poses.")
 
         if line_color is None:
-            line_color = np.ones(line_segments.shape)
+            line_color = np.array([1., 0., 0.])
+        if line_color.shape != line_segments.shape:  # Try to broadcast
+            line_color = line_color[:, None] * np.ones(line_segments.shape)
         line = meshcat.geometry.LineSegments(
             geometry=meshcat.geometry.PointsGeometry(position=line_segments, color=line_color),
             material=meshcat.geometry.LineBasicMaterial(vertexColors=True)
@@ -392,6 +412,39 @@ class Trajectory(JSONable_mixin):
             ret.pop("ddq", None)
 
         return ret
+
+    def fk_trajectory(self, robot: RobotConvertible) -> Trajectory:
+        """
+        Calculate a forward kinematic trajectory for this joint trajectory.
+
+        I.e., execute this trajectory defining a joint space movement on the provided assembly and create a new
+        trajectory of the end-effector movement and its poses over time
+
+        :param robot: The robot to calculate the FKs with.
+        :return: The end-effector trajectory that follows the joint trajectory.
+        """
+        if not self.has_q:
+            raise ValueError("Joint trajectory needs q")
+        robot = robot_from_convertible(robot)
+        return Trajectory(pose=np.asarray([robot.fk(q) for q in self.q]),
+                          t=self.t, goal2time=self.goal2time)
+
+    def add_tolerance(self, tolerance: Union["ToleranceBase", Iterable["ToleranceBase"]]) -> Trajectory:  # noqa: F821
+        """
+        Add a tolerance to each pose of this trajectory.
+
+        :param tolerance: The tolerance to add; if iterable each Tolerance is added to pose with same index.
+        """
+        from timor.task import Tolerance
+        from timor.utilities.frames import Frame, WORLD_FRAME
+        if not self.has_poses:
+            raise ValueError("Can only add tolerance to pose trajectory")
+        if isinstance(tolerance, Tolerance.ToleranceBase):
+            tolerance = itertools.repeat(tolerance)
+        return Trajectory(pose=np.fromiter((ToleratedPose(Frame("", p, WORLD_FRAME), tolerance=t)
+                                            for p, t in zip(self.pose, tolerance)),
+                                           dtype=np.dtype((ToleratedPose, ()))),
+                          t=self.t, goal2time=self.goal2time)
 
     def __add__(self, other) -> Trajectory:
         """Appends other trajectory to self."""
@@ -503,3 +556,51 @@ class Trajectory(JSONable_mixin):
         """Custom set state, e.g. for pickle / deepcopy."""
         cpy = self.__class__.from_json_data(state)
         self.__dict__ = cpy.__dict__
+
+
+def greedy_ik_trajectory(
+        trajectory: Trajectory,
+        robot: RobotConvertible,
+        retries: int = 10,
+        **ik_kwargs) -> Trajectory:
+    """
+    Calculate an inverse kinematic trajectory for this end-effector trajectory greedily.
+
+    Greedily as in path planning, use the first best IK guess and try to move along the trajectory continuing from
+    it. On failure retries with another random initial IK guess.
+
+    :param trajectory: The end-effector trajectory to calculate the IKs for.
+    :param robot: The robot to calculate the IKs with.
+    :param tolerance: The tolerance for the end-effector poses (global or per step).
+    :param retries: How many times to retry the IK calculation.
+    :param ik_kwargs: Additional keyword arguments to pass to the IK solver; allow_random_restart will only affect
+      finding the IK solution of the first step and ignored afterward.
+    :return: The joint trajectory that follows the end-effector trajectory.
+    :raises ValueError: If no valid IK trajectory could be found.
+    """
+    if not trajectory.has_poses:
+        raise ValueError("End-effector trajectory needs poses")
+    if any(not isinstance(p, ToleratedPose) for p in trajectory.pose):
+        raise ValueError("End-effector trajectory needs to be given as tolerated poses.")
+    q_init = ik_kwargs.pop("q_init", None)
+    allow_first_step_random_restart = ik_kwargs.pop("allow_random_restart", True)
+    robot = robot_from_convertible(robot)
+
+    best_qs = []
+    for _ in range(retries):
+        qs = []
+        for step, p in enumerate(trajectory.pose):
+            q, v = robot.ik(p,
+                            q_init=qs[-1] if len(qs) > 0 else q_init,
+                            allow_random_restart=(step == 0) and allow_first_step_random_restart,
+                            **ik_kwargs)
+            if v:
+                qs.append(q)
+            else:
+                break
+        if len(qs) > len(best_qs):
+            best_qs = qs
+        if len(best_qs) == len(trajectory):
+            return Trajectory(q=np.asarray(best_qs))
+    raise ValueError("Could not find a valid IK trajectory; "
+                     f"best guess with {len(best_qs)} of {len(trajectory)} steps.")

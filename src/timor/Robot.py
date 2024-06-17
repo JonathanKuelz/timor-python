@@ -1623,3 +1623,16 @@ class PinRobot(RobotBase):
         tcp_frame = pin.Frame('TCP', parent_joint_index, parent_frame, placement, pin.FrameType.OP_FRAME)
         self.tcp = self.model.addFrame(tcp_frame)
         self.data = self.model.createData()
+
+
+# Type for anything that can be used as a robot
+RobotConvertible = Union[RobotBase, "ModuleAssembly"]  # noqa: F821
+
+
+def robot_from_convertible(robot: RobotConvertible) -> RobotBase:
+    """Map a robot convertible to a RobotBase instance"""
+    from timor import ModuleAssembly
+    return {
+        RobotBase: robot,
+        ModuleAssembly: robot.robot
+    }[type(robot)]

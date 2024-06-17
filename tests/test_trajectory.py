@@ -1,4 +1,5 @@
 from copy import deepcopy
+import itertools
 import random
 from typing import Callable
 import unittest
@@ -7,11 +8,13 @@ import numpy as np
 import numpy.testing as np_test
 
 from timor import Transformation
+from timor.task import Tolerance
 from timor.utilities import logging
 from timor.utilities.dtypes import Lazy
 from timor.utilities.frames import Frame, FrameTree, WORLD_FRAME
+import timor.utilities.prebuilt_robots
 from timor.utilities.tolerated_pose import ToleratedPose
-from timor.utilities.trajectory import Trajectory
+from timor.utilities.trajectory import Trajectory, greedy_ik_trajectory
 import timor.utilities.errors as err
 
 
@@ -195,6 +198,48 @@ class TestTrajectoryClasses(unittest.TestCase):
         t_timed_new = Trajectory.from_json_data(example_timed_pose_trajectory.to_json_data(), frames=FrameTree.empty())
         self.assertEqual(example_timed_pose_trajectory, t_timed_new)
         self.assertNotEqual(example_pose_trajectory, example_timed_pose_trajectory)
+
+    def test_pose_interpolation_trajectory(self):
+        example_poses = [
+            Transformation.from_translation((1, 2, 3)),
+            Transformation.from_translation((2, 3, 4)),
+            Transformation.from_roto_translation_vector([np.pi / 2, 0, 0, 0, 0, 0]),
+            Transformation.from_roto_translation_vector([np.pi / 2, np.pi / 2, 0, 0, 0, 0]),
+            Transformation.from_roto_translation_vector([np.pi / 2, 0, np.pi / 2, 0, 0, 0])
+        ]
+        for steps in range(1, 5):
+            for T_start, T_end in itertools.permutations(example_poses, 2):
+                example_pose_trajectory = Trajectory.pose_interpolation(T_start, T_end, steps=11 * steps)
+                self.assertEqual(11 * steps, len(example_pose_trajectory))
+                self.assertTrue(ToleratedPose(T_start).valid(example_pose_trajectory.pose[0]))
+                self.assertTrue(ToleratedPose(T_end).valid(example_pose_trajectory.pose[-1]))
+
+    def test_fk_ik_trajectory(self, tries: int = 10):
+        assembly = timor.utilities.prebuilt_robots.get_six_axis_assembly()
+        tolerance = Tolerance.DEFAULT_SPATIAL
+        fails = 0
+        for _ in range(tries):
+            q = assembly.robot.random_configuration()
+            T_start = assembly.robot.fk(q)
+            T_end = T_start @ Transformation.from_translation((0, 0, 0.1))
+            poses = Trajectory.pose_interpolation(T_start, T_end, steps=100)
+            poses_with_tolerance = poses.add_tolerance(tolerance)
+            try:
+                ik_sols = greedy_ik_trajectory(poses_with_tolerance, assembly)
+            except ValueError as e:
+                logging.info(e)
+                fails += 1
+                continue
+            self.assertTrue(ik_sols.has_q)
+            self.assertFalse(ik_sols.has_poses)
+            Ts = ik_sols.fk_trajectory(assembly)
+            self.assertTrue(Ts.has_poses)
+            self.assertFalse(Ts.has_q)
+            for T_intended, P_intended, T_found in zip(poses_with_tolerance.pose, poses.pose, Ts.pose):
+                self.assertTrue(T_intended.valid(T_found))
+                self.assertTrue(ToleratedPose(Transformation(P_intended), tolerance).valid(T_found))
+
+        self.assertLess(fails, tries)
 
 
 if __name__ == '__main__':
