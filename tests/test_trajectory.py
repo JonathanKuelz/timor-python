@@ -14,7 +14,7 @@ from timor.utilities.dtypes import Lazy
 from timor.utilities.frames import Frame, FrameTree, WORLD_FRAME
 import timor.utilities.prebuilt_robots
 from timor.utilities.tolerated_pose import ToleratedPose
-from timor.utilities.trajectory import Trajectory
+from timor.utilities.trajectory import Trajectory, greedy_ik_trajectory
 import timor.utilities.errors as err
 
 
@@ -224,7 +224,7 @@ class TestTrajectoryClasses(unittest.TestCase):
             T_end = T_start @ Transformation.from_translation((0, 0, 0.1))
             poses = Trajectory.pose_interpolation(T_start, T_end, steps=100)
             try:
-                ik_sols = poses.ik_trajectory(assembly, tolerance)
+                ik_sols = greedy_ik_trajectory(poses, assembly, tolerance)
             except ValueError as e:
                 logging.info(e)
                 fails += 1
