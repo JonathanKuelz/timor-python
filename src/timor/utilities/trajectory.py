@@ -540,7 +540,6 @@ def greedy_ik_trajectory(
         assembly: ModuleAssembly,
         tolerance: Optional[Union["Tolerance.Spatial", Iterable["Tolerance.Spatial"]]] = None,  # noqa: F821
         retries: int = 10,
-        allow_random_restarts: bool = False,
         **ik_kwargs) -> Trajectory:
     """
     Calculate an inverse kinematic trajectory for this end-effector trajectory greedily.
@@ -552,9 +551,8 @@ def greedy_ik_trajectory(
     :param assembly: The assembly to calculate the IKs with.
     :param tolerance: The tolerance for the end-effector poses (global or per step).
     :param retries: How many times to retry the IK calculation.
-    :param allow_random_restarts: Whether to allow random restarts for the IK solver _within_ trajectory;
-      may lead to unexpected jumps!
-    :param ik_kwargs: Additional keyword arguments to pass to the IK solver.
+    :param ik_kwargs: Additional keyword arguments to pass to the IK solver; allow_random_restart will only affect
+      finding the IK solution of the first step and ignored afterward.
     :return: The joint trajectory that follows the end-effector trajectory.
     :raises ValueError: If no valid IK trajectory could be found.
     """
@@ -571,14 +569,16 @@ def greedy_ik_trajectory(
         tolerance = tuple(tolerance)
         if len(tolerance) != len(trajectory):
             raise ValueError("Need as many tolerances as steps in the trajectory or a single global one.")
+    q_init = ik_kwargs.pop("q_init", None)
+    allow_first_step_random_restart = ik_kwargs.pop("allow_random_restart", True)
 
     best_qs = []
     for _ in range(retries):
         qs = []
-        for p, t in zip(trajectory.pose, tolerance):
+        for step, (p, t) in enumerate(zip(trajectory.pose, tolerance)):
             q, v = assembly.robot.ik(ToleratedPose(Transformation(p), t),
-                                     q_init=qs[-1] if len(qs) > 0 else None,
-                                     allow_random_restart=allow_random_restarts,
+                                     q_init=qs[-1] if len(qs) > 0 else q_init,
+                                     allow_random_restart=(step == 0) and allow_first_step_random_restart,
                                      **ik_kwargs)
             if v:
                 qs.append(q)
