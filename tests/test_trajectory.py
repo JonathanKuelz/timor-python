@@ -223,8 +223,9 @@ class TestTrajectoryClasses(unittest.TestCase):
             T_start = assembly.robot.fk(q)
             T_end = T_start @ Transformation.from_translation((0, 0, 0.1))
             poses = Trajectory.pose_interpolation(T_start, T_end, steps=100)
+            poses_with_tolerance = poses.add_tolerance(tolerance)
             try:
-                ik_sols = greedy_ik_trajectory(poses, assembly, tolerance)
+                ik_sols = greedy_ik_trajectory(poses_with_tolerance, assembly)
             except ValueError as e:
                 logging.info(e)
                 fails += 1
@@ -234,8 +235,9 @@ class TestTrajectoryClasses(unittest.TestCase):
             Ts = ik_sols.fk_trajectory(assembly)
             self.assertTrue(Ts.has_poses)
             self.assertFalse(Ts.has_q)
-            for T_intended, T_found in zip(poses.pose, Ts.pose):
-                self.assertTrue(ToleratedPose(Transformation(T_intended), tolerance).valid(T_found))
+            for T_intended, P_intended, T_found in zip(poses_with_tolerance.pose, poses.pose, Ts.pose):
+                self.assertTrue(T_intended.valid(T_found))
+                self.assertTrue(ToleratedPose(Transformation(P_intended), tolerance).valid(T_found))
 
         self.assertLess(fails, tries)
 

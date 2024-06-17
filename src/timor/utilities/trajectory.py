@@ -429,6 +429,23 @@ class Trajectory(JSONable_mixin):
         return Trajectory(pose=np.asarray([robot.fk(q) for q in self.q]),
                           t=self.t, goal2time=self.goal2time)
 
+    def add_tolerance(self, tolerance: Union["ToleranceBase", Iterable["ToleranceBase"]]) -> Trajectory:  # noqa: F821
+        """
+        Add a tolerance to each pose of this trajectory.
+
+        :param tolerance: The tolerance to add; if iterable each Tolerance is added to pose with same index.
+        """
+        from timor.task import Tolerance
+        from timor.utilities.frames import Frame, WORLD_FRAME
+        if not self.has_poses:
+            raise ValueError("Can only add tolerance to pose trajectory")
+        if isinstance(tolerance, Tolerance.ToleranceBase):
+            tolerance = itertools.repeat(tolerance)
+        return Trajectory(pose=np.fromiter((ToleratedPose(Frame("", p, WORLD_FRAME), tolerance=t)
+                                            for p, t in zip(self.pose, tolerance)),
+                                           dtype=np.dtype((ToleratedPose, ()))),
+                          t=self.t, goal2time=self.goal2time)
+
     def __add__(self, other) -> Trajectory:
         """Appends other trajectory to self."""
         if not isinstance(other, Trajectory):
@@ -544,7 +561,6 @@ class Trajectory(JSONable_mixin):
 def greedy_ik_trajectory(
         trajectory: Trajectory,
         robot: RobotConvertible,
-        tolerance: Optional[Union["Tolerance.Spatial", Iterable["Tolerance.Spatial"]]] = None,  # noqa: F821
         retries: int = 10,
         **ik_kwargs) -> Trajectory:
     """
@@ -562,19 +578,10 @@ def greedy_ik_trajectory(
     :return: The joint trajectory that follows the end-effector trajectory.
     :raises ValueError: If no valid IK trajectory could be found.
     """
-    from timor.utilities.transformation import Transformation
-    from timor.utilities.tolerated_pose import Tolerance
-
-    if tolerance is None:
-        tolerance = Tolerance.DEFAULT_SPATIAL
     if not trajectory.has_poses:
         raise ValueError("End-effector trajectory needs poses")
-    if isinstance(tolerance, Tolerance.ToleranceBase):
-        tolerance = itertools.repeat(tolerance)
-    else:
-        tolerance = tuple(tolerance)
-        if len(tolerance) != len(trajectory):
-            raise ValueError("Need as many tolerances as steps in the trajectory or a single global one.")
+    if any(not isinstance(p, ToleratedPose) for p in trajectory.pose):
+        raise ValueError("End-effector trajectory needs to be given as tolerated poses.")
     q_init = ik_kwargs.pop("q_init", None)
     allow_first_step_random_restart = ik_kwargs.pop("allow_random_restart", True)
     robot = robot_from_convertible(robot)
@@ -582,8 +589,8 @@ def greedy_ik_trajectory(
     best_qs = []
     for _ in range(retries):
         qs = []
-        for step, (p, t) in enumerate(zip(trajectory.pose, tolerance)):
-            q, v = robot.ik(ToleratedPose(Transformation(p), t),
+        for step, p in enumerate(trajectory.pose):
+            q, v = robot.ik(p,
                             q_init=qs[-1] if len(qs) > 0 else q_init,
                             allow_random_restart=(step == 0) and allow_first_step_random_restart,
                             **ik_kwargs)
