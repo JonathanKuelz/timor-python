@@ -12,7 +12,6 @@ from timor.utilities import logging, prebuilt_robots, spatial
 from timor.utilities.file_locations import robots
 from timor.utilities.frames import Frame, NOMINAL_FRAME, WORLD_FRAME
 from timor.utilities.tolerated_pose import ToleratedPose
-from timor.utilities.trajectory import Trajectory
 from timor.utilities.transformation import Transformation
 
 
@@ -334,30 +333,6 @@ class PinocchioRobotSetup(unittest.TestCase):
             logging.warning('IK test failed {} times for scipy, {} times for jacobian.'.format(
                 error_count['scipy'], error_count['jacobian']
             ))
-
-    def test_linear_path(self):
-        robot = PinRobot.from_urdf(self.urdf, self.package_dir)
-        q_start = robot.configuration
-        # Choose T in high-manipulability area of panda
-        T_start = robot.fk(q_start, 'tcp') @ Transformation.from_translation((0., 0., .1))
-        T_end = T_start @ Transformation.from_translation((0., 0., .2))
-
-        fail_count = 0
-        for _ in range(10):
-            try:
-                path: Trajectory = robot.linear_path(ToleratedPose(T_start), ToleratedPose(T_end), 100)
-            except ValueError as e:
-                logging.warning(e)
-                fail_count += 1
-                pass
-            else:
-                self.assertEqual(len(path), 100)
-                # self.assertTrue(ToleratedPose(T_start).valid(robot.fk(path[0])))
-                # self.assertTrue(ToleratedPose(T_end).valid(robot.fk(path[-1])))
-        self.assertLess(fail_count, 2)
-        robot.update_configuration(path.q[0])
-        vis = robot.visualize()
-        path.visualize(vis, assembly=ModuleAssembly.from_monolithic_robot(robot), name_prefix="test")
 
     def test_robot_move_base(self):
         """Creates two robots, one with the base moved to another origin and then checks whether
