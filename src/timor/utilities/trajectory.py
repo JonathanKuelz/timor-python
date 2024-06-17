@@ -12,8 +12,6 @@ from pinocchio.visualize import MeshcatVisualizer
 from roboticstoolbox import mstraj
 
 from timor import ModuleAssembly
-from .transformation import Transformation  # Break circular import
-from ..task import Tolerance  # Break circular import
 from timor.utilities import logging
 from timor.utilities.dtypes import Lazy
 from timor.utilities.errors import TimeNotFoundError
@@ -195,7 +193,8 @@ class Trajectory(JSONable_mixin):
             return cls(t=t, pose=np.tile(pose, (samples, 1)))
 
     @classmethod
-    def pose_interpolation(cls, T_start: Transformation, T_end: Transformation, steps: int) -> Trajectory:
+    def pose_interpolation(cls, T_start: "Transformation", T_end: "Transformation",  # noqa: F821
+                           steps: int) -> Trajectory:
         """
         Create a trajectory that interpolates between two poses.
 
@@ -539,7 +538,7 @@ class Trajectory(JSONable_mixin):
 def greedy_ik_trajectory(
         trajectory: Trajectory,
         assembly: ModuleAssembly,
-        tolerance: Union[Tolerance.Spatial, Iterable[Tolerance.Spatial]] = Tolerance.DEFAULT_SPATIAL,
+        tolerance: Optional[Union["Tolerance.Spatial", Iterable["Tolerance.Spatial"]]] = None,  # noqa: F821
         retries: int = 10,
         allow_random_restarts: bool = False,
         **ik_kwargs) -> Trajectory:
@@ -559,6 +558,11 @@ def greedy_ik_trajectory(
     :return: The joint trajectory that follows the end-effector trajectory.
     :raises ValueError: If no valid IK trajectory could be found.
     """
+    from timor.utilities.transformation import Transformation
+    from timor.utilities.tolerated_pose import Tolerance
+
+    if tolerance is None:
+        tolerance = Tolerance.DEFAULT_SPATIAL
     if not trajectory.has_poses:
         raise ValueError("End-effector trajectory needs poses")
     if isinstance(tolerance, Tolerance.ToleranceBase):
