@@ -416,12 +416,16 @@ class Trajectory(JSONable_mixin):
         """
         Calculate a forward kinematic trajectory for this joint trajectory.
 
+        I.e., execute this trajectory defining a joint space movement on the provided assembly and create a new
+        trajectory of the end-effector movement and its poses over time
+
         :param assembly: The assembly to calculate the FKs with.
         :return: The end-effector trajectory that follows the joint trajectory.
         """
         if not self.has_q:
             raise ValueError("Joint trajectory needs q")
-        return Trajectory(pose=np.asarray([assembly.robot.fk(q) for q in self.q]))
+        return Trajectory(pose=np.asarray([assembly.robot.fk(q) for q in self.q]),
+                          t=self.t, goal2time=self.goal2time)
 
     def __add__(self, other) -> Trajectory:
         """Appends other trajectory to self."""
