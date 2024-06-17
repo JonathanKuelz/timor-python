@@ -5,6 +5,7 @@ import numpy as np
 from timor import ModuleAssembly, Robot
 from timor.task import Constraints, CostFunctions, Goals, Solution, Task, Tolerance
 from timor.utilities import spatial
+from timor.utilities.dtypes import IKDebug
 from timor.utilities.file_locations import robots
 from timor.utilities.frames import WORLD_FRAME
 from timor.utilities.tolerated_pose import ToleratedPose
@@ -222,9 +223,13 @@ class TestConstraints(unittest.TestCase):
                   Transformation.from_translation((.11, 0., 0.)) @ start_pose @ spatial.rotY(-0.05),  # q_mid_not_ok
                   Transformation.from_translation((.21, 0., 0.)) @ start_pose  # q_end_to_far
                   ):
-            q, success, info = self.robot.ik(ToleratedPose(T, ik_tolerance), debug=True)
-            info.plot()
-            info.visualize(ModuleAssembly.from_monolithic_robot(self.robot), self.robot.visualize())
+            ik_debug = IKDebug(self.robot)
+            q, success = self.robot.ik(ToleratedPose(T, ik_tolerance),
+                                       inner_callbacks=[ik_debug.add_step],
+                                       outer_callbacks=[ik_debug.inc_restarts])
+            ik_debug.plot()
+            viz = self.robot.visualize()
+            ik_debug.visualize(viz)
             self.assertTrue(success, f"ik for {str(T)} failed")
             qs.append(q)
         drill_eef_constraint = Constraints.EndEffector(pose=ToleratedPose(

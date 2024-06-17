@@ -305,7 +305,6 @@ class RobotBase(abc.ABC):
            q_init: Optional[np.ndarray] = None,
            task: Optional['Task.Task'] = None,  # noqa: F821
            convergence_threshold: float = 1e-8,
-           debug: bool = False,
            **kwargs) -> Union[Tuple[np.ndarray, bool, Optional[IKMeta]], Tuple[np.ndarray, bool]]:
         """
         Try to find the joint angles q that minimize the error between TCP pose and the desired eef_pose.
@@ -342,15 +341,14 @@ class RobotBase(abc.ABC):
             this threshold, the IK will terminate even without finding a solution.
         :param q_init: The joint configuration to start with. If not given, it is up to the downstream method to
             determine a suitable initial configuration.
-        :param debug: If set return the IKMeta info + all intermediate steps to the user.
         :param kwargs: Any keyword arguments that are specific to the inner loop method.
-        :return: A tuple of (q_solution, success [boolean], info if debug is set)
+        :return: A tuple of (q_solution, success [boolean])
+        :note: To debug the IK look into IKDebug dataclass defined in dtypes; it provides callbacks for logging all
+            (sub)steps and analyzing each IK solution attempt.
         """
         from timor.task.Constraints import CollisionFree, SelfCollisionFree, RobotConstraint
 
         if self.dof == 0:
-            if debug:
-                return self.configuration, eef_pose.valid(self.fk()), None
             return self.configuration, eef_pose.valid(self.fk())
 
         if inner_callbacks is None:
@@ -386,7 +384,7 @@ class RobotBase(abc.ABC):
             q_init = candidates[np.argmin(distances)]
 
         info = IKMeta(dof=self.dof, max_iter=max_iter, intermediate_result=current_best, joint_mask=joint_mask,
-                      task=task, allow_random_restart=allow_random_restart, debug=debug)
+                      task=task, allow_random_restart=allow_random_restart)
 
         q = self.configuration
         success = False
@@ -436,14 +434,11 @@ class RobotBase(abc.ABC):
             max_iter = info.max_iter
             if max_iter > 0:
                 logging.verbose_debug(f"Restarting IK with new initial configuration and {max_iter} iterations left.")
-            info.inc_restarts()
 
         if not success:
             logging.info("IK failed to converge.")
             q = info.intermediate_result.q
 
-        if debug:
-            return q, success, info
         return q, success
 
     def ik_scipy(self,
@@ -491,7 +486,6 @@ class RobotBase(abc.ABC):
             return q_ik
 
         def compute_cost(_q: np.ndarray):
-            info.add_step(_q)
             return ik_cost_function(self, unmask(_q), eef_pose.nominal.in_world_coordinates())
 
         callback = chain_callbacks(*callbacks)
@@ -1079,7 +1073,6 @@ class PinRobot(RobotBase):
             # For large angles, the linear approximation of revolute movements is not valid anymore
             q_dot[rot_joint_mask] = np.clip(q_dot[rot_joint_mask], -np.pi / 4, np.pi / 4)
             q = pin.integrate(self.model, q, q_dot)
-            info.add_step(q)
 
             # Keep joint angles (for revolute joints) in interval (-2pi, 2pi) while preserving q sign
             sign_preserve = np.ones_like(q) * 2 * np.pi

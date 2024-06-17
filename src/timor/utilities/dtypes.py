@@ -18,10 +18,12 @@ from hppfcl import hppfcl
 from matplotlib import pyplot as plt
 import numpy as np
 import pinocchio as pin
+from pinocchio.visualize import MeshcatVisualizer
 
 from timor.utilities import configurations as timor_config
 from timor.utilities import errors as err
 from timor.utilities import logging
+from timor.utilities.callbacks import CallbackReturn
 from timor.utilities.schema import DEFAULT_DATE_FORMAT
 from timor.utilities.transformation import Transformation, TransformationLike
 
@@ -69,9 +71,6 @@ class IKMeta:
     intermediate_result: Optional[IntermediateIkResult] = None
     joint_mask: Optional[Union[bool, Sequence[bool]]] = None  # Optionally mask joints for IK
     task: Optional['Task.Task'] = None  # A task with obstacles to avoid  # noqa: F821
-    _restarts: int = 0
-    debug: bool = False
-    _steps: List[List[np.ndarray]] = field(default_factory=lambda: [[]])  # List of steps taken during each retry
 
     def __post_init__(self):
         """
@@ -84,16 +83,26 @@ class IKMeta:
         else:
             self.joint_mask = np.asarray(self.joint_mask, dtype=bool)
 
-    def add_step(self, q):
-        """Add a step to the list of steps"""
-        if self.debug:
-            self._steps[-1].append(q)
 
-    def inc_restarts(self):
+@dataclass
+class IKDebug:
+    """Holds data for debugging IK optimization runs and helps you analyze them"""
+
+    robot: "RobotBase"  # noqa: F821
+    _restarts: int = field(init=False, default=0)
+    # List of steps taken during each retry
+    _steps: List[List[np.ndarray]] = field(default_factory=lambda: [[]], init=False)
+
+    def add_step(self, q) -> CallbackReturn:
+        """Add a step to the list of steps"""
+        self._steps[-1].append(q)
+        return CallbackReturn.TRUE
+
+    def inc_restarts(self, _) -> CallbackReturn:
         """Increment the number of restarts"""
         self._restarts += 1
-        if self.debug:
-            self._steps.append([])
+        self._steps.append([])
+        return CallbackReturn.TRUE
 
     @property
     def restarts(self):
@@ -104,7 +113,7 @@ class IKMeta:
         """Plot the tested IK candidates over steps + velocity + velocity norm."""
         fig, (ax1, ax2, ax3) = plt.subplots(3, 1, sharex=True)
         ax_restart = ax1.twiny()
-        colors = list(c['color'] for c in itertools.islice(plt.rcParams['axes.prop_cycle'](), self.dof))
+        colors = list(c['color'] for c in itertools.islice(plt.rcParams['axes.prop_cycle'](), self.robot.dof))
         ax1.set_title("IK Optimization Steps (restarts in red)")
         start = 0
         restart_to_iter = {}
@@ -112,20 +121,19 @@ class IKMeta:
             end = start + len(steps)
             steps_np = np.asarray(steps)
             restart_to_iter[restart] = start
-            for d, c in zip(range(self.dof), colors):
+            for d, c in zip(range(self.robot.dof), colors):
                 if len(steps) > 1:
                     ax1.plot(range(start, end), steps_np[:, d], color=c)
                 if len(steps) == 1:
                     ax1.scatter(start, steps_np[0, d], color=c, alpha=0.5)
             start = end
         ax1.set_ylabel("Joint Angle")
-        ax1.legend([f"$q_{i}$" for i in range(self.dof)])  # TODO Make scatter and plot same color
+        ax1.legend([f"$q_{i}$" for i in range(self.robot.dof)])
         ax_restart.set_xlim(ax1.get_xlim())
         with plt.rc_context({'xtick.color': 'red'}):
             ax_restart.set_xticks(tuple(restart_to_iter.values()))
         ax_restart.set_xlabel("Reset")
         ax_restart.set_xticklabels(tuple(restart_to_iter.keys()))
-        # Maybe: https://stackoverflow.com/a/70721229/11889810
         start = 0
         for restart, steps in enumerate(self._steps):
             end = start + len(steps)
@@ -133,7 +141,7 @@ class IKMeta:
             ax2.axvline(x=end, color='r', label='reset')
             start = end
         ax2.set_ylabel("Joint Velocity")
-        ax2.legend([f"$\\dot{{q}}_{i}$" for i in range(self.dof)])
+        ax2.legend([f"$\\dot{{q}}_{i}$" for i in range(self.robot.dof)])
         # Plot norm of joint velocities
         start = 0
         for restart, steps in enumerate(self._steps):
@@ -147,7 +155,7 @@ class IKMeta:
         ax3.set_yscale("log")
         fig.show()
 
-    def visualize(self, assembly, viz):
+    def visualize(self, viz: MeshcatVisualizer):
         """
         Visualize the steps taken during the IK optimization.
 
@@ -155,13 +163,14 @@ class IKMeta:
         :param viz: The visualizer to use
         """
         from timor.utilities.trajectory import Trajectory
-        if not self.debug:
-            raise ValueError("Debug mode must be enabled to visualize the steps taken during IK optimization")
+
         for restart, qs in enumerate(self._steps):
-            t = Trajectory(q=np.asarray(qs))
-            t.visualize(viz=viz, assembly=assembly, name_prefix=f"IK_Steps_{restart}")
-            if restart > 0:
-                viz.viewer[f'traj_IK_Steps_{restart}_position'].set_property(u'visible', False)
+            viz_id = f'debug/IK/Steps_{restart}/'
+            if len(qs) == 0:
+                continue
+            else:
+                t = Trajectory(q=np.asarray(qs))
+            t.visualize(viz=viz, robot=self.robot, name_prefix=viz_id)
 
 
 class Lazy(Generic[T]):
