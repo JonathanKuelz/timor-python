@@ -377,7 +377,7 @@ class RobotBase(abc.ABC):
 
         if q_init is None:
             # Find an initial guess for the solution where the robot is close to the desired point in space
-            candidates = [self.random_configuration() for _ in range(IK_RANDOM_CANDIDATES)]
+            candidates = [self.random_configuration(rng=self._rng) for _ in range(IK_RANDOM_CANDIDATES)]
             distances = [ik_cost_function(self, q, eef_pose.nominal.in_world_coordinates()) for q in candidates]
             q_init = candidates[np.argmin(distances)]
 
@@ -420,7 +420,7 @@ class RobotBase(abc.ABC):
                 logging.verbose_debug("IK failed to converge and random restarts are disabled.")
                 break
 
-            q_new = self.random_configuration()
+            q_new = self.random_configuration(rng=self._rng)
             if joint_mask is not None:
                 q_init[info.joint_mask] = q_new[info.joint_mask]
             else:

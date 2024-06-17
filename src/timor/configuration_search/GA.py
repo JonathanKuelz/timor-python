@@ -360,11 +360,6 @@ class GA:
         logging.info(f"Hyperparameters used: {json.dumps(run_hp)}")
         logging.info("Progress unit: {}".format(progress_unit))
 
-        gene_space: List[List[int]] = [[self.id2num[_id] for _id in self.base_ids]]
-        for _ in range(run_hp['num_genes'] - 2):
-            gene_space.append([self.id2num[_id] for _id in self.joint_ids + self.link_ids])
-        gene_space.append([self.id2num[_id] for _id in self.eef_ids])
-
         def ensure_callback_return_type(fitness_func):
             """
             A decorator function that checks and validates the return type of the provided fitness function.
@@ -421,7 +416,7 @@ class GA:
 
         on_generation_cbs: List[Callable[[pygad.GA], any]] = []
         if progress_bar:
-            progress_bar = tqdm(total=hp['num_generations'] + 1 + steps_at_start, desc='Generations')
+            progress_bar = tqdm(total=run_hp['num_generations'] + 1 + steps_at_start, desc='Generations')
             progress_bar.update(steps_at_start)
 
             def progress_callback(_: pygad.GA) -> bool:
@@ -481,13 +476,12 @@ class GA:
 
         ga_instance = pygad.GA(
             fitness_func=fitness,
-            gene_space=gene_space,
-            gene_type=int,
             initial_population=initial_population,
             crossover_type=self.single_valid_crossover,
             mutation_type=self.mutation,
             parent_selection_type=selection_type,
             on_generation=on_generation,
+            **self.create_gene_space(run_hp),
             **run_hp,
             **ga_kwargs
         )
@@ -520,10 +514,18 @@ class GA:
                 ga_instance.best_solutions_fitness[ga_instance.best_solution_generation]
             ))
             best = ga_instance.best_solutions[ga_instance.best_solution_generation]
-            logging.info("Best solution: {}".format('-'.join(self._map_genes_to_id(best))))
+            logging.info(f"Best solution: {self._map_genes_to_id(best)}")
         logging.info("Total optimization time: {:.2f} seconds.".format(time.time() - t0))
         self._last_ga_instance = ga_instance
         return ga_instance
+
+    def create_gene_space(self, run_hp: Dict[str, any]) -> Dict[str, any]:
+        """Create gene space and type for pygad."""
+        gene_space: List[List[int]] = [[self.id2num[_id] for _id in self.base_ids]]
+        for _ in range(run_hp['num_genes'] - 2):
+            gene_space.append([self.id2num[_id] for _id in self.joint_ids + self.link_ids])
+        gene_space.append([self.id2num[_id] for _id in self.eef_ids])
+        return {"gene_space": gene_space, "gene_type": int}
 
     def single_valid_crossover(self, parents: np.ndarray, offspring_size: Tuple, ga_instance: pygad.GA) -> np.ndarray:
         """
