@@ -11,7 +11,7 @@ import numpy as np
 from pinocchio.visualize import MeshcatVisualizer
 from roboticstoolbox import mstraj
 
-from timor.Robot import RobotConvertible, robot_from_convertible
+from timor.Module import RobotConvertible, robot_from_convertible
 from timor.utilities import logging
 from timor.utilities.dtypes import Lazy
 from timor.utilities.errors import TimeNotFoundError
