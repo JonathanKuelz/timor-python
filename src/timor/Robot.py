@@ -343,6 +343,8 @@ class RobotBase(abc.ABC):
             determine a suitable initial configuration.
         :param kwargs: Any keyword arguments that are specific to the inner loop method.
         :return: A tuple of (q_solution, success [boolean])
+        :note: To debug the IK look into IKDebug dataclass defined in dtypes; it provides callbacks for logging all
+            (sub)steps and analyzing each IK solution attempt.
         """
         from timor.task.Constraints import CollisionFree, SelfCollisionFree, RobotConstraint
 
@@ -377,7 +379,7 @@ class RobotBase(abc.ABC):
 
         if q_init is None:
             # Find an initial guess for the solution where the robot is close to the desired point in space
-            candidates = [self.random_configuration() for _ in range(IK_RANDOM_CANDIDATES)]
+            candidates = [self.random_configuration(rng=self._rng) for _ in range(IK_RANDOM_CANDIDATES)]
             distances = [ik_cost_function(self, q, eef_pose.nominal.in_world_coordinates()) for q in candidates]
             q_init = candidates[np.argmin(distances)]
 
@@ -420,7 +422,7 @@ class RobotBase(abc.ABC):
                 logging.verbose_debug("IK failed to converge and random restarts are disabled.")
                 break
 
-            q_new = self.random_configuration()
+            q_new = self.random_configuration(rng=self._rng)
             if joint_mask is not None:
                 q_init[info.joint_mask] = q_new[info.joint_mask]
             else:
@@ -834,7 +836,7 @@ class PinRobot(RobotBase):
         :return: np. array of either dim 4x4 (kind tcp) or numJointsx4x4 (kind joints) or numFramesx4x4 (kind full)
         """
         if configuration is not None:
-            self.update_configuration(configuration)
+            self.update_configuration(configuration, frames=True)
 
         if kind == 'joints':
             # Assuming no one wants to have the "fixed universe joint" represented by the base

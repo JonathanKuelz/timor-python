@@ -127,9 +127,9 @@ def color_visualization(viz: MeshcatVisualizer,
     provided assembly. It will then color the robot according to the provided color_map.
     :param viz: The visualizer to color
     :param assembly: The assembly (that can already be visualized in viz) to color
-    :param color_map: A dictionary mapping module integer enumerated module types OR module IDs to colors. If color_map
-      maps module IDs to colors, this method first tries to interpret them as custom module IDs matching the internal
-      representation in the assembly. If this fails, it will interpret them as original module IDs.
+    :param color_map: A dictionary mapping module integer enumerated module types OR module IDs OR geometry names
+      to colors. If color_map maps module IDs to colors, this method first tries to interpret them as custom module IDs
+      matching the internal representation in the assembly. If this fails, it will interpret them as original IDs.
     :param appearance: Looks of the visualizer window; an example is given by DEFAULT_APPEARANCE
     """
     # We can't perform a proper equality check but at least we can perform some necessary conditions
@@ -166,11 +166,16 @@ def color_visualization(viz: MeshcatVisualizer,
 
         for body in m.bodies:
             viz_name = '.'.join(body.id)
-            viz_cmap[viz_name] = color
+            if viz_name in cmap:
+                color = cmap[viz_name]
+            else:
+                viz_cmap[viz_name] = color
 
     for go in assembly.robot.visual.geometryObjects:
         stem = '.'.join(go.name.split('.')[:-1])
-        if stem in viz_cmap:
+        if go.name in color_map:
+            viz.viewer[viz.viewerVisualGroupName + '/' + go.name].set_property(u'color', color_map[go.name].tolist())
+        elif stem in viz_cmap:
             viz.viewer[viz.viewerVisualGroupName + '/' + go.name].set_property(u'color', viz_cmap[stem].tolist())
         else:
             logging.warning(f"Could not find color for robot geometry {go.name}.")
