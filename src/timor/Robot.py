@@ -936,8 +936,7 @@ class PinRobot(RobotBase):
         drift = pin.rnea(self.model, self.data, np.atleast_1d(q), np.atleast_1d(dq), np.atleast_1d(ddq), f_ext_vec)
         return drift + motor_inertia * self.motor_inertias(ddq) + friction * self.friction(dq)
 
-    def ik(self, eef_pose: ToleratedPose, *, ik_method: Optional[str] = None,
-           **kwargs) -> Tuple[np.ndarray, bool]:
+    def ik(self, eef_pose: ToleratedPose, *, ik_method: Optional[str] = None, **kwargs) -> Tuple[np.ndarray, bool]:
         """
         Interface for inverse kinematics solver.
 
