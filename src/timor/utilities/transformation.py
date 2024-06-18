@@ -72,9 +72,11 @@ class Projection:
         """
         The rotation angle of this transformation about any axis, expressed in radian.
 
+        Use some rounding to avoid floating point errors at the edge of arccos domain.
+
         :source: https://en.wikipedia.org/wiki/Axis%E2%80%93angle_representation
         """
-        return np.arccos((np.trace(self.transformation[:3, :3]) - 1) / 2)
+        return np.arccos(round((np.trace(self.transformation[:3, :3]) - 1) / 2, 14))
 
     @property
     def axis_angles(self) -> np.ndarray:
