@@ -86,7 +86,11 @@ class IKMeta:
 
 @dataclass
 class IKDebug:
-    """Holds data for debugging IK optimization runs and helps you analyze them"""
+    """
+    Holds data for debugging IK optimization runs and helps you analyze them.
+
+    Needs to be linked to robot ik via callbacks (`add_step` for inner_callback, `inc_restarts` for outer_callback).
+    """
 
     robot: "RobotBase"  # noqa: F821
     _restarts: int = field(init=False, default=0)
@@ -94,12 +98,12 @@ class IKDebug:
     _steps: List[List[np.ndarray]] = field(default_factory=lambda: [[]], init=False)
 
     def add_step(self, q) -> CallbackReturn:
-        """Add a step to the list of steps"""
+        """Add a step to the list of steps; intended as inner_callback of robot's ik method"""
         self._steps[-1].append(q)
         return CallbackReturn.TRUE
 
     def inc_restarts(self, _) -> CallbackReturn:
-        """Increment the number of restarts"""
+        """Increment the number of restarts; intended as outer_callback of robot's ik method"""
         self._restarts += 1
         self._steps.append([])
         return CallbackReturn.TRUE
