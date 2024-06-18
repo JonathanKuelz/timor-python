@@ -1589,3 +1589,14 @@ class ModuleAssembly(JSONable_mixin):
         """Used for pickling"""
         cpy = self.__class__.from_json_data(state)
         self.__dict__ = cpy.__dict__
+
+
+# Type for anything that can be used as a robot
+RobotConvertible = Union[Robot.RobotBase, ModuleAssembly]
+
+
+def robot_from_convertible(robot: RobotConvertible) -> Robot.RobotBase:
+    """Map a robot convertible to a RobotBase instance"""
+    if isinstance(robot, ModuleAssembly):
+        return robot.robot
+    return robot
