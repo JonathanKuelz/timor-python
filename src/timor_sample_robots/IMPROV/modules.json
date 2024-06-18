@@ -5,7 +5,7 @@
       "header": {
         "ID": "1",
         "name": "base",
-        "date": "2022-08-12",
+        "date": "2023-01-30",
         "author": [
           "Matthias Mayer"
         ],
@@ -13,7 +13,7 @@
           "matthias.mayer@tum.de"
         ],
         "affiliation": [
-          "TU Muenchen"
+          "Technical University of Munich"
         ],
         "cost": 0.0
       },
@@ -59,17 +59,105 @@
     },
     {
       "header": {
-        "ID": "12",
-        "name": "L3",
-        "date": "2022-08-12",
+        "ID": "101",
+        "name": "L11",
+        "date": "2023-01-30",
         "author": [
-          "Matthias Mayer, Stefan Liu"
+          "Matthias Mayer",
+          "Stefan Liu"
         ],
         "email": [
           "matthias.mayer@tum.de"
         ],
         "affiliation": [
-          "TU Muenchen"
+          "Technical University of Munich"
+        ],
+        "cost": 0.0
+      },
+      "bodies": [
+        {
+          "ID": "101",
+          "mass": 0.347,
+          "inertia": [
+            [ 0.00085927, 0.0, 0.0 ],
+            [ 0.0, 0.00085927, 0.0 ],
+            [ 0.0, 0.0, 6.849e-05 ]
+          ],
+          "r_com": [ 0.0, 0.0, 0.04286625 ],
+          "connectors": [
+            {
+              "ID": "101_distal_connector",
+              "pose": [
+                [ 1.0, 0.0, 0.0, 0.0 ],
+                [ 0.0, 1.0, 0.0, 0.0 ],
+                [ 0.0, 0.0, 1.0, 0.068 ],
+                [ 0.0, 0.0, 0.0, 1.0 ]
+              ],
+              "gender": "m",
+              "type": "eef",
+              "size": [ 1 ]
+            },
+            {
+              "ID": "101_proximal_connector",
+              "pose": [
+                [ 1.0, 0.0, 0.0, 0.0 ],
+                [ 0.0, -1.0, -1.2246467991473532e-16, 0.0 ],
+                [ 0.0, 1.2246467991473532e-16, -1.0, 0.0 ],
+                [ 0.0, 0.0, 0.0, 1.0 ]
+              ],
+              "gender": "f",
+              "type": "schunk",
+              "size": [ 1 ]
+            }
+          ],
+          "visual": [
+            {
+              "type": "mesh",
+              "parameters": {
+                "file": "STLfiles/L11.stl",
+                "scale": [ 1.0, 1.0, 1.0 ]
+              },
+              "pose": [
+                [ 1.0, 0.0, 0.0, 0.0 ],
+                [ 0.0, 1.0, 0.0, 0.0 ],
+                [ 0.0, 0.0, 1.0, 0.0 ],
+                [ 0.0, 0.0, 0.0, 1.0 ]
+              ]
+            }
+          ],
+          "collision": [
+            {
+              "type": "mesh",
+              "parameters": {
+                "file": "STLfiles/convexDecompose/L11.stl.wrl",
+                "scale": [ 1.0, 1.0, 1.0 ]
+              },
+              "pose": [
+                [ 1.0, 0.0, 0.0, 0.0 ],
+                [ 0.0, 1.0, 0.0, 0.0 ],
+                [ 0.0, 0.0, 1.0, 0.0 ],
+                [ 0.0, 0.0, 0.0, 1.0 ]
+              ]
+            }
+          ]
+        }
+      ],
+      "joints": []
+    },
+    {
+      "header": {
+        "ID": "12",
+        "name": "L3",
+        "date": "2023-01-30",
+        "author": [
+          "Matthias Mayer",
+          "Stefan Liu"
+        ],
+        "email": [
+          "matthias.mayer@tum.de"
+        ],
+        "affiliation": [
+          "Technical University of Munich"
         ],
         "cost": 0.0
       },
@@ -147,15 +235,16 @@
       "header": {
         "ID": "13",
         "name": "L7",
-        "date": "2022-08-12",
+        "date": "2023-01-30",
         "author": [
-          "Matthias Mayer, Stefan Liu"
+          "Matthias Mayer",
+          "Stefan Liu"
         ],
         "email": [
           "matthias.mayer@tum.de"
         ],
         "affiliation": [
-          "TU Muenchen"
+          "Technical University of Munich"
         ],
         "cost": 0.0
       },
@@ -195,22 +284,6 @@
               "size": [ 1 ]
             }
           ],
-          "visual": [
-            {
-              "type": "box",
-              "parameters": {
-                "x": 0.085,
-                "y": 0.115,
-                "z": 0.15
-              },
-              "pose": [
-                [ 1.0, 0.0, 0.0, 0.0 ],
-                [ 0.0, 1.0, 0.0, 0.0 ],
-                [ 0.0, 0.0, 1.0, 0.075 ],
-                [ 0.0, 0.0, 0.0, 1.0 ]
-              ]
-            }
-          ],
           "collision": [
             {
               "type": "box",
@@ -235,15 +308,16 @@
       "header": {
         "ID": "14",
         "name": "L8",
-        "date": "2022-08-12",
+        "date": "2023-01-30",
         "author": [
-          "Matthias Mayer, Stefan Liu"
+          "Matthias Mayer",
+          "Stefan Liu"
         ],
         "email": [
           "matthias.mayer@tum.de"
         ],
         "affiliation": [
-          "TU Muenchen"
+          "Technical University of Munich"
         ],
         "cost": 0.0
       },
@@ -321,15 +395,16 @@
       "header": {
         "ID": "15",
         "name": "L9",
-        "date": "2022-08-12",
+        "date": "2023-01-30",
         "author": [
-          "Matthias Mayer, Stefan Liu"
+          "Matthias Mayer",
+          "Stefan Liu"
         ],
         "email": [
           "matthias.mayer@tum.de"
         ],
         "affiliation": [
-          "TU Muenchen"
+          "Technical University of Munich"
         ],
         "cost": 0.0
       },
@@ -407,15 +482,16 @@
       "header": {
         "ID": "16",
         "name": "L10",
-        "date": "2022-08-12",
+        "date": "2023-01-30",
         "author": [
-          "Matthias Mayer, Stefan Liu"
+          "Matthias Mayer",
+          "Stefan Liu"
         ],
         "email": [
           "matthias.mayer@tum.de"
         ],
         "affiliation": [
-          "TU Muenchen"
+          "Technical University of Munich"
         ],
         "cost": 0.0
       },
@@ -455,21 +531,6 @@
               "size": [ 1 ]
             }
           ],
-          "visual": [
-            {
-              "type": "cylinder",
-              "parameters": {
-                "r": 0.045,
-                "z": 0.085
-              },
-              "pose": [
-                [ 1.0, 0.0, 0.0, 0.0 ],
-                [ 0.0, 1.0, 0.0, 0.0 ],
-                [ 0.0, 0.0, 1.0, 0.0425 ],
-                [ 0.0, 0.0, 0.0, 1.0 ]
-              ]
-            }
-          ],
           "collision": [
             {
               "type": "cylinder",
@@ -493,15 +554,16 @@
       "header": {
         "ID": "21",
         "name": "PB21",
-        "date": "2022-08-12",
+        "date": "2023-01-30",
         "author": [
-          "Matthias Mayer, Stefan Liu"
+          "Matthias Mayer",
+          "Stefan Liu"
         ],
         "email": [
           "matthias.mayer@tum.de"
         ],
         "affiliation": [
-          "TU Muenchen"
+          "Technical University of Munich"
         ],
         "cost": 0.0
       },
@@ -674,11 +736,11 @@
             [ 0.0, 0.0, 0.0, 1.0 ]
           ],
           "limits": {
-            "positionLower": -3.14159265358979,
-            "positionUpper": 3.14159265358979,
+            "positionLower": -2.9671,
+            "positionUpper": 2.9671,
             "peakTorque": 75.504,
-            "velocity": 0.0,
-            "acceleration": Infinity
+            "velocity": 1.2566,
+            "acceleration": 2.618
           },
           "gearRatio": 160.0,
           "motorInertia": 5.23e-05,
@@ -704,11 +766,11 @@
             [ 0.0, 0.0, 0.0, 1.0 ]
           ],
           "limits": {
-            "positionLower": -3.14159265358979,
-            "positionUpper": 3.14159265358979,
+            "positionLower": -2.9671,
+            "positionUpper": 2.9671,
             "peakTorque": 75.504,
-            "velocity": 0.0,
-            "acceleration": Infinity
+            "velocity": 1.2566,
+            "acceleration": 2.618
           },
           "gearRatio": 160.0,
           "motorInertia": 5.23e-05,
@@ -721,15 +783,16 @@
       "header": {
         "ID": "22",
         "name": "PB22",
-        "date": "2022-08-12",
+        "date": "2023-01-30",
         "author": [
-          "Matthias Mayer, Stefan Liu"
+          "Matthias Mayer",
+          "Stefan Liu"
         ],
         "email": [
           "matthias.mayer@tum.de"
         ],
         "affiliation": [
-          "TU Muenchen"
+          "Technical University of Munich"
         ],
         "cost": 0.0
       },
@@ -902,11 +965,11 @@
             [ 0.0, 0.0, 0.0, 1.0 ]
           ],
           "limits": {
-            "positionLower": -3.14159265358979,
-            "positionUpper": 3.14159265358979,
+            "positionLower": -2.9671,
+            "positionUpper": 2.9671,
             "peakTorque": 75.504,
-            "velocity": 0.0,
-            "acceleration": Infinity
+            "velocity": 1.2566,
+            "acceleration": 2.618
           },
           "gearRatio": 160.0,
           "motorInertia": 5.23e-05,
@@ -932,11 +995,11 @@
             [ 0.0, 0.0, 0.0, 1.0 ]
           ],
           "limits": {
-            "positionLower": -3.14159265358979,
-            "positionUpper": 3.14159265358979,
+            "positionLower": -2.9671,
+            "positionUpper": 2.9671,
             "peakTorque": 75.504,
-            "velocity": 0.0,
-            "acceleration": Infinity
+            "velocity": 1.2566,
+            "acceleration": 2.618
           },
           "gearRatio": 160.0,
           "motorInertia": 5.23e-05,
@@ -949,15 +1012,16 @@
       "header": {
         "ID": "23",
         "name": "PB23",
-        "date": "2022-08-12",
+        "date": "2023-01-30",
         "author": [
-          "Matthias Mayer, Stefan Liu"
+          "Matthias Mayer",
+          "Stefan Liu"
         ],
         "email": [
           "matthias.mayer@tum.de"
         ],
         "affiliation": [
-          "TU Muenchen"
+          "Technical University of Munich"
         ],
         "cost": 0.0
       },
@@ -1130,11 +1194,11 @@
             [ 0.0, 0.0, 0.0, 1.0 ]
           ],
           "limits": {
-            "positionLower": -3.14159265358979,
-            "positionUpper": 3.14159265358979,
+            "positionLower": -2.9671,
+            "positionUpper": 2.9671,
             "peakTorque": 40.0,
-            "velocity": 0.0,
-            "acceleration": Infinity
+            "velocity": 1.2566,
+            "acceleration": 2.618
           },
           "gearRatio": 100.0,
           "motorInertia": 1.7e-05,
@@ -1160,11 +1224,11 @@
             [ 0.0, 0.0, 0.0, 1.0 ]
           ],
           "limits": {
-            "positionLower": -3.14159265358979,
-            "positionUpper": 3.14159265358979,
+            "positionLower": -2.9671,
+            "positionUpper": 2.9671,
             "peakTorque": 40.0,
-            "velocity": 0.0,
-            "acceleration": Infinity
+            "velocity": 1.2566,
+            "acceleration": 2.618
           },
           "gearRatio": 100.0,
           "motorInertia": 1.7e-05,
@@ -1177,15 +1241,16 @@
       "header": {
         "ID": "29",
         "name": "PB24",
-        "date": "2022-08-12",
+        "date": "2023-01-30",
         "author": [
-          "Matthias Mayer, Stefan Liu"
+          "Matthias Mayer",
+          "Stefan Liu"
         ],
         "email": [
           "matthias.mayer@tum.de"
         ],
         "affiliation": [
-          "TU Muenchen"
+          "Technical University of Munich"
         ],
         "cost": 0.0
       },
@@ -1358,11 +1423,11 @@
             [ 0.0, 0.0, 0.0, 1.0 ]
           ],
           "limits": {
-            "positionLower": -3.14159265358979,
-            "positionUpper": 3.14159265358979,
+            "positionLower": -2.9671,
+            "positionUpper": 2.9671,
             "peakTorque": 75.504,
-            "velocity": 0.0,
-            "acceleration": Infinity
+            "velocity": 1.2566,
+            "acceleration": 2.618
           },
           "gearRatio": 160.0,
           "motorInertia": 5.23e-05,
@@ -1388,11 +1453,11 @@
             [ 0.0, 0.0, 0.0, 1.0 ]
           ],
           "limits": {
-            "positionLower": -3.14159265358979,
-            "positionUpper": 3.14159265358979,
+            "positionLower": -2.9671,
+            "positionUpper": 2.9671,
             "peakTorque": 75.504,
-            "velocity": 0.0,
-            "acceleration": Infinity
+            "velocity": 1.2566,
+            "acceleration": 2.618
           },
           "gearRatio": 160.0,
           "motorInertia": 5.23e-05,
@@ -1405,15 +1470,16 @@
       "header": {
         "ID": "4",
         "name": "L1",
-        "date": "2022-08-12",
+        "date": "2023-01-30",
         "author": [
-          "Matthias Mayer, Stefan Liu"
+          "Matthias Mayer",
+          "Stefan Liu"
         ],
         "email": [
           "matthias.mayer@tum.de"
         ],
         "affiliation": [
-          "TU Muenchen"
+          "Technical University of Munich"
         ],
         "cost": 0.0
       },
@@ -1491,15 +1557,16 @@
       "header": {
         "ID": "5",
         "name": "L2",
-        "date": "2022-08-12",
+        "date": "2023-01-30",
         "author": [
-          "Matthias Mayer, Stefan Liu"
+          "Matthias Mayer",
+          "Stefan Liu"
         ],
         "email": [
           "matthias.mayer@tum.de"
         ],
         "affiliation": [
-          "TU Muenchen"
+          "Technical University of Munich"
         ],
         "cost": 0.0
       },
@@ -1577,15 +1644,16 @@
       "header": {
         "ID": "6",
         "name": "L4",
-        "date": "2022-08-12",
+        "date": "2023-01-30",
         "author": [
-          "Matthias Mayer, Stefan Liu"
+          "Matthias Mayer",
+          "Stefan Liu"
         ],
         "email": [
           "matthias.mayer@tum.de"
         ],
         "affiliation": [
-          "TU Muenchen"
+          "Technical University of Munich"
         ],
         "cost": 0.0
       },
@@ -1625,21 +1693,6 @@
               "size": [ 1 ]
             }
           ],
-          "visual": [
-            {
-              "type": "cylinder",
-              "parameters": {
-                "r": 0.035,
-                "z": 0.064
-              },
-              "pose": [
-                [ 1.0, 0.0, 0.0, 0.0 ],
-                [ 0.0, 1.0, 0.0, 0.0 ],
-                [ 0.0, 0.0, 1.0, 0.032 ],
-                [ 0.0, 0.0, 0.0, 1.0 ]
-              ]
-            }
-          ],
           "collision": [
             {
               "type": "cylinder",
@@ -1649,8 +1702,8 @@
               },
               "pose": [
                 [ 1.0, 0.0, 0.0, 0.0 ],
-                [ 0.0, 1.0, 0.0, 0.0 ],
-                [ 0.0, 0.0, 1.0, 0.032 ],
+                [ 0.0, -1.0, -1.2246467991473532e-16, -3.91886975727153e-18 ],
+                [ 0.0, 1.2246467991473532e-16, -1.0, 0.032 ],
                 [ 0.0, 0.0, 0.0, 1.0 ]
               ]
             }
@@ -1663,15 +1716,16 @@
       "header": {
         "ID": "7",
         "name": "L5",
-        "date": "2022-08-12",
+        "date": "2023-01-30",
         "author": [
-          "Matthias Mayer, Stefan Liu"
+          "Matthias Mayer",
+          "Stefan Liu"
         ],
         "email": [
           "matthias.mayer@tum.de"
         ],
         "affiliation": [
-          "TU Muenchen"
+          "Technical University of Munich"
         ],
         "cost": 0.0
       },
@@ -1711,21 +1765,6 @@
               "size": [ 1 ]
             }
           ],
-          "visual": [
-            {
-              "type": "cylinder",
-              "parameters": {
-                "r": 0.035,
-                "z": 0.084
-              },
-              "pose": [
-                [ 1.0, 0.0, 0.0, 0.0 ],
-                [ 0.0, 1.0, 0.0, 0.0 ],
-                [ 0.0, 0.0, 1.0, 0.042 ],
-                [ 0.0, 0.0, 0.0, 1.0 ]
-              ]
-            }
-          ],
           "collision": [
             {
               "type": "cylinder",
@@ -1735,8 +1774,8 @@
               },
               "pose": [
                 [ 1.0, 0.0, 0.0, 0.0 ],
-                [ 0.0, 1.0, 0.0, 0.0 ],
-                [ 0.0, 0.0, 1.0, 0.042 ],
+                [ 0.0, -1.0, -1.2246467991473532e-16, -5.143516556418884e-18 ],
+                [ 0.0, 1.2246467991473532e-16, -1.0, 0.042 ],
                 [ 0.0, 0.0, 0.0, 1.0 ]
               ]
             }
@@ -1749,15 +1788,16 @@
       "header": {
         "ID": "8",
         "name": "L6",
-        "date": "2022-08-12",
+        "date": "2023-01-30",
         "author": [
-          "Matthias Mayer, Stefan Liu"
+          "Matthias Mayer",
+          "Stefan Liu"
         ],
         "email": [
           "matthias.mayer@tum.de"
         ],
         "affiliation": [
-          "TU Muenchen"
+          "Technical University of Munich"
         ],
         "cost": 0.0
       },
@@ -1797,21 +1837,6 @@
               "size": [ 1 ]
             }
           ],
-          "visual": [
-            {
-              "type": "cylinder",
-              "parameters": {
-                "r": 0.035,
-                "z": 0.104
-              },
-              "pose": [
-                [ 1.0, 0.0, 0.0, 0.0 ],
-                [ 0.0, 1.0, 0.0, 0.0 ],
-                [ 0.0, 0.0, 1.0, 0.052 ],
-                [ 0.0, 0.0, 0.0, 1.0 ]
-              ]
-            }
-          ],
           "collision": [
             {
               "type": "cylinder",
@@ -1821,8 +1846,8 @@
               },
               "pose": [
                 [ 1.0, 0.0, 0.0, 0.0 ],
-                [ 0.0, 1.0, 0.0, 0.0 ],
-                [ 0.0, 0.0, 1.0, 0.052 ],
+                [ 0.0, -1.0, -1.2246467991473532e-16, -6.3681633555662364e-18 ],
+                [ 0.0, 1.2246467991473532e-16, -1.0, 0.052 ],
                 [ 0.0, 0.0, 0.0, 1.0 ]
               ]
             }
