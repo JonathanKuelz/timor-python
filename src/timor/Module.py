@@ -1597,7 +1597,6 @@ RobotConvertible = Union[Robot.RobotBase, ModuleAssembly]
 
 def robot_from_convertible(robot: RobotConvertible) -> Robot.RobotBase:
     """Map a robot convertible to a RobotBase instance"""
-    from timor import ModuleAssembly
     if isinstance(robot, ModuleAssembly):
         return robot.robot
     return robot
