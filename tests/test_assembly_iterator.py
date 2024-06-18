@@ -53,7 +53,7 @@ class AssemblyIteratorTest(unittest.TestCase):
         This is mostly due to the domain knowledge applied by liu et al. which is specific to the schunk robot...
         """
         schunk_db = ModulesDB.from_name('IMPROV')
-        not_in_paper = ('L7', 'L10', 'PB22', 'PB24')
+        not_in_paper = ('L7', 'L10', 'PB22', 'PB24', 'L11')
         for module_name in not_in_paper:
             schunk_db.remove(schunk_db.by_name[module_name])
         iterator = Science2019(schunk_db, max_dof=6, max_links_after_last_joint=1)
