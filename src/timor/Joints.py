@@ -130,6 +130,7 @@ class Joint(JSONable_mixin):
 
         # Unpack items from the input dictionary - even if they have a slightly modified structure from the expected
         aliases = {'velocity': 'velocity_limit',
+                   'acceleration': 'acceleration_limit',
                    'peakTorque': 'torque_limit',
                    'poseParent': 'parent2joint',
                    'poseChild': 'joint2child',
