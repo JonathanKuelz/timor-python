@@ -155,12 +155,12 @@ class IKDebug:
         ax3.set_yscale("log")
         fig.show()
 
-    def visualize(self, viz: MeshcatVisualizer):
+    def visualize(self, viz: MeshcatVisualizer, animate: bool = False):
         """
         Visualize the steps taken during the IK optimization.
 
-        :param assembly: The assembly to visualize the end-effector position with
         :param viz: The visualizer to use
+        :param animate: If True, animate the optimization steps
         """
         from timor.utilities.trajectory import Trajectory
 
@@ -171,6 +171,12 @@ class IKDebug:
             else:
                 t = Trajectory(q=np.asarray(qs))
             t.visualize(viz=viz, robot=self.robot, name_prefix=viz_id)
+
+        if animate:
+            from timor.utilities.visualization import animation
+            animation(self.robot,
+                      np.vstack([np.asarray(s).reshape((-1, self.robot.dof)) for s in self._steps]),
+                      0.1, viz)
 
 
 class Lazy(Generic[T]):

@@ -229,7 +229,7 @@ class TestConstraints(unittest.TestCase):
                                        outer_callbacks=[ik_debug.inc_restarts])
             ik_debug.plot()
             viz = self.robot.visualize()
-            ik_debug.visualize(viz)
+            ik_debug.visualize(viz, animate=True)
             self.assertTrue(success, f"ik for {str(T)} failed")
             qs.append(q)
         drill_eef_constraint = Constraints.EndEffector(pose=ToleratedPose(
