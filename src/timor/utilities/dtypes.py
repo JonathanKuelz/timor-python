@@ -89,13 +89,29 @@ class IKDebug:
     """
     Holds data for debugging IK optimization runs and helps you analyze them.
 
-    Needs to be linked to robot ik via callbacks (`add_step` for inner_callback, `inc_restarts` for outer_callback).
+    Needs to be linked to robot ik via callbacks (`inner_callback` for inner_callback,
+    `outer_callback` for outer_callback).
     """
 
     robot: "RobotBase"  # noqa: F821
     _restarts: int = field(init=False, default=0)
     # List of steps taken during each retry
     _steps: List[List[np.ndarray]] = field(default_factory=lambda: [[]], init=False)
+
+    @property
+    def restarts(self):
+        """Return the number of restarts"""
+        return self._restarts
+
+    @property
+    def inner_callback(self) -> Callable[[np.ndarray], CallbackReturn]:
+        """Return the inner callback function"""
+        return self.add_step
+
+    @property
+    def outer_callback(self) -> Callable[[np.ndarray], CallbackReturn]:
+        """Return the outer callback function"""
+        return self.inc_restarts
 
     def add_step(self, q) -> CallbackReturn:
         """Add a step to the list of steps; intended as inner_callback of robot's ik method"""
@@ -107,11 +123,6 @@ class IKDebug:
         self._restarts += 1
         self._steps.append([])
         return CallbackReturn.TRUE
-
-    @property
-    def restarts(self):
-        """Return the number of restarts"""
-        return self._restarts
 
     def plot(self):
         """Plot the tested IK candidates over steps + velocity + velocity norm."""

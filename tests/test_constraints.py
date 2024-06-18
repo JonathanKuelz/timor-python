@@ -225,8 +225,8 @@ class TestConstraints(unittest.TestCase):
                   ):
             ik_debug = IKDebug(self.robot)
             q, success = self.robot.ik(ToleratedPose(T, ik_tolerance),
-                                       inner_callbacks=[ik_debug.add_step],
-                                       outer_callbacks=[ik_debug.inc_restarts])
+                                       inner_callbacks=[ik_debug.inner_callback],
+                                       outer_callbacks=[ik_debug.outer_callback])
             ik_debug.plot()
             viz = self.robot.visualize()
             ik_debug.visualize(viz, animate=True)
