@@ -39,7 +39,7 @@ def default_ik_cost_function(robot: RobotBase, q: np.ndarray, goal: Transformati
     :param goal: The goal transformation
     """
     current = robot.fk(q, kind='tcp')
-    delta = current.homogeneous @ goal.homogeneous  # This + next 2 lines about ~20% of runtime of GA
+    delta = current.inv.homogeneous @ goal.homogeneous  # This + next 2 lines about ~20% of runtime of GA
     translation_error = np.linalg.norm(delta[:3, 3])
     rotation_error = np.arccos((np.trace(delta[:3, :3]) - 1) / 2)
     translation_weight = 1.
