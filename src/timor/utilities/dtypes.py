@@ -6,6 +6,7 @@ from collections.abc import MutableMapping
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass, field, fields
 import datetime
+import itertools
 import random
 import re
 import signal
@@ -14,12 +15,15 @@ from typing import (Any, Callable, Collection, Dict, Generator, Generic, Iterabl
                     Tuple,
                     Type, TypeVar, Union, get_type_hints, runtime_checkable)
 from hppfcl import hppfcl
+from matplotlib import pyplot as plt
 import numpy as np
 import pinocchio as pin
+from pinocchio.visualize import MeshcatVisualizer
 
 from timor.utilities import configurations as timor_config
 from timor.utilities import errors as err
 from timor.utilities import logging
+from timor.utilities.callbacks import CallbackReturn
 from timor.utilities.schema import DEFAULT_DATE_FORMAT
 from timor.utilities.transformation import Transformation, TransformationLike
 
@@ -78,6 +82,116 @@ class IKMeta:
             self.joint_mask = np.ones(self.dof, dtype=bool)
         else:
             self.joint_mask = np.asarray(self.joint_mask, dtype=bool)
+
+
+@dataclass
+class IKDebug:
+    """
+    Holds data for debugging IK optimization runs and helps you analyze them.
+
+    Needs to be linked to robot ik via callbacks (`inner_callback` for inner_callback,
+    `outer_callback` for outer_callback).
+    """
+
+    robot: "RobotBase"  # noqa: F821
+    _restarts: int = field(init=False, default=0)
+    # List of steps taken during each retry
+    _steps: List[List[np.ndarray]] = field(default_factory=lambda: [[]], init=False)
+
+    @property
+    def restarts(self):
+        """Return the number of restarts"""
+        return self._restarts
+
+    @property
+    def inner_callback(self) -> Callable[[np.ndarray], CallbackReturn]:
+        """Return the inner callback function"""
+        return self.add_step
+
+    @property
+    def outer_callback(self) -> Callable[[np.ndarray], CallbackReturn]:
+        """Return the outer callback function"""
+        return self.inc_restarts
+
+    def add_step(self, q) -> CallbackReturn:
+        """Add a step to the list of steps; intended as inner_callback of robot's ik method"""
+        self._steps[-1].append(q)
+        return CallbackReturn.TRUE
+
+    def inc_restarts(self, _) -> CallbackReturn:
+        """Increment the number of restarts; intended as outer_callback of robot's ik method"""
+        self._restarts += 1
+        self._steps.append([])
+        return CallbackReturn.TRUE
+
+    def plot(self):
+        """Plot the tested IK candidates over steps + velocity + velocity norm."""
+        fig, (ax1, ax2, ax3) = plt.subplots(3, 1, sharex=True)
+        ax_restart = ax1.twiny()
+        colors = list(c['color'] for c in itertools.islice(plt.rcParams['axes.prop_cycle'](), self.robot.dof))
+        ax1.set_title("IK Optimization Steps (restarts in red)")
+        start = 0
+        restart_to_iter = {}
+        for restart, steps in enumerate(self._steps):
+            end = start + len(steps)
+            steps_np = np.asarray(steps)
+            restart_to_iter[restart] = start
+            for d, c in zip(range(self.robot.dof), colors):
+                if len(steps) > 1:
+                    ax1.plot(range(start, end), steps_np[:, d], color=c)
+                if len(steps) == 1:
+                    ax1.scatter(start, steps_np[0, d], color=c, alpha=0.5)
+            start = end
+        ax1.set_ylabel("Joint Angle")
+        ax1.legend([f"$q_{i}$" for i in range(self.robot.dof)])
+        ax_restart.set_xlim(ax1.get_xlim())
+        with plt.rc_context({'xtick.color': 'red'}):
+            ax_restart.set_xticks(tuple(restart_to_iter.values()))
+        ax_restart.set_xlabel("Reset")
+        ax_restart.set_xticklabels(tuple(restart_to_iter.keys()))
+        start = 0
+        for restart, steps in enumerate(self._steps):
+            end = start + len(steps)
+            ax2.plot(range(start, end - 1), np.diff(np.asarray(steps), axis=0))
+            ax2.axvline(x=end, color='r', label='reset')
+            start = end
+        ax2.set_ylabel("Joint Velocity")
+        ax2.legend([f"$\\dot{{q}}_{i}$" for i in range(self.robot.dof)])
+        # Plot norm of joint velocities
+        start = 0
+        for restart, steps in enumerate(self._steps):
+            end = start + len(steps)
+            if len(steps) > 1:
+                ax3.plot(range(start, end - 1), np.linalg.norm(np.diff(np.asarray(steps), axis=0), axis=1))
+            ax3.axvline(x=end, color='r', label='reset')
+            start = end
+        ax3.set_xlabel("Step")
+        ax3.set_ylabel("Norm of Joint Velocity")
+        ax3.set_yscale("log")
+        fig.show()
+
+    def visualize(self, viz: MeshcatVisualizer, animate: bool = False):
+        """
+        Visualize the steps taken during the IK optimization.
+
+        :param viz: The visualizer to use
+        :param animate: If True, animate the optimization steps
+        """
+        from timor.utilities.trajectory import Trajectory
+
+        for restart, qs in enumerate(self._steps):
+            viz_id = f'debug/IK/Steps_{restart}/'
+            if len(qs) == 0:
+                continue
+            else:
+                t = Trajectory(q=np.asarray(qs))
+            t.visualize(viz=viz, robot=self.robot, name_prefix=viz_id)
+
+        if animate:
+            from timor.utilities.visualization import animation
+            animation(self.robot,
+                      np.vstack([np.asarray(s).reshape((-1, self.robot.dof)) for s in self._steps]),
+                      0.1, viz)
 
 
 class Lazy(Generic[T]):

@@ -343,6 +343,8 @@ class RobotBase(abc.ABC):
             determine a suitable initial configuration.
         :param kwargs: Any keyword arguments that are specific to the inner loop method.
         :return: A tuple of (q_solution, success [boolean])
+        :note: To debug the IK look into IKDebug dataclass defined in dtypes; it provides callbacks for logging all
+            (sub)steps and analyzing each IK solution attempt.
         """
         from timor.task.Constraints import CollisionFree, SelfCollisionFree, RobotConstraint
 
