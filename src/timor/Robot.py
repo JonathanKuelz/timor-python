@@ -305,7 +305,7 @@ class RobotBase(abc.ABC):
            q_init: Optional[np.ndarray] = None,
            task: Optional['Task.Task'] = None,  # noqa: F821
            convergence_threshold: float = 1e-8,
-           **kwargs) -> Union[Tuple[np.ndarray, bool, Optional[IKMeta]], Tuple[np.ndarray, bool]]:
+           **kwargs) -> Tuple[np.ndarray, bool]:
         """
         Try to find the joint angles q that minimize the error between TCP pose and the desired eef_pose.
 
@@ -937,14 +937,14 @@ class PinRobot(RobotBase):
         return drift + motor_inertia * self.motor_inertias(ddq) + friction * self.friction(dq)
 
     def ik(self, eef_pose: ToleratedPose, *, ik_method: Optional[str] = None,
-           **kwargs) -> Union[Tuple[np.ndarray, bool], Tuple[np.ndarray, bool, IKMeta]]:
+           **kwargs) -> Tuple[np.ndarray, bool]:
         """
         Interface for inverse kinematics solver.
 
         :param eef_pose: The desired 4x4 placement of the end effector
         :param ik_method: The method to use for the inner loop. Defaults to jacobian for robots with >=6 dof and scipy
             for robots with <6 dof.
-        :return: A tuple of (q_solution, success [boolean], IKMeta object if debug is set)
+        :return: A tuple of (q_solution, success [boolean])
         """
         if ik_method is None:
             if self.dof < 6:
