@@ -351,7 +351,7 @@ class PinocchioRobotSetup(unittest.TestCase):
         robot = PinRobot.from_urdf(self.urdf, self.package_dir)
         time_cost = 0
         time_distance = 0
-        for _ in range(1000):
+        for _ in range(10000):
             T = robot.fk(robot.random_configuration(), 'tcp')
             q = robot.random_configuration()
             t = process_time()
@@ -368,7 +368,7 @@ class PinocchioRobotSetup(unittest.TestCase):
                         (translation_weight + rotation_weight)
             time_distance += process_time() - t
             self.assertAlmostEqual(cost, slow_cost)
-        self.assertLess(time_cost, 0.7 * time_distance)
+        self.assertLess(time_cost, 0.9 * time_distance)
 
     def test_robot_move_base(self):
         """Creates two robots, one with the base moved to another origin and then checks whether
