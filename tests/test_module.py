@@ -1,5 +1,6 @@
 import itertools
 import pickle
+import random
 import unittest
 
 import networkx as nx
@@ -134,7 +135,14 @@ class TestModule(unittest.TestCase):
         child = Bodies.Body('2', collision=some_geometry)
         joint = Joint('1', TimorJointType.revolute, parent, child,
                       parent2joint=Transformation.random(),
-                      joint2child=Transformation.random())
+                      joint2child=Transformation.random(),
+                      velocity_limit=random.random(),
+                      acceleration_limit=random.random(),
+                      q_limits=(random.random(), random.random() + 1.),
+                      gear_ratio=int(100 * random.random()),
+                      motor_inertia=random.random(),
+                      friction_coulomb=random.random(),
+                      friction_viscous=random.random())
 
         self.assertEqual(joint.parent2joint, joint.joint2parent.inv)
         self.assertEqual(joint.child2joint, joint.joint2child.inv)
@@ -149,6 +157,12 @@ class TestModule(unittest.TestCase):
             joint = Joint(1, TimorJointType.revolute, parent, child)
 
         self.assertEqual(joint, joint)
+        copy = Joint.from_json_data(
+            joint.to_json_data(),
+            {parent.id[1]: Body.from_json_data(parent.to_json_data()),
+             child.id[1]: Body.from_json_data(child.to_json_data())}).to_json_data()
+        for k, v in joint.to_json_data().items():
+            self.assertEqual(v, copy[k])
 
     def test_module(self):
         """Tests a module on instantiation, uniqueness of contained elements, and hand-crafted IDs"""
