@@ -1,4 +1,6 @@
 import logging
+import os
+import tempfile
 import time
 import unittest
 
@@ -14,6 +16,7 @@ from timor.utilities import prebuilt_robots, spatial
 import timor.utilities.errors as err
 from timor.utilities.file_locations import get_module_db_files
 from timor.Joints import TimorJointType
+from timor.utilities.prebuilt_robots import get_six_axis_assembly
 
 
 class TestModuleAssembly(unittest.TestCase):
@@ -168,6 +171,29 @@ class TestModuleAssembly(unittest.TestCase):
         _ = (assembly.assembly_graph, assembly.graph_of_modules)
         # The assembly should still be cached
         self.assertIs(assembly.robot, robot)
+
+    def test_to_trimesh(self):
+        """Test that an assembly and associated robot can be transformed to a trimesh object and exported to stl."""
+        assembly = get_six_axis_assembly()
+        tm = assembly.to_trimesh()
+        tm_same = assembly.to_trimesh()
+        assembly.robot.update_configuration(assembly.robot.random_configuration())
+        tm2 = assembly.to_trimesh()
+        self.assertIsNotNone(tm)
+        with tempfile.NamedTemporaryFile(suffix='.stl') as f:
+            tm.export(f, 'stl')
+            self.assertGreater(os.path.getsize(f.name), 0)
+            f.seek(0)
+            mesh = Geometry.Mesh({'file': str(f.name)})
+            self.assertIsNotNone(mesh)
+        self.assertNotEqual(
+            tm.export(file_type='stl'), tm2.export(file_type='stl'),
+            msg="The mesh should change with the configuration"
+        )
+        self.assertEqual(
+            tm.export(file_type='stl'), tm_same.export(file_type='stl'),
+            msg="The mesh should not change without configuration change"
+        )
 
 
 if __name__ == '__main__':
