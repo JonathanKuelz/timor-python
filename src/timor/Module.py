@@ -1298,27 +1298,28 @@ class ModuleAssembly(JSONable_mixin):
         robot.set_base_placement(Transformation(base_placement))
 
         if ignore_collisions != 'rigid':  # Remove collision pairs depending on the collision mode
-            # Preprocess in 50 µs
-            G_tmp = nx.DiGraph()
-            G_tmp.add_nodes_from((n.id, {'type': type(n)}) for n in G.nodes)
-            G_tmp.add_edges_from((n1.id, n2.id) for n1, n2 in G.edges)
-            bodies = [node for node in G_tmp.nodes if issubclass(G_tmp.nodes[node]['type'], BodyBase)]
+            G_ID_connectivity = nx.DiGraph()
+            G_ID_connectivity.add_nodes_from((n.id, {'type': type(n)}) for n in G.nodes)
+            G_ID_connectivity.add_edges_from((n1.id, n2.id) for n1, n2 in G.edges)
+            bodies = [node for node in G_ID_connectivity.nodes
+                      if issubclass(G_ID_connectivity.nodes[node]['type'], BodyBase)]
             # Remove collisions between bodies connected by a joint
             neighbors_to_clean = set()
-            # Find neighbors to clean in 300 µs
             for first, second in itertools.combinations(bodies, 2):
                 remove = False
-                # TODO: This seems to slow down the whole process; with pre-calculation of G_tmp 250 µs and 2x faster
-                paths = tuple(nx.all_simple_paths(G_tmp, first, second))
-                n_joints = tuple(sum(issubclass(G_tmp.nodes[node]['type'], Joint) for node in path) for path in paths)
+                # TODO: This seems to slow down the whole process; with pre-calculation of G_ID_connectivity ~2x faster
+                paths = tuple(nx.all_simple_paths(G_ID_connectivity, first, second))
+                n_joints = tuple(sum(issubclass(G_ID_connectivity.nodes[node]['type'], Joint) for node in path)
+                                 for path in paths)
                 if min(n_joints) == 1:  # If n_joints = 0, "collisions" would be ignored anyway
                     if ignore_collisions == 'rigid_via_joint':
                         remove = True
                     else:
                         # We have to check whether the paths with one joint only are of the form body-joint-body
                         node_types = tuple(
-                            tuple(G_tmp.nodes[node]['type'] if not
-                                  issubclass(G_tmp.nodes[node]['type'], ParameterizableBody) else Body for node in p)
+                            tuple(G_ID_connectivity.nodes[node]['type'] if not
+                                  issubclass(G_ID_connectivity.nodes[node]['type'], ParameterizableBody) else Body
+                                  for node in p)
                             for p, n_joint in zip(paths, n_joints) if n_joint <= 1)
                         target_types = (Body, Joint, Body)
                         remove = any(t == target_types for t in node_types)
