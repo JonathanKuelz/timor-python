@@ -37,7 +37,7 @@ class Norm:
     @property
     def rotation_angle(self) -> float:
         """The rotation angle of this transformation about any axis, expressed in radian."""
-        return self.transformation.projection.axis_angles[3]
+        return self.transformation.projection.rotation_angle
 
     @property
     def rotation_angle_degree(self) -> float:
@@ -66,6 +66,17 @@ class Projection:
     def __init__(self, transformation: Transformation):
         """Projections are directly defined on transformations."""
         self.transformation = transformation
+
+    @property
+    def rotation_angle(self) -> float:
+        """
+        The rotation angle of this transformation about any axis, expressed in radian.
+
+        Use some rounding to avoid floating point errors at the edge of arccos domain.
+
+        :source: https://en.wikipedia.org/wiki/Axis%E2%80%93angle_representation
+        """
+        return np.arccos(round((np.trace(self.transformation[:3, :3]) - 1) / 2, 14))
 
     @property
     def axis_angles(self) -> np.ndarray:

@@ -63,7 +63,7 @@ class TestSpatialTransformations(unittest.TestCase):
         self.assertAlmostEqual(T.distance(Transformation.neutral()).translation_euclidean, math.sqrt(3))
         self.assertAlmostEqual(T.distance(Transformation.neutral()).rotation_angle, math.pi / 2)
 
-        for _ in range(100):  # Test distance symmetry and unity
+        for _ in range(1000):  # Test distance symmetry and unity
             T1 = Transformation.random()
             T2 = Transformation.random()
             dT = T1.inv @ T2

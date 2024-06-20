@@ -34,14 +34,17 @@ def default_ik_cost_function(robot: RobotBase, q: np.ndarray, goal: Transformati
 
     This method returns the weighted sum of the translation and rotation error between the current and the goal, where
     the 1m of displacement equals a cost of one and 180 degree of orientation error equals a cost of 1.
+    Some short-cuts are taken to reduce object creation via timor's utilities and acceleration tested in
+    test_default_ik_cost_function.
+
     :param robot: The robot to evaluate the solution for
     :param q: The current joint configuration
     :param goal: The goal transformation
     """
     current = robot.fk(q, kind='tcp')
-    delta = current.distance(goal)
-    translation_error = delta.translation_euclidean
-    rotation_error = delta.rotation_angle
+    delta = current.inv.homogeneous @ goal.homogeneous
+    translation_error = np.linalg.norm(delta[:3, 3])
+    rotation_error = np.arccos((np.trace(delta[:3, :3]) - 1) / 2)
     translation_weight = 1.
     rotation_weight = .5 / np.pi  # .5 meter displacement ~ 180 degree orientation error
     return (translation_weight * translation_error + rotation_weight * rotation_error) / \
