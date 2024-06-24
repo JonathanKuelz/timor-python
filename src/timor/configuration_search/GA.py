@@ -453,8 +453,14 @@ class GA:
                     'num assemblies cached': len(self.assembly_cache),
                     'num fitness values cached': len(self.fitness_cache)
                 }
+                log_data = wandb_data.copy()
+                for key, val in wandb_data.items():
+                    if isinstance(val, Lexicographic):
+                        for i, v in enumerate(val.values):
+                            log_data[key + f'_{i}'] = v
+                        del log_data[key]
                 t_last_generation = time.time()
-                wandb_run.log(wandb_data, step=get_ga_progress(progress_unit, _ga, t0, steps_at_start))
+                wandb_run.log(log_data, step=get_ga_progress(progress_unit, _ga, t0, steps_at_start))
                 return True
 
             on_generation_cbs.append(log_wandb_callback)
