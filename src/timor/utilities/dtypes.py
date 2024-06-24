@@ -282,7 +282,7 @@ SupportsOrdering = TypeVar("SupportsOrdering", bound=Comparable)
 class Lexicographic:
     """A class for comparing tuples lexicographically."""
 
-    length_exception = ValueError("Lexicographic objects must have the same length to compare them.")
+    size_exception = ValueError("Lexicographic objects must have the same size (number of values).")
 
     def __init__(self, *args: Comparable):
         """
@@ -293,6 +293,12 @@ class Lexicographic:
         """
         self.values: Tuple[Comparable] = tuple(args)
 
+    def __add__(self, other):
+        """Add the elements  of two lexicographic objects"""
+        if len(self.values) != len(other.values):
+            raise self.size_exception
+        return Lexicographic(*tuple(map(sum, zip(self.values, other.values))))
+
     def __lt__(self, other):
         """
         Return True if self < other, False otherwise.
@@ -301,7 +307,7 @@ class Lexicographic:
             return NotImplemented
 
         if len(self.values) != len(other.values):
-            raise self.length_exception
+            raise self.size_exception
 
         for a, b in zip(self.values, other.values):
             if a < b:
@@ -316,13 +322,21 @@ class Lexicographic:
             return NotImplemented
 
         if len(self.values) != len(other.values):
-            raise self.length_exception
+            raise self.size_exception
 
         return self.values == other.values
 
     def __le__(self, other):
         """Return True if self <= other, False otherwise."""
         return self < other or self == other
+
+    def __truediv__(self, other):
+        """Divide each element of a lexicographic object by a scalar. Required to take a mean over lexicographics."""
+        try:
+            ret = Lexicographic(*(val / other for val in self.values))
+        except TypeError:
+            return NotImplemented
+        return ret
 
     def __str__(self):
         """Return a string representation of the Lexicographic object."""

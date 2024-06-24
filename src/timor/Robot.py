@@ -385,6 +385,8 @@ class RobotBase(abc.ABC):
             candidates = [self.random_configuration(rng=self._rng) for _ in range(IK_RANDOM_CANDIDATES)]
             distances = [ik_cost_function(self, q, eef_pose.nominal.in_world_coordinates()) for q in candidates]
             q_init = candidates[np.argmin(distances)]
+        else:
+            q_init = q_init.copy()
 
         info = IKMeta(dof=self.dof, max_iter=max_iter, intermediate_result=current_best, joint_mask=joint_mask,
                       task=task, allow_random_restart=allow_random_restart)
@@ -1001,7 +1003,8 @@ class PinRobot(RobotBase):
             [x, y, z, alpha, beta, gamma] vector in the world, where alpha, beta, gamma are the axis angles of the
             rotation. For example, masking the last three error terms [True, True, True, False, False, False] results in
             a partial inverse kinematics problem that only considers the position of the tcp.
-        :param gain: Gain Matrix K determining the step size :math:`K J^{-q} e`.
+        :param gain: Gain Matrix K determining the step size per joint :math:`K J^{-q} e`. If a scalar is provided, it
+            is interpreted as the same gain for all joints.
         :param kind: One of "transpose", "pseudo_inverse", "damped_ls_inverse". The according variant of the Jacobian
             will be used to solve the ik problem. While the transpose is the fastest one to calculate, for complicated
             problems it is too inaccurate to converge (quickly) to a solution. Pseudo inverse and damped least squares
@@ -1045,6 +1048,8 @@ class PinRobot(RobotBase):
         previous_cost = ik_cost_function(self, q_init, eef_pose.nominal.in_world_coordinates())
         q = q_init
         self.update_configuration(q, frames=True, geometry=True)
+        if not isinstance(gain, np.ndarray):
+            gain = np.eye(self.dof) * gain
         i = 0
         for i in range(info.max_iter):
             current = self.data.oMf[self.tcp]
@@ -1061,12 +1066,13 @@ class PinRobot(RobotBase):
                                              pin.ReferenceFrame.LOCAL_WORLD_ALIGNED)
 
             J = J[:, joint_mask]  # Only consider the joints we want to or can move
+            _gain = gain[np.ix_(joint_mask, joint_mask)]
             try:
                 if kind == 'damped_ls_inverse':
-                    _q_dot = np.linalg.lstsq(J[error_term_mask], np.dot(gain, error[error_term_mask]), rcond=damp)[0]
+                    _q_dot = np.dot(_gain, np.linalg.lstsq(J[error_term_mask], error[error_term_mask], rcond=damp)[0])
                 else:
                     J_inv = inv(J[error_term_mask])  # Analytical Jacobian "pseudo inverse" (or transpose)
-                    _q_dot = J_inv.dot(gain).dot(error[error_term_mask])
+                    _q_dot = np.dot(_gain, J_inv).dot(error[error_term_mask])
             except (np.linalg.LinAlgError, SystemError):
                 logging.verbose_debug(f"Jacobian ik break due to singularity after {i} iter for q={q}. Trying again.")
                 break
@@ -1250,15 +1256,15 @@ class PinRobot(RobotBase):
         :return: Bool if return_at_first is true, otherwise a list of all colliding pairs.
         """
         collisions: List[Tuple[RobotBase, Union[RobotBase, Obstacle]]] = list()
-        request = CollisionRequest()
-        request.security_margin = safety_margin
-        result = CollisionResult()
 
         if self.has_self_collision():
             if return_at_first:
                 return True
             collisions.append((self, self))
 
+        request = CollisionRequest()
+        request.security_margin = safety_margin
+        result = CollisionResult()
         geometries = [rco.geometry for rco in self.collision_objects]
         for obstacle in task.obstacles:
             for (robot_geometry, omg), (t, geometry) in \
