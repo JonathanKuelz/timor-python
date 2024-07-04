@@ -1482,6 +1482,22 @@ class ModuleAssembly(JSONable_mixin):
 
         return urdf_string
 
+    def export_to_trimesh(self) -> "trimesh.scene.Scene":  # noqa: F821
+        """Return a trimesh scene of this assembly in the configuration of the underlying robot."""
+        import trimesh
+        fks = {f.name: fk.homogeneous for f, fk in zip(self.robot.model.frames,
+                                                       self.robot.fk(kind='full'))}
+        scene = trimesh.scene.Scene()
+        for component in self.assembly_graph.nodes:
+            if isinstance(component, Body):
+                scene.add_geometry(
+                    geometry=component.visual.export_to_trimesh(),
+                    node_name=component.id,
+                    transform=fks['.'.join(component.id)]
+                )
+
+        return scene
+
     def _add_module(self, module_id: str, set_base: bool = False) -> int:
         """
         Takes modules from a database and ensures duplicate module_ids do not lead to identical module instances.
