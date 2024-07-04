@@ -1483,7 +1483,7 @@ class ModuleAssembly(JSONable_mixin):
 
         return urdf_string
 
-    def to_trimesh(self) -> trimesh.scene.Scene:
+    def export_to_trimesh(self) -> trimesh.scene.Scene:
         """Return a trimesh scene of this assembly in the configuration of the underlying robot."""
         fks = {f.name: fk.homogeneous for f, fk in zip(self.robot.model.frames,
                                                        self.robot.fk(kind='full'))}
@@ -1491,7 +1491,7 @@ class ModuleAssembly(JSONable_mixin):
         for component in self.assembly_graph.nodes:
             if isinstance(component, Body):
                 scene.add_geometry(
-                    geometry=component.visual.to_trimesh(),
+                    geometry=component.visual.export_to_trimesh(),
                     node_name=component.id,
                     transform=fks['.'.join(component.id)]
                 )

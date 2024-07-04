@@ -172,13 +172,13 @@ class TestModuleAssembly(unittest.TestCase):
         # The assembly should still be cached
         self.assertIs(assembly.robot, robot)
 
-    def test_to_trimesh(self):
+    def test_export_to_trimesh(self):
         """Test that an assembly and associated robot can be transformed to a trimesh object and exported to stl."""
         assembly = get_six_axis_assembly()
-        tm = assembly.to_trimesh()
-        tm_same = assembly.to_trimesh()
+        tm = assembly.export_to_trimesh()
+        tm_same = assembly.export_to_trimesh()
         assembly.robot.update_configuration(assembly.robot.random_configuration())
-        tm2 = assembly.to_trimesh()
+        tm2 = assembly.export_to_trimesh()
         self.assertIsNotNone(tm)
         with tempfile.NamedTemporaryFile(suffix='.stl') as f:
             tm.export(f, 'stl')
