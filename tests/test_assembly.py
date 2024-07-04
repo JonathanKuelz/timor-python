@@ -7,6 +7,7 @@ import unittest
 import networkx as nx
 import numpy as np
 import numpy.testing as np_test
+import pytest
 
 from timor import AtomicModule, Body, Connector, Geometry, ModuleAssembly, ModuleHeader, ModulesDB, RobotBase, \
     Transformation
@@ -172,6 +173,7 @@ class TestModuleAssembly(unittest.TestCase):
         # The assembly should still be cached
         self.assertIs(assembly.robot, robot)
 
+    @pytest.mark.full
     def test_export_to_trimesh(self):
         """Test that an assembly and associated robot can be transformed to a trimesh object and exported to stl."""
         assembly = get_six_axis_assembly()
