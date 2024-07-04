@@ -252,13 +252,14 @@ class TestSolution(unittest.TestCase):
 
         for traj in (pose_trajectory, timed_pose_trajectory):
             follow_goal = Goals.Follow("0", traj)
-            task = Task.Task(TaskHeader("tmp"), goals=(follow_goal,))
+            task = Task.Task(TaskHeader("tmp", timeStepSize=0.1), goals=(follow_goal,))
             valid_sol = SolutionTrajectory(Trajectory(t=np.asarray((0., .1, .2, .3)), q=np.asarray(qs),
                                                       goal2time={"0": 0.3}),
                                            SolutionHeader("tmp"), task, robot_assembly,
                                            QDist(), Transformation.neutral())
             self.assertTrue(follow_goal.achieved(valid_sol))
             self.assertEqual(follow_goal._duration, 0.3)
+            self.assertIsNotNone(valid_sol.tau)
 
             # Still ok with additional qs
             valid_sol = SolutionTrajectory(
@@ -279,7 +280,7 @@ class TestSolution(unittest.TestCase):
             if traj.is_timed:
                 self.assertEqual(follow_goal._duration, 0.3)
             else:
-                self.assertEqual(follow_goal._duration, float('inf'))
+                self.assertEqual(follow_goal._duration, None)
 
             # Break by changing timing
             valid_sol = SolutionTrajectory(
@@ -304,7 +305,7 @@ class TestSolution(unittest.TestCase):
             if traj.is_timed:
                 self.assertEqual(follow_goal._duration, 0.3)
             else:
-                self.assertEqual(follow_goal._duration, float('inf'))
+                self.assertEqual(follow_goal._duration, None)
 
         # Test constraints on whole duration with adding / removing self-collision during execution
         while not robot_assembly.robot.has_self_collision():
