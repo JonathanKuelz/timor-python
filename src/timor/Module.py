@@ -1482,7 +1482,7 @@ class ModuleAssembly(JSONable_mixin):
 
         return urdf_string
 
-    def export_to_trimesh(self) -> "trimesh.scene.Scene":
+    def export_to_trimesh(self) -> "trimesh.scene.Scene":  # noqa: F821
         """Return a trimesh scene of this assembly in the configuration of the underlying robot."""
         import trimesh
         fks = {f.name: fk.homogeneous for f, fk in zip(self.robot.model.frames,

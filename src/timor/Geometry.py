@@ -254,7 +254,7 @@ class Geometry(abc.ABC, JSONable_mixin):
         return self.enclosing_volume.vol
 
     @abc.abstractmethod
-    def export_to_trimesh(self) -> "trimesh.base.Trimesh":
+    def export_to_trimesh(self) -> "trimesh.base.Trimesh":  # noqa: F821
         """Returns a trimesh representation of this geometry."""
         raise NotImplementedError("This method needs to be implemented by the child class.")
 
@@ -340,7 +340,7 @@ class Box(Geometry):
         """Keep access to these attributes private"""
         return self._z
 
-    def export_to_trimesh(self) -> "trimesh.base.Trimesh":
+    def export_to_trimesh(self) -> "trimesh.base.Trimesh":  # noqa: F821
         """Returns a trimesh box"""
         import trimesh
         box = trimesh.creation.box([self.x, self.y, self.z],
@@ -409,7 +409,7 @@ class Cylinder(Geometry):
         """Keep access to these attributes private"""
         return self._z
 
-    def export_to_trimesh(self) -> "trimesh.base.Trimesh":
+    def export_to_trimesh(self) -> "trimesh.base.Trimesh":  # noqa: F821
         """Returns a trimesh cylinder"""
         import trimesh
         cyl = trimesh.creation.cylinder(self.r, self.z, transform=self.placement.homogeneous)
@@ -462,7 +462,7 @@ class Sphere(Geometry):
         """Keep access to these attributes private"""
         return self._r
 
-    def export_to_trimesh(self, subdivision: int = 5) -> "trimesh.base.Trimesh":
+    def export_to_trimesh(self, subdivision: int = 5) -> "trimesh.base.Trimesh":  # noqa: F821
         """Returns a trimesh sphere"""
         import trimesh
         sph = trimesh.creation.icosphere(subdivision,
@@ -615,7 +615,7 @@ class Mesh(Geometry):
             return np.array([self._scale, self._scale, self._scale])
         return self._scale
 
-    def export_to_trimesh(self) -> "trimesh.base.Trimesh":
+    def export_to_trimesh(self) -> "trimesh.base.Trimesh":  # noqa: F821
         """Return this mesh as a trimesh object."""
         import trimesh
         mesh = trimesh.load_mesh(self.abs_filepath)
@@ -725,10 +725,11 @@ class ComposedGeometry(Geometry):
         """The scalar volume of a composed geometry is the sum of the volumes of the composing geometries."""
         return sum(g.measure_volume for g in self.composing_geometries)
 
-    def export_to_trimesh(self) -> "trimesh.base.Trimesh":
+    def export_to_trimesh(self) -> "trimesh.base.Trimesh":  # noqa: F821
         """Returns a trimesh representation of this geometry."""
         import trimesh
-        *_, t = itertools.accumulate((g.export_to_trimesh() for g in self.composing_geometries), trimesh.util.concatenate)
+        *_, t = itertools.accumulate((g.export_to_trimesh() for g in self.composing_geometries),
+                                     trimesh.util.concatenate)
         return t
 
     def __eq__(self, other):
@@ -804,7 +805,7 @@ class EmptyGeometry(Geometry):
         """No Geometry, no volume."""
         return 0.0
 
-    def export_to_trimesh(self) -> "trimesh.base.Trimesh":
+    def export_to_trimesh(self) -> "trimesh.base.Trimesh":  # noqa: F821
         """Returns an empty trimesh as the representation of this geometry."""
         import trimesh
         return trimesh.Trimesh()
