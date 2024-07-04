@@ -7,6 +7,7 @@ import unittest
 import nbclient
 import nbformat
 import nbconvert
+import pytest
 
 
 class TestJupyterTutorials(unittest.TestCase):
@@ -16,6 +17,7 @@ class TestJupyterTutorials(unittest.TestCase):
         self.script_exporter = nbconvert.exporters.ScriptExporter()
         self.work_dir = Path(__file__).parent.parent.joinpath("tutorials")
 
+    @pytest.mark.full
     def test_all_tutorials(self):
         """Tests all tutorials that are not excluded due to time or visual interface constraints."""
         exclude = {'experiment_one.ipynb'}
