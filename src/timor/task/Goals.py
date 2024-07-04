@@ -184,7 +184,7 @@ class GoalWithDuration(GoalBase, ABC):
           - A range of indices into the solution's time array that fall into the duration of this goal
         """
         t_goal, id_goal = self._get_t_idx_goal(solution)
-        if np.isinf(self._duration):
+        if self._duration is None:
             self.achieved(solution)  # Make sure _achieved called; this will set the duration in some cases
         t_goal_starts = t_goal - self._duration + self.epsilon  # Expected start time
         try:  # Find index of time step before expected start time
@@ -489,7 +489,7 @@ class Follow(GoalWithDuration):
         if trajectory.is_timed:
             duration = trajectory[-1].t - trajectory[0].t
         else:
-            duration = float("inf")
+            duration = None  # Will be set in _achieved and depends on solution
         super().__init__(ID=ID, duration=duration, constraints=constraints)
         self._trajectory: Trajectory = trajectory
         if external_forces is None:
@@ -594,7 +594,7 @@ class Follow(GoalWithDuration):
                     idx_goal_start -= 1
                     if idx_goal_start < 0:
                         logging.info(f"Followed trajectory till start; follow was not fulfilled for pose {p}.")
-                        self._duration = float('inf')
+                        self._duration = None
                         return False
             self._duration = solution.time_steps[idx_goal] - solution.time_steps[idx_goal_start]
             if self._duration == 0 and len(self.trajectory) > 0:
