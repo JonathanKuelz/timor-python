@@ -22,7 +22,6 @@ import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
 import pinocchio as pin
-import trimesh
 
 from timor import Geometry, Robot
 from timor.Bodies import Body, BodyBase, BodySet, Connector, ConnectorSet, Gender
@@ -1483,8 +1482,9 @@ class ModuleAssembly(JSONable_mixin):
 
         return urdf_string
 
-    def export_to_trimesh(self) -> trimesh.scene.Scene:
+    def export_to_trimesh(self) -> "trimesh.scene.Scene":
         """Return a trimesh scene of this assembly in the configuration of the underlying robot."""
+        import trimesh
         fks = {f.name: fk.homogeneous for f, fk in zip(self.robot.model.frames,
                                                        self.robot.fk(kind='full'))}
         scene = trimesh.scene.Scene()

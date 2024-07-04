@@ -15,7 +15,6 @@ from hppfcl import hppfcl
 import meshcat
 import numpy as np
 import pinocchio as pin
-import trimesh
 
 from timor.utilities import logging
 from timor.utilities.jsonable import JSONable_mixin
@@ -255,7 +254,7 @@ class Geometry(abc.ABC, JSONable_mixin):
         return self.enclosing_volume.vol
 
     @abc.abstractmethod
-    def export_to_trimesh(self) -> trimesh.base.Trimesh:
+    def export_to_trimesh(self) -> "trimesh.base.Trimesh":
         """Returns a trimesh representation of this geometry."""
         raise NotImplementedError("This method needs to be implemented by the child class.")
 
@@ -341,8 +340,9 @@ class Box(Geometry):
         """Keep access to these attributes private"""
         return self._z
 
-    def export_to_trimesh(self) -> trimesh.base.Trimesh:
+    def export_to_trimesh(self) -> "trimesh.base.Trimesh":
         """Returns a trimesh box"""
+        import trimesh
         box = trimesh.creation.box([self.x, self.y, self.z],
                                    transform=self.placement.homogeneous)
         return box
@@ -409,8 +409,9 @@ class Cylinder(Geometry):
         """Keep access to these attributes private"""
         return self._z
 
-    def export_to_trimesh(self) -> trimesh.base.Trimesh:
+    def export_to_trimesh(self) -> "trimesh.base.Trimesh":
         """Returns a trimesh cylinder"""
+        import trimesh
         cyl = trimesh.creation.cylinder(self.r, self.z, transform=self.placement.homogeneous)
         return cyl
 
@@ -461,8 +462,9 @@ class Sphere(Geometry):
         """Keep access to these attributes private"""
         return self._r
 
-    def export_to_trimesh(self, subdivision: int = 5) -> trimesh.base.Trimesh:
+    def export_to_trimesh(self, subdivision: int = 5) -> "trimesh.base.Trimesh":
         """Returns a trimesh sphere"""
+        import trimesh
         sph = trimesh.creation.icosphere(subdivision,
                                          self.r)
         sph.apply_transform(self.placement.homogeneous)
@@ -613,8 +615,9 @@ class Mesh(Geometry):
             return np.array([self._scale, self._scale, self._scale])
         return self._scale
 
-    def export_to_trimesh(self) -> trimesh.base.Trimesh:
+    def export_to_trimesh(self) -> "trimesh.base.Trimesh":
         """Return this mesh as a trimesh object."""
+        import trimesh
         mesh = trimesh.load_mesh(self.abs_filepath)
         mesh.apply_scale(self.scale)
         mesh.apply_transform(self.placement.homogeneous)
@@ -722,8 +725,9 @@ class ComposedGeometry(Geometry):
         """The scalar volume of a composed geometry is the sum of the volumes of the composing geometries."""
         return sum(g.measure_volume for g in self.composing_geometries)
 
-    def export_to_trimesh(self) -> trimesh.base.Trimesh:
+    def export_to_trimesh(self) -> "trimesh.base.Trimesh":
         """Returns a trimesh representation of this geometry."""
+        import trimesh
         *_, t = itertools.accumulate((g.export_to_trimesh() for g in self.composing_geometries), trimesh.util.concatenate)
         return t
 
@@ -800,8 +804,9 @@ class EmptyGeometry(Geometry):
         """No Geometry, no volume."""
         return 0.0
 
-    def export_to_trimesh(self) -> trimesh.base.Trimesh:
+    def export_to_trimesh(self) -> "trimesh.base.Trimesh":
         """Returns an empty trimesh as the representation of this geometry."""
+        import trimesh
         return trimesh.Trimesh()
 
     def _make_collision_geometry(self) -> hppfcl.CollisionGeometry:
