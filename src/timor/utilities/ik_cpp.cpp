@@ -84,16 +84,17 @@ double ik_default_cost_function(pin::SE3 desired, Eigen::VectorXd q,
         (translation_weight + rotation_weight);
 }
 
-std::tuple<Eigen::VectorXd, bool> ik(pin::Model& model, pin::Data& data, pin::SE3 desired, int frame,
-                                     Eigen::VectorXd q_init,
-                                     const pin::GeometryModel& geom_model = pin::GeometryModel(),
-                                     double eps=1e-4, int max_iter=1000,
-                                     double DT=1e-1, double damp=1e-6, bool random_restart=false,
-                                     double alpha_average=0.5, double convergence_threshold=1e-8) {
+std::tuple<Eigen::VectorXd, bool, int> ik(pin::Model& model, pin::Data& data, pin::SE3 desired, int frame,
+                                          Eigen::VectorXd q_init,
+                                          const pin::GeometryModel& geom_model = pin::GeometryModel(),
+                                          double eps=1e-4, int max_iter=1000,
+                                          double DT=1e-1, double damp=1e-6, bool random_restart=true,
+                                          double alpha_average=0.5, double convergence_threshold=1e-8) {
     /*
     Implement a jacobian based ik
     */
     Eigen::VectorXd q = q_init;  // Accumulation of result set to initial guess
+    Eigen::VectorXd q_best = q;  // Best result so far
 
     // Create geometry data one as it is expensive
     pin::GeometryData geom_data(geom_model);
@@ -107,10 +108,15 @@ std::tuple<Eigen::VectorXd, bool> ik(pin::Model& model, pin::Data& data, pin::SE
     Vector6d err;
     Eigen::VectorXd v(model.nv);
     double previous_cost = ik_default_cost_function(desired, q, model, data, frame);
+    double best_cost = previous_cost;
     double mean_improvement = 0;
-    for (int i=max_iter; i>=0; i--)
+    int i=max_iter;
+    for (; i>=0; i--)
     {
         if (restart) {
+            if (!random_restart) {
+                break;
+            }
             pin::randomConfiguration(model, model.lowerPositionLimit, model.upperPositionLimit, q);
             restart = false;
         }
@@ -132,6 +138,7 @@ std::tuple<Eigen::VectorXd, bool> ik(pin::Model& model, pin::Data& data, pin::SE
                 continue;
             }
             success = true;
+            q_best = q;
             break;
         }
         // Take a step
@@ -153,9 +160,13 @@ std::tuple<Eigen::VectorXd, bool> ik(pin::Model& model, pin::Data& data, pin::SE
             restart = true;
         }
         previous_cost = next_cost;
+        if (next_cost < best_cost) {
+            q_best = q;
+            best_cost = next_cost;
+        }
     }
     // Restart if outside joint limits
-    return std::make_tuple(q, success);
+    return std::make_tuple(q_best, success, i);
 }
 
 PYBIND11_MODULE(ik_cpp, m) {
@@ -216,6 +227,7 @@ PYBIND11_MODULE(ik_cpp, m) {
             :param random_restart: whether to restart with random configuration.
             :param alpha_average: averaging factor for convergence.
             :param convergence_threshold: threshold for convergence.
+            :returns: (q, success, iter_remaining) joint configuration, success flag, remaining iterations.
         )pbdoc",
         py::arg("model"), py::arg("data"), py::arg("desired"), py::arg("frame"), py::arg("q_init"),
         py::arg("geom_model"), py::arg("eps") = 1e-4, py::arg("max_iter") = 1000, py::arg("DT") = 1e-1,
