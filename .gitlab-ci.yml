@@ -117,7 +117,7 @@ unittests:
 unittests full:
   stage: unittest
   script:
-    - pip install .[full]  # Such that *.so are located in src folder
+    - pip install -e .[full]  # Such that *.so are located in src folder
     - cd src  # Now, "import timor" will import from src/timor, not from the pip install. Important for coverage
     - coverage run -p --rcfile=.coveragerc -m pytest -m "not imports and full" ../tests
   artifacts:
@@ -130,7 +130,7 @@ unittests full:
 unittests imports:
   stage: unittest
   script:
-    - pip install .[dev]  # Such that *.so are located in src folder
+    - pip install -e .[dev]  # Such that *.so are located in src folder
     - cd src  # Now, "import timor" will import from src/timor, not from the pip install. Important for coverage
     - coverage run -p --rcfile=.coveragerc -m pytest -m "imports" ../tests
   artifacts:
