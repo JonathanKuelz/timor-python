@@ -26,6 +26,7 @@ dependencies = [
     "requests >= 2.28.1",
     "pybind11 >= 2.10.0",
     "pybind11-stubgen >= 0.13.0",
+    "setuptools",
 ]
 requires-python = ">=3.8"
 dynamic = ["version", "readme"]
