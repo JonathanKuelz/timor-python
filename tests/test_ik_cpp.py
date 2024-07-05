@@ -9,7 +9,7 @@ from timor.task.Task import Task
 import timor.utilities.prebuilt_robots
 from timor.utilities import ik_cpp
 from timor.utilities.tolerated_pose import ToleratedPose
-from utils import test_data
+from timor.utilities.file_locations import test_data
 
 
 class CustomTypeUnitTests(unittest.TestCase):
@@ -91,7 +91,7 @@ class CustomTypeUnitTests(unittest.TestCase):
         t_cpp = []
         t_py = []
         rng = np.random.default_rng(1)
-        task = Task.from_id('simple/PTP_2', test_data.joinpath('tasks'))
+        task = Task.from_id('simple/PTP_2', test_data.joinpath('sample_tasks'))
         self.assembly.robot.set_base_placement(task.base_constraint.base_pose.nominal)
         for i in range(n_iter):
             q = self.assembly.robot.random_configuration(rng)
