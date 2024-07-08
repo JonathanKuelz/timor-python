@@ -12,7 +12,7 @@ import pytest
 class TestImportingEverything(unittest.TestCase):
     """Tests that every module can be imported properly without any cyclic dependencies, etc."""
 
-    exclude = (r'^user_study\..*', 'setup.py')  # Regular expressions for files to be excluded from the unittest
+    exclude = (r'^user_study\..*', 'setup')  # Regular expressions for files to be excluded from the unittest
 
     def setUp(self) -> None:
         self.file = Path(__file__)
