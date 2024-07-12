@@ -100,7 +100,10 @@ class CustomTypeUnitTests(unittest.TestCase):
             self._reset_robot()
 
             q_ik, success = self.assembly.robot.ik(T_des_tolerated, q_init=q, max_iter=max_iter_ik,
-                                                   ik_method='jacobian_cpp')
+                                                   ik_method='jacobian_cpp',
+                                                   # Should be able to set about any weight here
+                                                   weight_translation=1.0 + rng.uniform(-.5, .5),
+                                                   weight_rotation=.5 / np.pi + rng.uniform(0., 1.))
             if not self.assembly.robot.has_self_collision(q) or success:
                 self.assertTrue(T_des_tolerated.valid(self.assembly.robot.fk(q_ik)))
 

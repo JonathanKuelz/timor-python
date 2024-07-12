@@ -69,7 +69,8 @@ ArrayXb has_self_collision_vec(pin::Model& model, pin::Data& data, const pin::Ge
 }
 
 double ik_default_cost_function(pin::SE3 desired, Eigen::VectorXd q,
-                                pin::Model& model, pin::Data& data, int frame) {
+                                pin::Model& model, pin::Data& data, int frame,
+                                double weight_translation=1., double weight_rotation=.5/M_PI) {
     /*
     Implement a default cost function for ik; same as timor.Robot.default_ik_cost_function
     */
@@ -78,10 +79,8 @@ double ik_default_cost_function(pin::SE3 desired, Eigen::VectorXd q,
     const pin::SE3 iMd = data.oMf[frame].actInv(desired);
     double transl_error = iMd.translation().norm();
     double rotation_error = acos((iMd.rotation().trace() - 1) / 2);  // Rotation angle of rotation matrix
-    double translation_weight = 1.;
-    double rotation_weight = .5 / M_PI;
-    return (translation_weight * transl_error + rotation_weight * rotation_error) /
-        (translation_weight + rotation_weight);
+    return (weight_translation * transl_error + weight_rotation * rotation_error) /
+        (weight_translation + weight_rotation);
 }
 
 std::tuple<Eigen::VectorXd, bool, int> ik(pin::Model& model, pin::Data& data, pin::SE3 desired, int frame,
@@ -89,7 +88,8 @@ std::tuple<Eigen::VectorXd, bool, int> ik(pin::Model& model, pin::Data& data, pi
                                           const pin::GeometryModel& geom_model = pin::GeometryModel(),
                                           double eps=1e-4, int max_iter=1000,
                                           double DT=1e-1, double damp=1e-6, bool random_restart=true,
-                                          double alpha_average=0.5, double convergence_threshold=1e-8) {
+                                          double alpha_average=0.5, double convergence_threshold=1e-8,
+                                          double weight_translation=1., double weight_rotation=.5/M_PI) {
     /*
     Implement a jacobian based ik
     */
@@ -107,7 +107,8 @@ std::tuple<Eigen::VectorXd, bool, int> ik(pin::Model& model, pin::Data& data, pi
     typedef Eigen::Matrix<double, 6, 1> Vector6d;
     Vector6d err;
     Eigen::VectorXd v(model.nv);
-    double previous_cost = ik_default_cost_function(desired, q, model, data, frame);
+    double previous_cost = ik_default_cost_function(desired, q, model, data, frame,
+                                                    weight_translation, weight_rotation);
     double best_cost = previous_cost;
     double mean_improvement = 0;
     int i=max_iter;
@@ -227,12 +228,15 @@ PYBIND11_MODULE(ik_cpp, m) {
             :param random_restart: whether to restart with random configuration.
             :param alpha_average: averaging factor for convergence.
             :param convergence_threshold: threshold for convergence.
+            :param weight_translation: weight for translation error in cost function.
+            :param weight_rotation: weight for rotation error in cost function.
             :returns: (q, success, iter_remaining) joint configuration, success flag, remaining iterations.
         )pbdoc",
         py::arg("model"), py::arg("data"), py::arg("desired"), py::arg("frame"), py::arg("q_init"),
         py::arg("geom_model"), py::arg("eps") = 1e-4, py::arg("max_iter") = 1000, py::arg("DT") = 1e-1,
         py::arg("damp") = 1e-6, py::arg("random_restart") = false, py::arg("alpha_average") = 0.5,
-        py::arg("convergence_threshold") = 1e-8);
+        py::arg("convergence_threshold") = 1e-8,
+        py::arg("weight_translation") = 1., py::arg("weight_rotation") = .5/M_PI);
 
     m.attr("__version__") = "dev";
 }

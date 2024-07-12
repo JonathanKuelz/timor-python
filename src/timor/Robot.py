@@ -1146,7 +1146,9 @@ class PinRobot(RobotBase):
                         step_size: float = 1e-1,
                         eps: float = 1e-4,
                         check_self_collisions: bool = True,
-                        allow_inner_restart: bool = True
+                        allow_inner_restart: bool = True,
+                        weight_translation: float = 1.0,
+                        weight_rotation: float = .5 / np.pi,
                         ) -> Tuple[np.ndarray, bool]:
         """
         Interface for C++ inverse kinematics solver.
@@ -1169,6 +1171,8 @@ class PinRobot(RobotBase):
           self-collide are invalid.
         :param allow_inner_restart: If True, the C++ side is allowed to restart the optimization with a random guess,
           e.g., to avoid joint limits, self-collisions, or local minima.
+        :param weight_translation: Weight for the translation part (L2 distance in meters) of the cost function.
+        :param weight_rotation: Weight for the rotation part (angular distance in rad) of the cost function.
         :return: A tuple of q_solution [np.ndarray], success [boolean]. If success is False, q_solution is closest found
           guess according to the cost function.
         """
@@ -1190,7 +1194,9 @@ class PinRobot(RobotBase):
             damp,
             allow_inner_restart,  # Allow random restart
             alpha_average,
-            convergence_threshold
+            convergence_threshold,
+            float(weight_translation),
+            float(weight_rotation)
         )
         return q, success
 
