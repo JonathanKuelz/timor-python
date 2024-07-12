@@ -1145,6 +1145,8 @@ class PinRobot(RobotBase):
                         alpha_average: float = .5,
                         step_size: float = 1e-1,
                         eps: float = 1e-4,
+                        check_self_collisions: bool = True,
+                        allow_inner_restart: bool = True
                         ) -> Tuple[np.ndarray, bool]:
         """
         Interface for C++ inverse kinematics solver.
@@ -1163,8 +1165,12 @@ class PinRobot(RobotBase):
         :param step_size: Step size for the optimization.
         :param eps: Epsilon for the optimization, i.e., if distance between log maps of desired and found eef and tcp is
           bellow this value the C++ side will return.
-        :return: A tuple of q_solution [np.ndarray], success [boolean]. If success is False, q_solution is _any_ guess
-          at the moment. TODO : C++ should return the closest guess.
+        :param check_self_collisions: If True, self collisions are checked during the optimization and solutions that
+          self-collide are invalid.
+        :param allow_inner_restart: If True, the C++ side is allowed to restart the optimization with a random guess,
+          e.g., to avoid joint limits, self-collisions, or local minima.
+        :return: A tuple of q_solution [np.ndarray], success [boolean]. If success is False, q_solution is closest found
+          guess according to the cost function.
         """
         if ik_cost_function is not default_ik_cost_function:
             raise NotImplementedError("ik_cost_function cannot be changed for ik_jacobian_cpp")
@@ -1177,12 +1183,12 @@ class PinRobot(RobotBase):
             pin.SE3(eef_pose.nominal.in_world_coordinates().homogeneous),
             self.tcp,
             q_init,
-            self.collision,  # Not so expensive and usually want self-collision free anyway
+            self.collision if check_self_collisions else pin.GeometryModel(),  # Pass empty to disable coll check
             eps,
             info.max_iter,
             step_size,
             damp,
-            True,  # Allow random restart
+            allow_inner_restart,  # Allow random restart
             alpha_average,
             convergence_threshold
         )
