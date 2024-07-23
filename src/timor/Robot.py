@@ -26,6 +26,7 @@ from timor.utilities.dtypes import IKMeta, IntermediateIkResult, float2array
 from timor.utilities.frames import WORLD_FRAME
 from timor.utilities.tolerated_pose import ToleratedPose
 from timor.utilities.transformation import Transformation, TransformationLike
+from timor.utilities import ik_cpp
 
 
 def default_ik_cost_function(robot: RobotBase, q: np.ndarray, goal: Transformation) -> float:
@@ -584,7 +585,7 @@ class PinRobot(RobotBase):
     kinematics and dynamics.
     """
 
-    _known_ik_solvers = {'scipy': 'ik_scipy', 'jacobian': 'ik_jacobian'}
+    _known_ik_solvers = {'scipy': 'ik_scipy', 'jacobian': 'ik_jacobian', 'jacobian_cpp': 'ik_jacobian_cpp'}
 
     def __init__(self,
                  *,
@@ -1132,6 +1133,72 @@ class PinRobot(RobotBase):
 
         info.max_iter -= (i + 1)  # We start with an initial guess already
         return info.intermediate_result.q, success
+
+    def ik_jacobian_cpp(self,
+                        eef_pose: ToleratedPose,
+                        info: IKMeta,
+                        q_init: np.ndarray,
+                        callbacks: Iterable[IKCallback] = (),
+                        damp: float = 1e-12,
+                        ik_cost_function: Callable[[RobotBase, np.ndarray, TransformationLike], float] = default_ik_cost_function,  # noqa: E501
+                        convergence_threshold: float = 1e-8,
+                        alpha_average: float = .5,
+                        step_size: float = 1e-1,
+                        eps: float = 1e-4,
+                        check_self_collisions: bool = True,
+                        allow_inner_restart: bool = True,
+                        weight_translation: float = 1.0,
+                        weight_rotation: float = .5 / np.pi,
+                        ) -> Tuple[np.ndarray, bool]:
+        """
+        Interface for C++ inverse kinematics solver.
+
+        :param eef_pose: Desired end effector pose with tolerances.
+        :param info: An IKMeta object that contains relevant meta information about the IK problem and can be adapted
+          during the inner IK process (here mainly max_iter).
+        :param q_init: The joint configuration to start with.
+        :param callbacks: An iterable of callbacks that are called after each iteration during optimization.
+        :param damp: Damping for the damped least squares pseudoinverse method.
+        :param ik_cost_function: While this cost function is not directly minimized, it is used to determine the
+           quality of intermediate solutions and initial guesses if q_init is not provided.
+        :param convergence_threshold: Threshold for termination. Optimization terminates when the exponentially decaying
+          average of the cost function improvements is below this threshold.
+        :param alpha_average: This factor controls the exponential decay of the running average computation of cost.
+        :param step_size: Step size for the optimization.
+        :param eps: Epsilon for the optimization, i.e., if distance between log maps of desired and found eef and tcp is
+          bellow this value the C++ side will return.
+        :param check_self_collisions: If True, self collisions are checked during the optimization and solutions that
+          self-collide are invalid.
+        :param allow_inner_restart: If True, the C++ side is allowed to restart the optimization with a random guess,
+          e.g., to avoid joint limits, self-collisions, or local minima.
+        :param weight_translation: Weight for the translation part (L2 distance in meters) of the cost function.
+        :param weight_rotation: Weight for the rotation part (angular distance in rad) of the cost function.
+        :return: A tuple of q_solution [np.ndarray], success [boolean]. If success is False, q_solution is closest found
+          guess according to the cost function.
+        """
+        if ik_cost_function is not default_ik_cost_function:
+            raise NotImplementedError("ik_cost_function cannot be changed for ik_jacobian_cpp")
+        if len(callbacks) > 0:
+            logging.warning("Callbacks are not supported for ik_jacobian_cpp (yet)")
+
+        q, success, info.max_iter = ik_cpp.ik(
+            self.model,
+            self.data,
+            pin.SE3(eef_pose.nominal.in_world_coordinates().homogeneous),
+            self.tcp,
+            q_init,
+            self.collision if check_self_collisions else pin.GeometryModel(),  # Pass empty to disable coll check
+            eps,
+            info.max_iter,
+            step_size,
+            damp,
+            allow_inner_restart,  # Allow random restart
+            alpha_average,
+            convergence_threshold,
+            float(weight_translation),
+            float(weight_rotation)
+        )
+        return q, success
 
     def move(self, displacement: TransformationLike):
         """
