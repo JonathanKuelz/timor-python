@@ -15,6 +15,7 @@ classifiers = [
 ]
 keywords = ["Modular Reconfigurable Robots", "Robot Design", "Model Generation", "Simulation"]
 dependencies = [
+    "cmeel-eigen >= 3.4",
     "jsonschema >= 4.10",
     "pin > 2.6.12",
     "pygad >= 3.0.0",
