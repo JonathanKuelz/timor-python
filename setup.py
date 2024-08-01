@@ -8,7 +8,9 @@ from setuptools import setup
 
 
 cmeel_base_path = Path(cmeel.__file__).parent.parent.joinpath(Path(cmeel.config.CMEEL_PREFIX))
-
+if not cmeel_base_path.joinpath('include').joinpath('eigen3').is_dir():
+    print(f"Could not find eigen3 directory in {cmeel_base_path.joinpath('include')}")
+    print("Possibly need to run `pip install cmeel-eigen`")
 
 ext_modules = [
     Pybind11Extension(

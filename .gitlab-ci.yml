@@ -102,6 +102,32 @@ pip_py_311:
       - pyproject.toml
     - if: $CI_PIPELINE_SOURCE == "schedule"  # run atleast with nightly run to make sure no external stuff changed
 
+pip_py_312:
+  stage: build
+  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/python:3.12
+  script:
+    - pip install .[full]
+    - python -m pytest -m "imports" tests/
+  rules:
+    - changes:
+      - .gitlab-ci.yml
+      - pyproject.toml
+    - if: $CI_PIPELINE_SOURCE == "schedule"  # run atleast with nightly run to make sure no external stuff changed
+
+conda_py:
+  stage: build
+  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/continuumio/anaconda3
+  script:
+    - apt-get update
+    - apt-get install -y python3-pip  # Requirements for building C++ code; usually installed
+    - pip install .[full]
+    - python -m pytest -m "imports" tests/
+  rules:
+    - changes:
+      - .gitlab-ci.yml
+      - pyproject.toml
+    - if: $CI_PIPELINE_SOURCE == "schedule"  # run atleast with nightly run to make sure no external stuff changed
+
 unittests:
   stage: unittest
   script:
