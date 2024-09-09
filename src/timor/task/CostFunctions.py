@@ -181,8 +181,6 @@ class ComposedCost(CostFunctionBase):
 class CycleTime(CostFunctionBase):
     """Increases with trajectory length needed to solve a task"""
 
-    default_weight = 1.
-
     def _evaluate(self, solution: Solution.SolutionBase) -> float:
         """The total time needed by the solution"""
         return solution.trajectory.t[-1]
@@ -190,8 +188,6 @@ class CycleTime(CostFunctionBase):
 
 class Effort(CostFunctionBase):
     """Increases with the torques used by a solution"""
-
-    default_weight = 1.
 
     def _evaluate(self, solution: Solution.SolutionBase) -> float:
         """The integral of effort over time in the solution"""
@@ -201,8 +197,6 @@ class Effort(CostFunctionBase):
 
 class GoalsFulfilled(CostFunctionBase):
     """Cost of alpha for every goal fulfilled in the task. (negative weight --> reward)"""
-
-    default_weight = -1.
 
     def _evaluate(self, solution: Solution.SolutionBase) -> float:
         """The number of goals fulfilled"""
@@ -216,8 +210,6 @@ class GoalsFulfilled(CostFunctionBase):
 class GoalsFulfilledFraction(GoalsFulfilled):
     """Cost proportional to the fraction of fulfilled goals."""
 
-    default_weight = 1.
-
     def _evaluate(self, solution: Solution.SolutionBase) -> float:
         """The fraction of goals fulfilled"""
         return super()._evaluate(solution) / len(solution.task.goals)
@@ -230,8 +222,6 @@ class MechanicalEnergy(CostFunctionBase):
     Includes the energy to overcome joint friction, rotor inertia and all link inertias.
     """
 
-    default_weight = 1.
-
     def _evaluate(self, solution: Solution.SolutionBase) -> float:
         """The integral of mechanical power over time in the solution."""
         return solution.get_mechanical_energy(motor_inertia=True, friction=True)
@@ -239,8 +229,6 @@ class MechanicalEnergy(CostFunctionBase):
 
 class LinkSideMechanicalEnergy(CostFunctionBase):
     """Calculate the energy used in the link side movement EXCLUDING joint friction and rotor inertia."""
-
-    default_weight = 1.
 
     def _evaluate(self, solution: Solution.SolutionBase) -> float:
         """The integral of mechanical power (excl. joint friction and inertia) over the solution times."""
@@ -250,8 +238,6 @@ class LinkSideMechanicalEnergy(CostFunctionBase):
 class NumJoints(CostFunctionBase):
     """Punishes a higher number of actuated joints"""
 
-    default_weight = .1
-
     def _evaluate(self, solution: Solution.SolutionBase) -> float:
         """The number of actuated joints in the solution robot"""
         return solution.robot.dof
@@ -260,8 +246,6 @@ class NumJoints(CostFunctionBase):
 class RobotMass(CostFunctionBase):
     """Punishes higher weight of the robot"""
 
-    default_weight = .05
-
     def _evaluate(self, solution: Solution.SolutionBase) -> float:
         """The total mass of the solution robot"""
         return solution.robot.mass
@@ -269,8 +253,6 @@ class RobotMass(CostFunctionBase):
 
 class QDist(CostFunctionBase):
     """Increases with the joint space distance traversed by the solution"""
-
-    default_weight = 1.
 
     def _evaluate(self, solution: Solution.SolutionBase) -> float:
         """The integral over time for all joint parameters (mixes up radian and meters!)"""
