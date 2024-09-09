@@ -110,7 +110,7 @@ class CostFunctionBase(abc.ABC):
         """
         data = f"{abbreviations_inverse[type(self)]}"
         weight = round(self.weight * scale, 4)
-        if weight != 1:
+        if weight != self.default_weight:
             data += f"_{weight}"
         return data
 

@@ -99,7 +99,10 @@ class TestSolution(unittest.TestCase):
             c = cost_class()
             c_from_descriptor = CostFunctions.CostFunctionBase.from_descriptor(c.descriptor())
             self.assertEqual(c, c_from_descriptor)
-            self.assertEqual(c.descriptor(), abbrev)
+            parts = c.descriptor().split('_')
+            self.assertEqual(parts[0], abbrev)
+            if len(parts) > 1:
+                self.assertEqual(float(parts[1]), c.weight)
             self.assertEqual(c_from_descriptor.descriptor(), c.descriptor())
 
     def test_goals(self):
