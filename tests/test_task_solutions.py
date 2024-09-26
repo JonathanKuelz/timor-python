@@ -91,6 +91,20 @@ class TestSolution(unittest.TestCase):
         with self.assertRaises(KeyError):
             CostFunctions.CostFunctionBase.from_descriptor('not_a_cost')
 
+    def test_cost_de_serialization(self):
+        """
+        Test serialization and deserialization of costs
+        """
+        for abbrev, cost_class in CostFunctions.abbreviations.items():
+            c = cost_class()
+            c_from_descriptor = CostFunctions.CostFunctionBase.from_descriptor(c.descriptor())
+            self.assertEqual(c, c_from_descriptor)
+            parts = c.descriptor().split('_')
+            self.assertEqual(parts[0], abbrev)
+            if len(parts) > 1:
+                self.assertEqual(float(parts[1]), c.weight)
+            self.assertEqual(c_from_descriptor.descriptor(), c.descriptor())
+
     def test_goals(self):
         task = Task.Task({'ID': 'dummy'})
         cost_function = CostFunctions.GoalsFulfilled()
