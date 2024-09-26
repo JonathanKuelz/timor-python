@@ -29,6 +29,7 @@ def download_schemata(schema_dir: Path) -> Dict[str, Path]:
 
     # --- Begin download schemata ---
     for schema in wanted_schemas - schemata.keys():
+        logging.info(f"Downloading schema {schema}.")
         shutil.copyfile(get_schema(schema), schema_dir.joinpath(schema + '.json'))
         schemata[schema] = schema_dir.joinpath(schema + '.json')
     # --- End download schemata ---
