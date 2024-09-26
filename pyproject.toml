@@ -34,7 +34,7 @@ requires-python = ">=3.8"
 dynamic = ["version", "readme"]
 
 [project.optional-dependencies]
-dev = ["coverage>=6.3", "flake8>=5.0", "ipykernel", "nbclient", "nbformat", "nbconvert", "pre-commit", "pip-tools", "pytest>=6.0", "setuptools>=61.0.0", "tqdm>=4.0"]
+dev = ["coverage>=6.3", "flake8>=5.0", "ipykernel", "nbclient", "nbformat", "nbconvert", "pre-commit", "pip-tools", "pytest>=6.0", "setuptools>=61.0.0", "tqdm>=4.0", "pytest-xdist"]
 optimization = ["optuna>=3.1", "optuna-dashboard>=0.10", "plotly", "scikit-learn", "wandb>=0.15"]
 viz = ["meshcat@git+https://github.com/kingjin94/meshcat-python@dev/billboards"]
 full = ["timor-python[dev]", "timor-python[optimization]", "jupyterlab", "trimesh >= 4.3.0"]
