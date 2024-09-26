@@ -1,10 +1,14 @@
 import json
 from pathlib import Path
+import shutil
 from typing import Iterable
 import unittest
 
+from cobra.utils.urls import MODULE_DB_URL
 import jsonschema
+import requests
 
+from timor.utilities.download_data import download_schemata
 from timor.utilities.file_locations import get_module_db_files, get_test_tasks, schema_dir, robots, schemata
 import timor.utilities.logging as logging
 from timor.utilities.schema import get_schema_validator
@@ -57,6 +61,26 @@ class TestSchemas(unittest.TestCase):
             module_sets.append(new_set)
 
         self._test_files_with_schema(validator, module_sets)
+
+    def test_get_schema(self):
+        """Test that valid schemas are downloaded even if cobra API has been saturated."""
+        shutil.rmtree(schema_dir)  # Remove all schemata
+        # Saturate request
+        while True:
+            r = requests.get(MODULE_DB_URL)
+            if r.status_code != 200:
+                break
+        # Show that will download invalid schema
+        schema_dir.mkdir(parents=True, exist_ok=True)
+        download_schemata(schema_dir)
+        failures = 0
+        for schema in schemata.values():
+            try:
+                val = get_schema_validator(schema)
+            except Exception as e:
+                logging.warning(f"Could not load schema {schema}: {e}")
+                failures += 1
+        self.assertEqual(failures, 0, "Could not load all schemata")
 
 
 if __name__ == '__main__':
