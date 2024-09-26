@@ -133,6 +133,7 @@ unittests:
   script:
     - pip install -e .[dev]  # Such that *.so are located in src folder
     - cd src  # Now, "import timor" will import from src/timor, not from the pip install. Important for coverage
+    - python -c "import timor.utilities.file_locations"  # Init caches
     - coverage run -p --rcfile=.coveragerc -m pytest -n 6 --dist=loadscope -m "not imports and not full" ../tests
   artifacts:
     expose_as: 'coverage_base'
