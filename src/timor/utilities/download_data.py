@@ -1,10 +1,10 @@
-import io
 import json
 from pathlib import Path
+import shutil
 from typing import Dict
-import zipfile
 
-import requests
+from cobra.robot.robot import get_available_module_dbs, get_module_db
+from cobra.utils.schema import get_schema
 
 from timor.utilities import logging
 
@@ -17,33 +17,28 @@ def download_schemata(schema_dir: Path) -> Dict[str, Path]:
         if s.suffix != ".json":
             continue
         if s.stem in wanted_schemas:
-            schemata[s.stem] = s
+            try:  # Make sure the schema are valid and not e.g. error messages
+                schama_data = json.load(s.open('r'))
+                if '$schema' not in schama_data:
+                    raise json.JSONDecodeError("No $schema key found.", str(s), 0)
+            except json.JSONDecodeError as e:
+                logging.warning(f"Schema {s} invalid: {e} - redownloading.")
+                s.unlink()
+            else:
+                schemata[s.stem] = s
 
     # --- Begin download schemata ---
-    tld = "https://cobra.cps.cit.tum.de/api/schemas/"
     for schema in wanted_schemas - schemata.keys():
-        url = tld + schema + '.json'
-        logging.info(f"Downloading schema from {url}")
-        try:
-            r = requests.get(url, timeout=2.)
-            schema_file_name = schema_dir.joinpath(schema + '.json')
-            with open(schema_file_name, 'wb') as f:
-                f.write(r.content)
-            schemata[schema] = schema_file_name
-        except TimeoutError:  # pragma: no cover
-            logging.warning("Could not get updated schemata from CoBRA website.")
-        except Exception as e:  # pragma: no cover
-            logging.warning(f"Could not download from {url}: {e}")
+        shutil.copyfile(get_schema(schema), schema_dir.joinpath(schema + '.json'))
+        schemata[schema] = schema_dir.joinpath(schema + '.json')
     # --- End download schemata ---
     return schemata
 
 
 def download_additional_robots(default_robot_dir: Path, robots: Dict[str, Path]):
     """Downloads all non-locally found robots available from CoBRA."""
-    robot_tld = "https://cobra.cps.cit.tum.de/api/robots"
-    additional_robots = set()
     try:
-        additional_robots = set(json.loads(requests.get(robot_tld, timeout=2.).content))
+        additional_robots = get_available_module_dbs()
     except TimeoutError:  # pragma: no cover
         logging.warning("Could not fetch additional robots from CoBRA website.")
         return
@@ -57,12 +52,9 @@ def download_additional_robots(default_robot_dir: Path, robots: Dict[str, Path])
             logging.debug(f"Skipping {additional_robot} that has already been downloaded.")
             robots[additional_robot] = default_robot_dir.joinpath(additional_robot)
             continue
-        logging.info(f"Getting robot {additional_robot} from {robot_tld}.")
+        logging.info(f"Getting robot {additional_robot}.")
         try:
-            r = requests.get(f"{robot_tld}/{additional_robot}?zip=True", timeout=10.)  # Big files - more time
-            zip_file = zipfile.ZipFile(io.BytesIO(r.content))
-            zip_file.extractall(output_dir)
-            robots[additional_robot] = output_dir
+            robots[additional_robot] = shutil.copytree(get_module_db(additional_robot).parent, output_dir)
             logging.info(f"Stored as {additional_robot} in {output_dir}.")
         except TimeoutError:  # pragma: no cover
             logging.warning(f"Could not fetch {additional_robot} from CoBRA website.")

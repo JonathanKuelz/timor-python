@@ -76,7 +76,7 @@ class TestSchemas(unittest.TestCase):
         failures = 0
         for schema in schemata.values():
             try:
-                val = get_schema_validator(schema)
+                _ = get_schema_validator(schema)
             except Exception as e:
                 logging.warning(f"Could not load schema {schema}: {e}")
                 failures += 1
