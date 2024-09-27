@@ -24,8 +24,8 @@ workflow:
 before_script:
     - echo "Some debug information:"
     - echo "Running in $GIT_CLONE_PATH"
-    # - echo "Complete env:"
-    # - env
+    - echo "Complete env:"
+    - env
 
 stages:
   - static_check
@@ -134,6 +134,7 @@ unittests:
     - pip install -e .[dev]  # Such that *.so are located in src folder
     - cd src  # Now, "import timor" will import from src/timor, not from the pip install. Important for coverage
     - python -c "import timor.utilities.file_locations"  # Init caches
+    - echo $PWD
     - ls cache || echo command failed $?  # Debug caches
     - ls cache/schemata || echo command failed $?
     - coverage run -p --rcfile=.coveragerc -m pytest -n 6 --dist=loadscope -m "not imports and not full" ../tests
