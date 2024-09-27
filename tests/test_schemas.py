@@ -6,7 +6,6 @@ import unittest
 
 from cobra.utils.urls import MODULE_DB_URL
 import jsonschema
-import pytest
 import requests
 
 from timor.utilities.download_data import download_schemata
@@ -63,9 +62,12 @@ class TestSchemas(unittest.TestCase):
 
         self._test_files_with_schema(validator, module_sets)
 
-    @pytest.mark.sequential  # Deletes schemata which others rely on
     def test_get_schema(self):
-        """Test that valid schemas are downloaded even if cobra API has been saturated."""
+        """
+        Test that valid schemas are downloaded even if cobra API has been saturated.
+
+        :note: This test cannot run in parallel as it alters the timor shared caches.
+        """
         shutil.rmtree(schema_dir)  # Remove all schemata
         # Saturate request
         while True:

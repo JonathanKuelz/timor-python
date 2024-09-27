@@ -24,8 +24,8 @@ workflow:
 before_script:
     - echo "Some debug information:"
     - echo "Running in $GIT_CLONE_PATH"
-    - echo "Complete env:"
-    - env
+    # - echo "Complete env:"
+    # - env
 
 stages:
   - static_check
@@ -133,12 +133,7 @@ unittests:
   script:
     - pip install -e .[dev]  # Such that *.so are located in src folder
     - cd src  # Now, "import timor" will import from src/timor, not from the pip install. Important for coverage
-    - python -c "import timor.utilities.file_locations"  # Init caches
-    - echo $PWD
-    - ls cache || echo command failed $?  # Debug caches
-    - ls cache/schemata || echo command failed $?
-    - coverage run -p --rcfile=.coveragerc -m pytest -n 6 --dist=loadscope -m "not imports and not full and not sequential" ../tests
-    - coverage run -p --rcfile=.coveragerc -m pytest -m "not imports and not full and sequential" ../tests
+    - coverage run -p --rcfile=.coveragerc -m pytest -m "not imports and not full" ../tests
   artifacts:
     expose_as: 'coverage_base'
     when: always
@@ -150,8 +145,7 @@ unittests full:
   script:
     - pip install -e .[full]  # Such that *.so are located in src folder
     - cd src  # Now, "import timor" will import from src/timor, not from the pip install. Important for coverage
-    - coverage run -p --rcfile=.coveragerc -m pytest -n 6 --dist=loadscope -m "not imports and full and not sequential" ../tests
-    - coverage run -p --rcfile=.coveragerc -m pytest -m "not imports and full and sequential" ../tests
+    - coverage run -p --rcfile=.coveragerc -m pytest -m "not imports and full" ../tests
   artifacts:
     expose_as: 'coverage_base'
     when: always
