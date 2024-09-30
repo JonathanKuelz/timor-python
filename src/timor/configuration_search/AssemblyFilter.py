@@ -419,7 +419,6 @@ class GoalByGoalFilter(AssemblyFilter, abc.ABC):
         """
         valid = True
         for goal in self.goals_applicable(task):
-            valid = True
             if self.use_intermediate_results \
                     and len(self.provides) > 0 \
                     and all(goal.id in results.__getattribute__(provided.name) for provided in self.provides):
