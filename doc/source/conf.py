@@ -65,7 +65,7 @@ autodoc_typehints = 'description'  # Use typing information
 
 # Link to external sphinx
 intersphinx_mapping = {'python': ('https://docs.python.org/3', None),
-                       'typing': ('https://docs.python.org/3', None),
+                       'typing': ('https://docs.python.org/3/library/typing', None),
                        'numpy': ('https://numpy.org/doc/stable', None),
                        'scipy': ('https://docs.scipy.org/doc/scipy', None),
                        'matplotlib': ('https://matplotlib.org/stable', None)}
