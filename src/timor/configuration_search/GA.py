@@ -681,7 +681,7 @@ class GA:
                 if len(path) == 2:
                     loc = 0  # Numpy rng.integers() does not support high=0
                 else:
-                    loc = self.rng.integers(low=0, high=len(path) - 2)
+                    loc = self.rng.integers(low=0, high=len(path) - 1)
                 if path[loc] == self.__empty_slot:
                     continue
                 loc_next = loc + 1
