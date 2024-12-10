@@ -132,7 +132,7 @@ If you want to cite Timor for your academic research, please use the following b
 Authors and acknowledgment
 --------------------------
 Timor was developed at the chair of robotics, artificial intelligence and embedded systems at TU Munich.
-It is designed, developed and maintained by Jonathan Külz, Matthias Mayer, and Matthias Althoff.
+It is designed, developed and maintained by Jonathan Külz, Matthias Mayer, Ang Li, and Matthias Althoff.
 
 The Timor Python logo was AI-generated using the OpenAI's Dall-E 2 API.
 
