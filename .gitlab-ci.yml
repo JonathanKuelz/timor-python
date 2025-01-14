@@ -63,7 +63,7 @@ pip_py_38:
   parallel:
     matrix:
       - VERSION: ["python:3.8", "python:3.9", "python:3.10", "python:3.11", "python:3.12"]
-        INSTALL_NAME: [".", "timor-python"]  # Check if timor can be installed from source and from pypi
+      - INSTALL_NAME: [".", "timor-python"]  # Check if timor can be installed from source and from pypi
   rules:
     - changes:
       - .gitlab-ci.yml
