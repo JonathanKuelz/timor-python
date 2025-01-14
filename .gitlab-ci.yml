@@ -56,14 +56,58 @@ notebook check:
 
 pip_py_38:
   stage: build
-  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/$VERSION
+  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/python:3.8
   script:
-    - pip install $INSTALL_NAME[full]
+    - pip install .[full]
     - python -m pytest -m "imports" tests/
-  parallel:
-    matrix:
-      - VERSION: ["python:3.8", "python:3.9", "python:3.10", "python:3.11", "python:3.12"]
-      - INSTALL_NAME: [".", "timor-python"]  # Check if timor can be installed from source and from pypi
+  rules:
+    - changes:
+      - .gitlab-ci.yml
+      - pyproject.toml
+    - if: $CI_PIPELINE_SOURCE == "schedule"  # run atleast with nightly run to make sure no external stuff changed
+
+pip_py_39:
+  stage: build
+  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/python:3.9
+  script:
+    - pip install .[full]
+    - python -m pytest -m "imports" tests/
+  rules:
+    - changes:
+      - .gitlab-ci.yml
+      - pyproject.toml
+    - if: $CI_PIPELINE_SOURCE == "schedule"  # run atleast with nightly run to make sure no external stuff changed
+
+pip_py_310:
+  stage: build
+  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/python:3.10
+  script:
+    - pip install .[full]
+    - python -m pytest -m "imports" tests/
+  rules:
+    - changes:
+      - .gitlab-ci.yml
+      - pyproject.toml
+    - if: $CI_PIPELINE_SOURCE == "schedule"  # run atleast with nightly run to make sure no external stuff changed
+
+pip_py_311:
+  stage: build
+  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/python:3.11
+  script:
+    - pip install .[full]
+    - python -m pytest -m "imports" tests/
+  rules:
+    - changes:
+      - .gitlab-ci.yml
+      - pyproject.toml
+    - if: $CI_PIPELINE_SOURCE == "schedule"  # run atleast with nightly run to make sure no external stuff changed
+
+pip_py_312:
+  stage: build
+  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/python:3.12
+  script:
+    - pip install .[full]
+    - python -m pytest -m "imports" tests/
   rules:
     - changes:
       - .gitlab-ci.yml
