@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=61.0.0", "wheel", "pybind11", "pybind11-stubgen", "pin", "cmeel-eigen"]
+requires = ["setuptools>=61.0.0", "wheel", "pybind11", "pybind11-stubgen", "pin<3.0", "cmeel-eigen"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -17,7 +17,7 @@ keywords = ["Modular Reconfigurable Robots", "Robot Design", "Model Generation",
 dependencies = [
     "cmeel-eigen >= 3.4",
     "jsonschema >= 4.10",
-    "pin > 2.6.12",
+    "pin > 2.6.12, < 3.0",
     "pygad >= 3.0.0",
     "matplotlib >= 3.5.1",
     "meshcat",
