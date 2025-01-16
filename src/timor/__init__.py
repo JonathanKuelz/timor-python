@@ -1,4 +1,4 @@
-__version__ = "1.1"
+__version__ = "1.1.1"
 from .Bodies import Body, Connector
 from .Joints import Joint
 from .Module import AtomicModule, ModuleAssembly, ModuleBase, ModuleHeader, ModulesDB
