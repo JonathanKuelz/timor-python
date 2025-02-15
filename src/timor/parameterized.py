@@ -1212,15 +1212,20 @@ class DHJoint(ParameterizableJointModule):
 
         The body frames are aligned with "beginning" of the geometry here.
         """
-        p1 = Transformation.from_translation((0, 0, self._d / 2))
-        p2 = Transformation.from_translation((0, 0, self._d)) @ Transformation.from_translation((self._a / 2, 0, 0))
-        p_sleeve = Transformation.from_translation((0, 0, self._d))
-        p_end = p2 @ Transformation.from_translation((self._a / 2, 0, 0))
-
-        # Turn p2, so the z-Axis is moved on the positive x-axis, which is the axis of material extension
-        p2 = p2 @ Transformation(spatial.rotY(-np.pi / 2))
-
+        r_alpha = spatial.rotX(self.alpha)
+        rot_a = spatial.rotY(-np.pi / 2)  # The "a" cylinder needs to be rotated because it does extend in x-direction
         if self.is_dh:
+            p1 = Transformation.from_translation((0, 0, self._d / 2))
+            p2 = Transformation.from_translation((0, 0, self._d)) @ Transformation.from_translation((self._a / 2, 0, 0))
+            p_sleeve = Transformation.from_translation((0, 0, self._d))
+            p_end = p2 @ Transformation.from_translation((self._a / 2, 0, 0))
+
+            p2 = p2 @ rot_a
             self.distal_link.geometry_placements = (p1, p2, p_sleeve, p_end)
         else:
-            self.proximal_link.geometry_placements = (p1, p2, p_sleeve, p_end)
+            p1 = Transformation.from_translation((self._a / 2, 0, 0)) @ rot_a
+            p2 = (Transformation(r_alpha) @ Transformation.from_translation((self._a, 0, 0)) @
+                  Transformation.from_translation((0, 0, self._d / 2)))
+            p_sleeve = Transformation.from_translation((self._a, 0, 0))
+            p_end = p2 @ Transformation.from_translation((0, 0, self._d / 2))
+            self.proximal_link.geometry_placements = (p2, p1, p_sleeve, p_end)
