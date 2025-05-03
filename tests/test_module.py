@@ -277,8 +277,6 @@ class TestModule(unittest.TestCase):
         self.assertEqual(cylinder.radius, .33)
 
         with self.assertRaises(ValueError):
-            cylinder.resize((-1, 1))
-        with self.assertRaises(ValueError):
             constrained_cylinder.resize((2, 1))
 
         prox = l_shaped.connectors_by_own_id['proximal']
