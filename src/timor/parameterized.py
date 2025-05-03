@@ -69,7 +69,7 @@ class ParameterizableBody(BodyBase, abc.ABC):
         self._geometry_transformation: Transformation = geometry_placement  # Static part of the geometry placement
 
         if parameter_limits is None:
-            parameter_limits = np.asarray([(0, np.inf) for _ in range(self.num_parameters)])
+            parameter_limits = np.asarray([(-np.inf, np.inf) for _ in range(self.num_parameters)])
         self.parameter_limits: np.array = np.array(parameter_limits, dtype=float)
 
         self.parameters: List[float] = list(parameters)  # Unpacking first in case iterable can be exhausted
@@ -123,8 +123,6 @@ class ParameterizableBody(BodyBase, abc.ABC):
     def parameter_limits(self, parameter_limits: Sequence[Sequence[float]]):
         """Set the parameter limits of the geometry."""
         parameter_limits = np.array(parameter_limits, dtype=float)
-        if np.any(parameter_limits < 0):  # Enforcing positive limits implicitly enforces positive parameters
-            raise ValueError("Geometry parameters cannot be negative, nor can their limits!")
         if parameter_limits.shape != (self.num_parameters, 2):
             raise ValueError(f"Invalid shape of parameter limits {parameter_limits.shape}"
                              f" for geometry type {self.geometry_type}!")
@@ -1027,8 +1025,8 @@ class DHJoint(ParameterizableJointModule):
                  convention: str = 'DH',
                  radius: float = 1.,
                  mass_density: float = 1.,
-                 limits: Sequence[Sequence[float]] = ((0, float('inf')), (0, float('inf')),
-                                                      (0, float('inf')), (-2 * np.pi, 2 * np.pi)),
+                 limits: Sequence[Sequence[float]] = ((0, float('inf')), (-float('inf'), float('inf')),
+                                                      (-float('inf'), float('inf')), (-2 * np.pi, 2 * np.pi)),
                  joint_type: TimorJointType = TimorJointType.revolute,
                  joint_parameters: Dict[str, any] = None,
                  connector_arguments: Optional[Dict[str, any]] = None,
