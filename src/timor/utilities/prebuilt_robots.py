@@ -17,11 +17,12 @@ EMPTY_BASE = AtomicModule({'ID': 'B', 'name': 'base_empty'},
                                            Connector('base_distal', gender='m')})],
                           )
 EMPTY_EEF = AtomicModule({'ID': 'EEF', 'name': 'eef_empty'},
-                          bodies=[Body('eef_body', collision=EmptyGeometry(),
-                                       connectors={
-                                           Connector('eef_proximal', body2connector=rotX(np.pi), gender='f'),
-                                           Connector('eef_out', gender='m', connector_type='eef')})],
-                          )
+                         bodies=[Body('eef_body', collision=EmptyGeometry(),
+                                      connectors={
+                                          Connector('eef_proximal', body2connector=rotX(np.pi), gender='f'),
+                                          Connector('eef_out', gender='m', connector_type='eef')})],
+                         )
+
 
 def random_assembly(n_joints: int, module_db: Module.ModulesDB) -> Module.ModuleAssembly:
     """
