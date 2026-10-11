@@ -45,6 +45,7 @@ def download_additional_robots(default_robot_dir: Path, robots: Dict[str, Path])
         return
     except Exception as e:  # pragma: no cover
         logging.warning(f"Could not fetch additional robots due to {e}.")
+        return
 
     # Download additional robots found in CoBRA
     for additional_robot in additional_robots - robots.keys():
