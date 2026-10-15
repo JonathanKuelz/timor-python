@@ -5,12 +5,18 @@ from typing import Dict
 
 from cobra.robot.robot import get_available_module_dbs, get_module_db
 from cobra.utils.schema import get_schema
+import requests
 
 from timor.utilities import logging
 
 
 def download_schemata(schema_dir: Path) -> Dict[str, Path]:
-    """Download schemata from CoBRA; return dict from schema short name to paths where stored."""
+    """
+    Download schemata from CoBRA; return dict from schema short name to paths where stored.
+
+    Schemata that are neither cached nor available from CoBRA are left out, so timor stays usable offline or during
+    CoBRA outages. Validation against a missing schema is skipped (see timor.utilities.schema.get_schema_validator).
+    """
     schemata = {}
     wanted_schemas = {'PoseSchema', 'TaskSchema', 'ModuleSchema', 'SolutionSchema'}
     for s in schema_dir.iterdir():
@@ -30,7 +36,11 @@ def download_schemata(schema_dir: Path) -> Dict[str, Path]:
     # --- Begin download schemata ---
     for schema in wanted_schemas - schemata.keys():
         logging.info(f"Downloading schema {schema}.")
-        shutil.copyfile(get_schema(schema), schema_dir.joinpath(schema + '.json'))
+        try:
+            shutil.copyfile(get_schema(schema), schema_dir.joinpath(schema + '.json'))
+        except (ValueError, requests.RequestException) as e:
+            logging.warning(f"Could not download schema {schema}, files will not be validated against it: {e}")
+            continue
         schemata[schema] = schema_dir.joinpath(schema + '.json')
     # --- End download schemata ---
     return schemata

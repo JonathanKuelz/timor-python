@@ -4,6 +4,7 @@ from typing import Dict, Tuple
 
 import jsonschema
 
+from timor.utilities import logging
 from timor.utilities.file_locations import schemata
 
 DEFAULT_DATE_FORMAT = "%Y-%m-%d"
@@ -15,14 +16,16 @@ def get_schema_validator(schema_file: Path) -> Tuple[Dict, jsonschema.Validator]
 
     Assumes all referenced schemata are in same dir as schema_file;
     will fallback to URL if not available locally, but can have cryptic error about LibURL in this case.
+    If schema_file is missing because it could not be downloaded, the returned validator accepts every instance.
 
     :return (schema dictionary, validator)
     """
     try:
         with open(schema_file) as f:
             main_schema = json.load(f)
-    except FileNotFoundError as exe:
-        raise FileNotFoundError("Schemata are not available - you need internet connection do download them.") from exe
+    except FileNotFoundError:
+        logging.warning(f"Schema {schema_file} is not available (no connection to CoBRA?) - skipping validation.")
+        main_schema = {}
 
     # Contains local copy of not yet hosted schemata
     schema_store = {}
