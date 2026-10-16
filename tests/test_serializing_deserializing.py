@@ -29,6 +29,8 @@ from timor.utilities.schema import get_schema_validator
 from timor.utilities.tolerated_pose import ToleratedPose
 from timor.utilities.trajectory import Trajectory
 
+CLOUD_DBS = {'IMPROV', 'PROMODULAR', 'modrob-gen2'}  # Module DBs that are not shipped with the package
+
 
 class DummyTask:
     """A dummy class that implements everything that's needed to instantiate a solution without loading a functioning
@@ -246,9 +248,10 @@ class SerializationTests(unittest.TestCase):
                                        "transformation": t1.nominal.in_world_coordinates()}})
             self.assertEqual(t2, ToleratedPose.from_json_data(t2.to_json_data(), frames=tree))
 
+    @unittest.skipUnless(CLOUD_DBS <= set(file_locations.robots), "CoBRA cannot serve all module DBs")
     def test_modules_db_serialized(self):
         """Tests if all modules dbs can be serialized and deserialized"""
-        for db_name in ('IMPROV', 'PROMODULAR', 'modrob-gen2'):
+        for db_name in sorted(CLOUD_DBS):
             logging.debug(f"Testing with {db_name}")
             db = ModulesDB.from_name(db_name)
             self.assertEqual(db.name, db_name)  # Ensure name correctly inferred from path
@@ -328,9 +331,10 @@ class SerializationTests(unittest.TestCase):
                 for f in files:
                     self.assertTrue(tmp_dir.joinpath(f).is_file())
 
+    @unittest.skipUnless(CLOUD_DBS <= set(file_locations.robots), "CoBRA cannot serve all module DBs")
     def test_assembly_to_serialized(self):
         """Tests both, assembly to pickle and to json"""
-        for db_name in ('IMPROV', 'PROMODULAR', 'modrob-gen2'):
+        for db_name in sorted(CLOUD_DBS):
             logging.debug(f"Testing with {db_name}")
             db = ModulesDB.from_name(db_name)
             for _ in range(3):

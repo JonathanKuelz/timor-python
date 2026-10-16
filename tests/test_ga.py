@@ -12,6 +12,7 @@ from timor.utilities import file_locations
 from timor.utilities.dtypes import Lexicographic
 
 
+@unittest.skipUnless('modrob-gen2' in file_locations.robots, "CoBRA cannot serve the modrob-gen2 module DB")
 class TestGAProperties(unittest.TestCase):
     """Test properties of GA"""
 

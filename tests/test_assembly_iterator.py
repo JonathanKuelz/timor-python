@@ -4,8 +4,10 @@ import unittest
 from timor.Module import ModulesDB
 from timor.configuration_search.LiuIterator import Science2019
 from timor.utilities.dtypes import randomly
+from timor.utilities.file_locations import robots
 
 
+@unittest.skipUnless('PROMODULAR' in robots, "CoBRA cannot serve the PROMODULAR module DB")
 class AssemblyIteratorTest(unittest.TestCase):
     """Test assembly iterators."""
     def setUp(self) -> None:
