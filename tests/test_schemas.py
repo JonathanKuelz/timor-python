@@ -1,14 +1,16 @@
 import json
 from pathlib import Path
 import shutil
+import tempfile
 from typing import Iterable
 import unittest
+from unittest.mock import patch
 
 from cobra.utils.urls import MODULE_DB_URL
 import jsonschema
 import requests
 
-from timor.utilities.download_data import download_schemata
+from timor.utilities.download_data import download_additional_robots, download_schemata
 from timor.utilities.file_locations import get_module_db_files, get_test_tasks, schema_dir, robots, schemata
 import timor.utilities.logging as logging
 from timor.utilities.schema import get_schema_validator
@@ -85,6 +87,19 @@ class TestSchemas(unittest.TestCase):
                 logging.warning(f"Could not load schema {schema}: {e}")
                 failures += 1
         self.assertEqual(failures, 0, "Could not load all schemata")
+
+    def test_cobra_unavailable(self):
+        """Timor stays usable if CoBRA cannot serve schemata or robots: validation is skipped, nothing raises."""
+        with tempfile.TemporaryDirectory() as tmp, \
+                patch('timor.utilities.download_data.get_schema', side_effect=ValueError("error 401")), \
+                patch('timor.utilities.download_data.get_available_module_dbs', side_effect=ConnectionError):
+            tmp = Path(tmp)
+            self.assertEqual(download_schemata(tmp), {})
+            _, validator = get_schema_validator(tmp.joinpath("TaskSchema.json"))
+            self.assertTrue(validator.is_valid({"not": "a task"}))
+            robots = {}
+            download_additional_robots(tmp, robots)
+            self.assertEqual(robots, {})
 
 
 if __name__ == '__main__':

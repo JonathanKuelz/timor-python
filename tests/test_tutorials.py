@@ -9,6 +9,10 @@ import nbformat
 import nbconvert
 import pytest
 
+from timor.utilities.file_locations import robots
+
+CLOUD_DBS = ('IMPROV', 'PROMODULAR', 'modrob-gen2')  # Module DBs that are not shipped with the package
+
 
 class TestJupyterTutorials(unittest.TestCase):
 
@@ -24,6 +28,9 @@ class TestJupyterTutorials(unittest.TestCase):
         tutorials = set(
             f for f in self.work_dir.glob("*.ipynb") if f.name not in exclude)
         for nb in tutorials:
+            nb_source = nb.read_text()
+            if any(db in nb_source and db not in robots for db in CLOUD_DBS):
+                continue  # Needs a module DB that CoBRA could not serve
             try:
                 self.preprocessor.preprocess(nbformat.read(nb, as_version=4), {'metadata': {'path': self.work_dir}})
             except nbclient.client.CellExecutionError as e:

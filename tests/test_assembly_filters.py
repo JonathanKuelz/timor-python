@@ -16,6 +16,7 @@ from timor.utilities.tolerated_pose import ToleratedPose
 from timor.utilities.trajectory import Trajectory
 
 
+@unittest.skipUnless('modrob-gen2' in robots, "CoBRA cannot serve the modrob-gen2 module DB")
 class TestFilterRobotsForTasks(unittest.TestCase):
     """Test all robot filters."""
     def setUp(self) -> None:
