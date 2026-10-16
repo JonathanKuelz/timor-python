@@ -452,6 +452,7 @@ class SerializationTests(unittest.TestCase):
         self.assertEqual(json.loads(json.dumps(serializable)), reloaded)
         self.assertLess(len(json_serialization_formatting.compress_json_vectors(ser)), len(ser))
 
+    @unittest.skipUnless('SolutionSchema' in file_locations.schemata, "CoBRA cannot serve the solution schema")
     def test_de_serialize_solution_and_task(self):
         assembly = prebuilt_robots.get_six_axis_assembly()
         q1 = assembly.robot.random_configuration()
